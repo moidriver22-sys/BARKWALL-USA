@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Barkwalk USA</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Barkwalk">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brandGreen: '#00A859',
+                        brandDarkGreen: '#1B4D3E',
+                        brandCream: '#FDFBF7',
+                        brandCardBg: '#F5F0E6',
+                        brandBeige: '#EBE3D5',
+                        brandGold: '#C5A059',
+                        brandTextDark: '#2B2621'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0A0D0B;
+            color: #FFFFFF;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: none;
+        }
+        .hero-background {
+            background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.85) 100%), 
+                        url('./hero-bg.jpeg') center/cover no-repeat;
+        }
+
+        .dashboard-puppy-bg {
+            background-color: #FDFBF7;
+            background-image: linear-gradient(180deg, rgba(253, 251, 247, 0.92) 0%, rgba(245, 240, 230, 0.94) 100%), 
+                                url('https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=800&q=80');
+            background-position: center;
+            background-size: cover;
+            background-attachment: fixed;
+        }
+
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(24px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.99); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes pulseRadar {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 168, 89, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(0, 168, 89, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 168, 89, 0); }
+        }
+
+        @keyframes skeletonShimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: 200px 0; }
+        }
+
+        .animate-modal { animation: modalSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-fade { animation: fadeInScale 0.12s ease-out forwards; }
+        .radar-pulse { animation: pulseRadar 2s infinite; }
+
+        .skeleton {
+            background: #e2d9cc;
+            background-image: linear-gradient(90deg, #e2d9cc 0px, #efe8dd 40px, #e2d9cc 80px);
+            background-size: 600px 100%;
+            animation: skeletonShimmer 1.4s infinite ease-out;
+        }
+
+        button, label, input, select, .card-interactive {
+            transition: all 0.12s ease-in-out;
+            touch-action: manipulation;
+        }
+
+        button:disabled {
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+        }
+
+        .pay-method-selected {
+            box-shadow: 0 4px 12px rgba(27, 77, 62, 0.25);
+            border-color: #1B4D3E !important;
+            background-color: #1B4D3E !important;
+            color: #FFFFFF !important;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between select-none">
+
+    <!-- BANNER FLOTANTE DE OFFLINE -->
+    <div id="offlineBanner" class="fixed top-0 inset-x-0 bg-red-600 text-white text-xs font-bold py-2 px-4 text-center z-50 hidden flex items-center justify-center gap-2 shadow-lg">
+        <i data-lucide="wifi-off" class="w-4 h-4"></i>
+        <span id="lblOfflineText">Sin conexión a internet. Verifique su red.</span>
+    </div>
+
+    <!-- PORTADA DE BIENVENIDA (PÚBLICA) -->
+    <div id="welcomeView" class="min-h-screen flex flex-col justify-between hero-background relative p-5 animate-fade overflow-hidden">
+        <div class="flex justify-between items-center pt-2 z-10">
+            <span class="bg-brandGreen text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-md flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span> Barkwalk USA
+            </span>
+            <div class="bg-black/60 backdrop-blur-md px-1.5 py-1 rounded-full flex space-x-1 border border-white/20 text-xs cursor-pointer shadow-lg">
+                <button id="btnEN" onclick="setLanguage('en')" class="px-2.5 py-0.5 rounded-full bg-white text-black font-bold transition-all">EN</button>
+                <button id="btnES" onclick="setLanguage('es')" class="px-2.5 py-0.5 rounded-full text-white/80 font-medium transition-all">ES</button>
+            </div>
+        </div>
+
+        <div class="mt-3 bg-black/60 backdrop-blur-md border border-brandGreen/40 rounded-2xl p-2.5 flex items-center justify-between text-xs shadow-lg z-10">
+            <div class="flex items-center space-x-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-brandGreen radar-pulse"></div>
+                <span id="txtLiveStatus" class="font-bold text-white text-[11px]">🟢 14 Active Walkers in Homewood / BHAM</span>
+            </div>
+            <button id="btnAboutLink" onclick="openAboutModal()" class="text-brandGold font-bold text-[10px] underline hover:text-amber-300">
+                About Us →
+            </button>
+        </div>
+
+        <div class="mt-4 space-y-1 z-10">
+            <h1 id="txtHeroTitle" class="text-xl font-bold text-white tracking-tight leading-snug drop-shadow-md">
+                Find professional dog walkers near you
+            </h1>
+            <p id="txtHeroSub" class="text-xs text-gray-200 drop-shadow">
+                Meet your walker and access your pet's health information.
+            </p>
+        </div>
+
+        <div class="my-auto py-6 space-y-1 z-10">
+            <h2 class="text-4xl font-black tracking-wider text-white/95 uppercase drop-shadow-lg leading-none">
+                BARKWALK<br>USA
+            </h2>
+            <p id="txtHeroTagline" class="text-sm font-medium text-gray-200 drop-shadow">
+                Certified dog walkers and happy dogs
+            </p>
+        </div>
+
+        <div class="z-20 mb-3 flex justify-end">
+            <button onclick="togglePublicAiWidget()" class="bg-gradient-to-r from-brandGold to-amber-500 text-brandTextDark font-extrabold px-4 py-3 rounded-full shadow-2xl flex items-center gap-2 text-xs border border-white/40 active:scale-95 transition-all cursor-pointer min-h-[44px]">
+                <i data-lucide="bot" class="w-4 h-4 animate-bounce"></i>
+                <span id="btnToggleAiText">💬 FAQ AI Assistant</span>
+            </button>
+        </div>
+
+        <div id="publicAiWidget" class="fixed inset-x-4 bottom-24 bg-black/90 backdrop-blur-xl text-white rounded-3xl p-4 shadow-2xl border border-brandGold/40 z-30 hidden animate-modal">
+            <div class="flex items-center justify-between border-b border-white/20 pb-2 mb-2">
+                <span id="lblPublicAiHeader" class="text-xs font-bold text-brandGold flex items-center gap-1.5">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-brandGold"></i> Barkwalk AI Advisor (Pre-Registration)
+                </span>
+                <button onclick="togglePublicAiWidget()" class="text-white/70 hover:text-white p-1 rounded-full active:scale-90 transition-all">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            
+            <div id="publicAiBox" class="bg-white/10 p-2.5 rounded-2xl h-44 overflow-y-auto text-xs space-y-2 border border-white/10 shadow-inner">
+                <div id="publicAiIntro" class="bg-white/20 p-2 rounded-xl text-gray-100">
+                    👋 Hi! Have questions about Barkwalk USA before signing up? Ask me about services, safety, pricing, or walker earnings.
+                </div>
+            </div>
+
+            <div class="flex space-x-2 mt-2">
+                <input id="publicAiInput" type="text" placeholder="Type your question..." class="bg-white text-gray-900 border border-white/30 rounded-xl px-3 py-2.5 text-xs w-full focus:outline-none focus:border-brandGreen" onkeypress="if(event.key==='Enter') sendPublicAiMessage()">
+                <button onclick="sendPublicAiMessage()" class="bg-brandGreen text-white px-4 py-2.5 rounded-xl font-bold shadow-md active:scale-95 transition-all flex items-center justify-center">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white/95 backdrop-blur-md text-gray-900 rounded-3xl p-5 shadow-2xl space-y-3 border border-white/40 z-10">
+            <p id="txtChooseAccount" class="text-center text-xs font-semibold text-gray-600">Choose your account type</p>
+            <button onclick="openRegistrationModal('client')" class="w-full bg-brandGreen text-white font-bold py-3.5 px-4 rounded-full text-xs flex items-center justify-center space-x-2 shadow-lg active:scale-95 transition-all min-h-[48px] cursor-pointer">
+                <i data-lucide="dog" class="w-4 h-4"></i>
+                <span id="btnPetOwner">Pet Owner Registration</span>
+            </button>
+            <button onclick="openRegistrationModal('shopper')" class="w-full bg-white text-gray-800 font-bold py-3.5 px-4 rounded-full text-xs flex items-center justify-center space-x-2 border border-gray-300 shadow-sm active:scale-95 transition-all min-h-[48px] cursor-pointer">
+                <i data-lucide="briefcase" class="w-4 h-4"></i>
+                <span id="btnDogWalker">Dog Walker Registration</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL DE INFORMACIÓN: CONÓCENOS -->
+    <div id="aboutModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brandCream border border-brandBeige w-full max-w-md rounded-3xl p-6 space-y-4 text-brandTextDark shadow-2xl animate-modal max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-brandBeige pb-3">
+                <h3 id="txtAboutModalTitle" class="font-black text-base text-brandDarkGreen flex items-center gap-2">
+                    <i data-lucide="shield-check" class="text-brandGold w-5 h-5"></i> About Barkwalk USA
+                </h3>
+                <button onclick="closeAboutModal()" class="text-brandDarkGreen/60 hover:text-brandDarkGreen active:scale-90 transition-all cursor-pointer p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-xs leading-relaxed text-gray-700">
+                <div class="bg-brandCardBg p-3.5 rounded-2xl border border-brandBeige space-y-1">
+                    <h4 id="txtAboutSec1Title" class="font-bold text-brandDarkGreen text-xs">🚀 What is our platform?</h4>
+                    <p id="txtAboutSec1Desc">Barkwalk USA is an on-demand pet care network connecting pet owners with vetted independent 1099 walkers in Alabama.</p>
+                </div>
+                <div class="bg-brandCardBg p-3.5 rounded-2xl border border-brandBeige space-y-1">
+                    <h4 id="txtAboutSec2Title" class="font-bold text-brandDarkGreen text-xs">🛡️ Safety & Trust</h4>
+                    <p id="txtAboutSec2Desc">• Background-checked walkers.<br>• Real-time interactive GPS tracking.<br>• Visible pet medical card with allergy alerts.</p>
+                </div>
+            </div>
+            <button id="btnAboutClose" onclick="closeAboutModal()" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-md active:scale-95 transition-all min-h-[48px] cursor-pointer">
+                Got it / Back to Start
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL DE REGISTRO CON VALIDACIÓN UI -->
+    <div id="registerModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brandCream border border-brandBeige w-full max-w-md rounded-3xl p-6 space-y-4 text-brandTextDark shadow-2xl animate-modal">
+            <div class="flex justify-between items-center border-b border-brandBeige pb-3">
+                <h3 id="regModalTitle" class="font-bold text-base text-brandDarkGreen">Create Account</h3>
+                <button onclick="closeRegistrationModal()" class="text-brandDarkGreen/60 hover:text-brandDarkGreen active:scale-90 transition-all cursor-pointer p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form onsubmit="handleRegistration(event)" class="space-y-3">
+                <div>
+                    <label id="lblFullName" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Full Name</label>
+                    <input type="text" id="regName" required placeholder="Ex: Doucleiver Gonzalez" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                </div>
+                <div>
+                    <label id="lblEmail" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Email Address</label>
+                    <input type="email" id="regEmail" required placeholder="your@email.com" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                </div>
+                <div>
+                    <label id="lblPass" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Password</label>
+                    <input type="password" id="regPass" required placeholder="••••••••" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                </div>
+
+                <div id="regErrorMsg" class="text-red-600 text-[11px] font-bold hidden bg-red-50 p-2 rounded-lg border border-red-200">
+                    Por favor complete todos los campos requeridos.
+                </div>
+
+                <button type="submit" id="btnSubmitReg" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-md active:scale-95 transition-all mt-2 min-h-[48px] flex items-center justify-center gap-2 cursor-pointer">
+                    <span id="btnSubmitRegText">Complete Registration & Enter</span>
+                    <i id="btnSubmitRegSpinner" data-lucide="loader-2" class="w-4 h-4 animate-spin hidden"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE RESERVA Y SERVICIOS -->
+    <div id="bookingModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brandCream border border-brandBeige w-full max-w-md rounded-3xl p-6 space-y-4 text-brandTextDark shadow-2xl max-h-[90vh] overflow-y-auto animate-modal">
+            <div class="flex justify-between items-center border-b border-brandBeige pb-3">
+                <h3 id="modalTitleBooking" class="font-bold text-base text-brandDarkGreen flex items-center gap-2">
+                    <i data-lucide="calendar" class="w-4 h-4 text-brandGold animate-bounce"></i> Book Service
+                </h3>
+                <button onclick="closeBookingModal()" class="text-brandDarkGreen/60 hover:text-brandDarkGreen active:scale-90 transition-all cursor-pointer p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3">
+                <div>
+                    <label id="lblServiceType" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Service Type</label>
+                    <select id="selectServiceType" onchange="changeServiceType(this.value)" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark font-bold cursor-pointer focus:outline-none">
+                        <option value="walk">🚶 Dog Walking Standard</option>
+                        <option value="dropin">🏠 Drop-in Visit (20 min - $18)</option>
+                        <option value="boarding">🌙 Boarding ($45/night)</option>
+                        <option value="sitting">🐾 House Sitting ($55/day)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label id="lblSelectPet" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Select Pet</label>
+                    <select id="selectPetBooking" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark font-medium cursor-pointer focus:outline-none">
+                        <option value="Max">Max (Golden Retriever - ⚠️ Chicken Allergy)</option>
+                        <option value="Luna">Luna (Poodle - No allergies)</option>
+                    </select>
+                </div>
+
+                <div id="durationSection">
+                    <label id="lblDuration" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Walk Duration</label>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <button type="button" onclick="updatePrice(16, this)" class="opt-duration min-h-[44px] bg-brandDarkGreen text-brandCream border border-brandDarkGreen font-bold py-2.5 rounded-xl text-center shadow-sm">15 min ($16)</button>
+                        <button type="button" onclick="updatePrice(22, this)" class="opt-duration min-h-[44px] bg-brandCardBg text-brandTextDark border border-brandBeige font-semibold py-2.5 rounded-xl text-center">30 min ($22)</button>
+                        <button type="button" onclick="updatePrice(32, this)" class="opt-duration min-h-[44px] bg-brandCardBg text-brandTextDark border border-brandBeige font-semibold py-2.5 rounded-xl text-center">60 min ($32)</button>
+                    </div>
+                </div>
+
+                <div class="bg-brandCardBg p-3 rounded-xl border border-brandBeige space-y-2">
+                    <label class="flex items-center justify-between text-xs cursor-pointer font-bold text-brandDarkGreen">
+                        <span id="lblRecurringTitle">📅 Agendamiento Recurrente (Automático)</span>
+                        <input type="checkbox" id="chkRecurring" onchange="toggleRecurringOptions()" class="accent-brandDarkGreen w-4 h-4 cursor-pointer">
+                    </label>
+                    <div id="recurringOptions" class="space-y-2 pt-1 hidden">
+                        <p class="text-[10px] text-gray-600">Selecciona los días fijos para paseos automáticos:</p>
+                        <div class="grid grid-cols-3 gap-1.5 text-[10px] font-semibold text-center">
+                            <label class="bg-white p-2 rounded-lg border border-brandBeige cursor-pointer flex items-center justify-center gap-1"><input type="checkbox"> Lun</label>
+                            <label class="bg-white p-2 rounded-lg border border-brandBeige cursor-pointer flex items-center justify-center gap-1"><input type="checkbox"> Mié</label>
+                            <label class="bg-white p-2 rounded-lg border border-brandBeige cursor-pointer flex items-center justify-center gap-1"><input type="checkbox"> Vie</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-1">
+                    <label class="flex items-center justify-between text-xs bg-brandCardBg/90 p-3 rounded-xl border border-brandBeige cursor-pointer">
+                        <span id="lblLargeDogOpt" class="flex items-center gap-2 font-medium">Large / High Energy Dog (+50lbs)</span>
+                        <input type="checkbox" id="chkLargeDog" onchange="recalculateTotal()" class="accent-brandDarkGreen w-4 h-4 cursor-pointer">
+                    </label>
+                    <label class="flex items-center justify-between text-xs bg-brandCardBg/90 p-3 rounded-xl border border-brandBeige cursor-pointer">
+                        <span id="lblExtraDogOpt" class="flex items-center gap-2 font-medium">Additional Dog (Same home)</span>
+                        <input type="checkbox" id="chkExtraDog" onchange="recalculateTotal()" class="accent-brandDarkGreen w-4 h-4 cursor-pointer">
+                    </label>
+                    <label class="flex items-center justify-between text-xs bg-brandCardBg/90 p-3 rounded-xl border border-brandBeige cursor-pointer">
+                        <span id="lblGroomingOpt" class="flex items-center gap-2 font-medium">Express Bath & Blow Dry (+ $20)</span>
+                        <input type="checkbox" id="chkGrooming" onchange="recalculateTotal()" class="accent-brandDarkGreen w-4 h-4 cursor-pointer">
+                    </label>
+                </div>
+
+                <div class="bg-brandCardBg/90 p-3.5 rounded-2xl border border-brandBeige space-y-1.5 shadow-inner">
+                    <div class="flex justify-between text-xs text-brandDarkGreen/70">
+                        <span id="lblBaseTariff">Base Service Fee</span>
+                        <span id="lblBasePrice">$16.00</span>
+                    </div>
+                    <div class="border-t border-brandBeige pt-2 flex justify-between text-sm font-bold text-brandTextDark">
+                        <span id="lblTotalPay">Total Amount (Sales Tax Exempt)</span>
+                        <span id="lblTotalPrice" class="text-brandDarkGreen text-base font-black">$16.00</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label id="lblPaymentMethod" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Payment Method</label>
+                    <div class="grid grid-cols-3 gap-2 text-[11px]">
+                        <button type="button" onclick="selectPaymentMethod('applepay', this)" id="payApple" class="pay-method min-h-[44px] bg-white text-brandDarkGreen border border-brandBeige font-semibold py-2 rounded-xl flex items-center justify-center gap-1 cursor-pointer">Pay</button>
+                        <button type="button" onclick="selectPaymentMethod('card', this)" id="payCard" class="pay-method pay-method-selected min-h-[44px] border border-brandDarkGreen font-bold py-2 rounded-xl flex items-center justify-center gap-1 cursor-pointer">Card</button>
+                        <button type="button" onclick="selectPaymentMethod('bank', this)" id="payBank" class="pay-method min-h-[44px] bg-white text-brandDarkGreen border border-brandBeige font-semibold py-2 rounded-xl flex items-center justify-center gap-1 cursor-pointer">ACH Bank</button>
+                    </div>
+                </div>
+
+                <div id="formCardDetails" class="bg-white p-3.5 rounded-2xl border border-brandBeige space-y-2.5 shadow-sm">
+                    <span id="lblCardSectionHeader" class="text-xs font-bold text-brandDarkGreen block border-b border-brandBeige pb-1">💳 Credit / Debit Card Details</span>
+                    <div>
+                        <label id="lblCardHolder" class="text-[10px] text-gray-500 font-bold block mb-0.5">Cardholder Name</label>
+                        <input type="text" id="cardHolder" placeholder="Ex: Doucleiver Gonzalez" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                    </div>
+                    <div>
+                        <label id="lblCardNumber" class="text-[10px] text-gray-500 font-bold block mb-0.5">Card Number</label>
+                        <input type="text" id="cardNumber" maxlength="19" placeholder="4532 •••• •••• 8892" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label id="lblCardExp" class="text-[10px] text-gray-500 font-bold block mb-0.5">Expiration (MM/YY)</label>
+                            <input type="text" id="cardExp" maxlength="5" placeholder="08/28" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                        </div>
+                        <div>
+                            <label id="lblCardCvc" class="text-[10px] text-gray-500 font-bold block mb-0.5">CVC / CVV</label>
+                            <input type="password" id="cardCvc" maxlength="4" placeholder="123" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="formApplePayDetails" class="bg-black text-white p-4 rounded-2xl border border-gray-800 text-center space-y-2 hidden shadow-sm">
+                    <p class="text-xs font-bold flex items-center justify-center gap-1">Pay - Express Confirmation</p>
+                    <p id="lblApplePayDesc" class="text-[10px] text-gray-300">Press button below to authenticate with FaceID / TouchID.</p>
+                </div>
+
+                <div id="formBankDetails" class="bg-white p-3.5 rounded-2xl border border-brandBeige space-y-2 hidden shadow-sm">
+                    <span id="lblAchHeader" class="text-xs font-bold text-brandDarkGreen block border-b border-brandBeige pb-1">🏦 Direct ACH Bank Transfer</span>
+                    <p id="lblAchDesc" class="text-[10px] text-gray-600">Connect directly with Wells Fargo, Truist, or Regions via Plaid.</p>
+                    <button id="btnLinkBank" type="button" class="w-full bg-brandCardBg text-brandDarkGreen border border-brandBeige font-bold py-2.5 rounded-xl text-xs min-h-[44px]">Link Bank Account</button>
+                </div>
+
+                <button id="btnConfirmBooking" onclick="confirmBooking()" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-md active:scale-95 transition-all cursor-pointer mt-2 min-h-[48px] flex items-center justify-center gap-2">
+                    <span id="btnConfirmBookingText">Confirm and Process Payment</span>
+                    <i id="btnBookingSpinner" data-lucide="loader-2" class="w-4 h-4 animate-spin hidden"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: FICHA MÉDICA Y PASAPORTE DE SALUD -->
+    <div id="petPassportModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brandCream border border-brandBeige w-full max-w-md rounded-3xl p-6 space-y-4 text-brandTextDark shadow-2xl animate-modal max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-brandBeige pb-3">
+                <h3 id="txtPassportTitle" class="font-bold text-sm text-brandDarkGreen flex items-center gap-2">
+                    <i data-lucide="shield-alert" class="w-4 h-4 text-brandGold"></i> Health Passport & Vaccines
+                </h3>
+                <button onclick="closePetPassportModal()" class="text-gray-500 hover:text-black p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3 text-xs">
+                <div class="bg-white p-3 rounded-2xl border border-brandBeige space-y-2 shadow-xs">
+                    <span id="txtVaccineHeader" class="font-bold text-brandDarkGreen block text-xs">💉 Digital Vaccination Record</span>
+                    <div class="flex justify-between items-center text-[11px] border-b border-gray-100 pb-1">
+                        <span>Rabies</span>
+                        <span id="tagRabies" class="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Up to date (Exp: 10/2027)</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] border-b border-gray-100 pb-1">
+                        <span>Bordetella</span>
+                        <span id="tagBordetella" class="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Up to date (Exp: 04/2027)</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span>DHPP Combo</span>
+                        <span id="tagDhpp" class="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Up to date (Exp: 12/2026)</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3 rounded-2xl border border-brandBeige space-y-1.5 shadow-xs">
+                    <span id="txtPrimaryVetHeader" class="font-bold text-brandDarkGreen block text-xs">🩺 Primary Veterinarian</span>
+                    <p class="font-semibold text-gray-800">Homewood Animal Hospital</p>
+                    <p class="text-[10px] text-gray-500">Dr. Smith • (205) 870-5678</p>
+                </div>
+
+                <div class="bg-amber-50 p-3 rounded-2xl border border-amber-200 space-y-1 text-amber-900">
+                    <span id="txtHealthNoticeHeader" class="font-bold text-xs flex items-center gap-1">⚠️ Health Notes & Allergies</span>
+                    <p id="txtHealthNoticeDesc" class="text-[10px]">Chicken allergy. If anxious during thunderstorms, give 1 calming chew from the pantry.</p>
+                </div>
+            </div>
+
+            <button id="btnSavePassport" onclick="closePetPassportModal()" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-md min-h-[48px]">
+                Save & Close Passport
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 2: POOCH REPORT CARD -->
+    <div id="poochReportModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brandCream border border-brandBeige w-full max-w-md rounded-3xl p-6 space-y-4 text-brandTextDark shadow-2xl animate-modal max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-brandBeige pb-3">
+                <h3 id="txtReportTitle" class="font-bold text-sm text-brandDarkGreen flex items-center gap-2">
+                    <i data-lucide="award" class="w-4 h-4 text-brandGold"></i> Pooch Report Card (Walk Summary)
+                </h3>
+                <button onclick="closePoochReportModal()" class="text-gray-500 hover:text-black p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3 text-xs">
+                <div class="w-full h-40 bg-gray-200 rounded-2xl overflow-hidden border border-brandBeige relative shadow-inner">
+                    <img src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=800&q=80" alt="Pet Photo" class="w-full h-full object-cover">
+                    <span id="lblDropoffPhoto" class="absolute bottom-2 left-2 bg-black/70 text-white text-[9px] px-2 py-0.5 rounded-md backdrop-blur-xs">📸 Drop-off door photo</span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-white p-2.5 rounded-xl border border-brandBeige">
+                        <span id="lblTimeStat" class="text-[10px] text-gray-500 block">Time</span>
+                        <span class="font-black text-brandDarkGreen text-sm">30 min</span>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-xl border border-brandBeige">
+                        <span id="lblDistStat" class="text-[10px] text-gray-500 block">Distance</span>
+                        <span class="font-black text-brandDarkGreen text-sm">1.2 mi</span>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-xl border border-brandBeige">
+                        <span id="lblLogStat" class="text-[10px] text-gray-500 block">Log</span>
+                        <span class="font-black text-brandDarkGreen text-xs">🟡 2 | 🟤 1</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3 rounded-2xl border border-brandBeige space-y-1">
+                    <span id="lblWalkerNoteHeader" class="font-bold text-brandDarkGreen text-xs block">💬 Walker Note:</span>
+                    <p id="lblWalkerNoteBody" class="text-[11px] text-gray-700 italic">"Max was amazing today. He drank fresh water when finished and is now resting happily."</p>
+                </div>
+            </div>
+
+            <button id="btnSaveReport" onclick="closePoochReportModal()" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-md min-h-[48px]">
+                Got it / Save Report
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 3: ACCESO SEGURO A PROPIEDAD -->
+    <div id="homeAccessModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brandCream border border-brandBeige w-full max-w-md rounded-3xl p-6 space-y-4 text-brandTextDark shadow-2xl animate-modal max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-brandBeige pb-3">
+                <h3 id="txtAccessTitle" class="font-bold text-sm text-brandDarkGreen flex items-center gap-2">
+                    <i data-lucide="key" class="w-4 h-4 text-brandGold"></i> Secure Home Access
+                </h3>
+                <button onclick="closeHomeAccessModal()" class="text-gray-500 hover:text-black p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label id="lblEntryMethod" class="font-bold text-brandDarkGreen block mb-1">Entry Method</label>
+                    <select id="selectEntryMethod" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs font-semibold focus:outline-none">
+                        <option value="lockbox">🔐 Lockbox / Key Box</option>
+                        <option value="smartlock">🔢 Smart Lock Code</option>
+                        <option value="concierge">🏢 Building Concierge</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label id="lblEntryCode" class="font-bold text-brandDarkGreen block mb-1">Entry Code / Instructions</label>
+                    <input type="text" id="inputEntryCode" placeholder="Ex: Lockbox code 4821 on back door" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                </div>
+
+                <div>
+                    <label id="lblAlarmCode" class="font-bold text-brandDarkGreen block mb-1">Alarm Code (If applicable)</label>
+                    <input type="password" id="inputAlarmCode" placeholder="••••" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                </div>
+
+                <div class="bg-blue-50 p-2.5 rounded-xl border border-blue-200 text-[10px] text-blue-900 flex items-center gap-2">
+                    <i data-lucide="lock" class="w-4 h-4 text-blue-700 flex-shrink-0"></i>
+                    <span id="txtEncryptedNotice">Security encrypted: Info only visible to assigned walker during service time.</span>
+                </div>
+            </div>
+
+            <button id="btnSaveAccess" onclick="closeHomeAccessModal()" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-md min-h-[48px]">
+                Save Access Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 4: CALIFICACIONES Y PROPINAS -->
+    <div id="reviewTipModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brandCream border border-brandBeige w-full max-w-md rounded-3xl p-6 space-y-4 text-brandTextDark shadow-2xl animate-modal">
+            <div class="flex justify-between items-center border-b border-brandBeige pb-3">
+                <h3 id="txtReviewTitle" class="font-bold text-sm text-brandDarkGreen flex items-center gap-2">
+                    <i data-lucide="star" class="w-4 h-4 text-amber-500 fill-amber-500"></i> Rate Walker & Tip
+                </h3>
+                <button onclick="closeReviewTipModal()" class="text-gray-500 hover:text-black p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3 text-xs text-center">
+                <div class="space-y-1">
+                    <p id="txtRateQuestion" class="font-bold text-gray-800">How was the walk with Alex?</p>
+                    <div class="flex justify-center space-x-2 text-amber-400 text-2xl cursor-pointer">
+                        <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label id="lblTipHeader" class="font-bold text-brandDarkGreen block text-left">Add Tip for Walker (100% goes to them)</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button class="bg-white border border-brandBeige py-2.5 rounded-xl font-bold min-h-[44px] hover:bg-brandDarkGreen hover:text-white transition-all">$2</button>
+                        <button class="bg-brandDarkGreen text-white border border-brandDarkGreen py-2.5 rounded-xl font-bold min-h-[44px]">$5</button>
+                        <button class="bg-white border border-brandBeige py-2.5 rounded-xl font-bold min-h-[44px] hover:bg-brandDarkGreen hover:text-white transition-all">$10</button>
+                        <button id="btnTipCustom" class="bg-white border border-brandBeige py-2.5 rounded-xl font-bold min-h-[44px] hover:bg-brandDarkGreen hover:text-white transition-all">Custom</button>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btnSubmitReview" onclick="closeReviewTipModal()" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-md min-h-[48px]">
+                Submit Review & Tip
+            </button>
+        </div>
+    </div>
+
+    <!-- DASHBOARD INTERNO -->
+    <div id="appDashboard" class="hidden min-h-screen flex flex-col justify-between pb-24 dashboard-puppy-bg text-brandTextDark animate-fade">
+        <header class="bg-brandCream/90 backdrop-blur-md px-4 py-3.5 sticky top-0 z-50 flex justify-between items-center border-b border-brandBeige shadow-sm">
+            <div class="flex items-center space-x-2 cursor-pointer hover:scale-105 transition-transform" onclick="goHome()">
+                <i data-lucide="shield-check" class="text-brandDarkGreen w-6 h-6"></i>
+                <span class="font-bold tracking-widest text-base text-brandDarkGreen">BARKWALK</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span id="userRoleBadge" class="bg-brandBeige/80 text-brandDarkGreen border border-brandGold/30 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase shadow-xs">Client</span>
+                <div class="bg-brandCardBg/80 px-1.5 py-0.5 rounded-full flex space-x-1 border border-brandBeige text-[10px] cursor-pointer shadow-xs">
+                    <button id="btnEN2" onclick="setLanguage('en')" class="px-2 py-0.5 rounded-full bg-brandDarkGreen text-brandCream font-bold transition-all">EN</button>
+                    <button id="btnES2" onclick="setLanguage('es')" class="px-2 py-0.5 rounded-full text-brandDarkGreen font-medium transition-all">ES</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- SKELETON LOADER GLOBAL PARA TAB HOME -->
+        <div id="dashboardSkeleton" class="px-4 py-4 space-y-4 max-w-md mx-auto w-full hidden animate-fade">
+            <div class="bg-brandCardBg/90 p-4 rounded-2xl border border-brandBeige space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl skeleton"></div>
+                        <div class="space-y-1.5">
+                            <div class="w-32 h-4 rounded skeleton"></div>
+                            <div class="w-24 h-3 rounded skeleton"></div>
+                        </div>
+                    </div>
+                    <div class="w-16 h-8 rounded-xl skeleton"></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <div class="h-16 rounded-2xl skeleton"></div>
+                <div class="h-16 rounded-2xl skeleton"></div>
+                <div class="h-16 rounded-2xl skeleton"></div>
+            </div>
+            <div class="h-44 rounded-2xl skeleton"></div>
+        </div>
+
+        <!-- SECCIÓN 1: INICIO -->
+        <div id="tabHome" class="flex-1 animate-fade">
+            <!-- VISTA CLIENTE -->
+            <main id="clientView" class="px-4 py-4 space-y-4 max-w-md mx-auto w-full hidden">
+                <section class="bg-brandCardBg/90 backdrop-blur-md p-3.5 rounded-2xl border border-brandBeige flex items-center justify-between shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-brandCream p-2.5 rounded-xl border border-brandBeige shadow-xs cursor-pointer hover:scale-105" onclick="openPetPassportModal()">
+                            <i data-lucide="dog" class="text-brandDarkGreen w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <select id="activePetSelector" class="bg-transparent font-bold text-sm text-brandTextDark focus:outline-none cursor-pointer">
+                                <option value="Max">Max (Golden Retriever)</option>
+                                <option value="Luna">Luna (Poodle)</option>
+                            </select>
+                            <span id="txtAllergyNotice" onclick="openPetPassportModal()" class="block text-[10px] text-amber-900 font-bold mt-0.5 cursor-pointer underline">⚠️ Chicken Allergy • View Passport</span>
+                        </div>
+                    </div>
+                    <button id="btnRequestWalk" onclick="openBookingModal()" class="bg-brandDarkGreen text-brandCream text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm min-h-[40px] active:scale-95">+ Book</button>
+                </section>
+
+                <section class="grid grid-cols-3 gap-2">
+                    <button onclick="openPetPassportModal()" class="bg-white p-3 rounded-2xl border border-brandBeige shadow-xs flex flex-col items-center text-center active:scale-95 min-h-[72px]">
+                        <i data-lucide="file-text" class="w-5 h-5 text-brandDarkGreen mb-1"></i>
+                        <span id="btnQuickPassport" class="text-[10px] font-bold text-brandTextDark">Health Passport</span>
+                    </button>
+                    <button onclick="openHomeAccessModal()" class="bg-white p-3 rounded-2xl border border-brandBeige shadow-xs flex flex-col items-center text-center active:scale-95 min-h-[72px]">
+                        <i data-lucide="key" class="w-5 h-5 text-brandGold mb-1"></i>
+                        <span id="btnQuickAccess" class="text-[10px] font-bold text-brandTextDark">Home Access</span>
+                    </button>
+                    <button onclick="openPoochReportModal()" class="bg-white p-3 rounded-2xl border border-brandBeige shadow-xs flex flex-col items-center text-center active:scale-95 min-h-[72px]">
+                        <i data-lucide="award" class="w-5 h-5 text-emerald-600 mb-1"></i>
+                        <span id="btnQuickReport" class="text-[10px] font-bold text-brandTextDark">Last Report</span>
+                    </button>
+                </section>
+
+                <section class="bg-brandCardBg/90 backdrop-blur-md p-4 rounded-2xl border border-brandBeige space-y-2 shadow-sm">
+                    <h3 id="lblLiveGalleryTitle" class="font-bold text-xs text-brandDarkGreen flex items-center gap-1.5">
+                        <i data-lucide="camera" class="w-4 h-4 text-brandGold"></i> Galería en Vivo del Paseo (Live Stream)
+                    </h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="h-20 bg-gray-200 rounded-xl overflow-hidden border border-brandBeige relative">
+                            <img src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80" class="w-full h-full object-cover">
+                        </div>
+                        <div class="h-20 bg-gray-200 rounded-xl overflow-hidden border border-brandBeige relative">
+                            <img src="https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=300&q=80" class="w-full h-full object-cover">
+                        </div>
+                        <div class="h-20 bg-brandCream rounded-xl border border-brandBeige flex flex-col items-center justify-center text-center text-brandDarkGreen text-[10px] font-bold">
+                            <i data-lucide="plus-circle" class="w-5 h-5 mb-0.5 text-brandGold"></i>
+                            <span>Esperando más...</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-brandCardBg/90 backdrop-blur-md p-4 rounded-2xl border border-brandBeige relative overflow-hidden shadow-sm">
+                    <div class="flex justify-between items-center mb-2">
+                        <span id="lblGpsHeader" class="text-xs font-bold text-brandDarkGreen uppercase flex items-center gap-1.5">
+                            <i data-lucide="map-pin" class="w-4 h-4 text-brandGold animate-bounce"></i> Live GPS Tracker
+                        </span>
+                        <span id="lblGpsStatus" class="text-[10px] bg-brandCream text-brandDarkGreen px-2.5 py-1 rounded-full font-bold">On Route</span>
+                    </div>
+                    <div class="bg-emerald-950/90 h-36 rounded-xl relative flex items-center justify-center border border-brandBeige overflow-hidden">
+                        <div class="absolute inset-0 bg-[radial-gradient(#00A859_1px,transparent_1px)] [background-size:16px_16px] opacity-20"></div>
+                        <div id="simulatedPetMarker" class="absolute left-10 top-1/2 -translate-y-1/2 flex items-center space-x-2 transition-all duration-500 ease-out">
+                            <div class="w-8 h-8 bg-brandGreen rounded-full flex items-center justify-center text-white shadow-lg radar-pulse">🐾</div>
+                            <span id="lblPetMarkerText" class="bg-black/80 text-white text-[9px] px-2 py-0.5 rounded-md font-bold">Max en marcha</span>
+                        </div>
+                        <div class="absolute bottom-2 right-2 z-10">
+                            <button id="btnSimulateGps" onclick="simulateGpsMove()" class="bg-brandCream text-brandDarkGreen font-bold text-[10px] px-3 py-1.5 rounded-lg border border-brandBeige shadow-xs active:scale-95">
+                                🔄 Simulate GPS Move
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-brandCardBg/90 backdrop-blur-md p-4 rounded-2xl border border-brandBeige shadow-sm">
+                    <h3 id="lblWalkerChatHeader" class="font-bold text-xs text-brandDarkGreen mb-2 flex items-center gap-1.5">
+                        <i data-lucide="message-square" class="w-4 h-4 text-brandGold"></i> Direct Chat with Walker
+                    </h3>
+                    <div id="walkerChatBox" class="bg-brandCream/90 p-2.5 rounded-xl h-24 overflow-y-auto text-xs space-y-2 mb-2 border border-brandBeige">
+                        <div id="walkerIntroMsg" class="bg-brandBeige/60 p-2 rounded-lg max-w-[85%] text-brandTextDark">Hi! I picked up Max, heading to the park 🐾.</div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <input id="walkerChatInput" type="text" placeholder="Write to walker..." class="bg-white/90 border border-brandBeige rounded-xl px-3 py-2.5 text-xs w-full focus:outline-none focus:border-brandDarkGreen" onkeypress="if(event.key==='Enter') sendWalkerMessage()">
+                        <button onclick="sendWalkerMessage()" class="bg-brandDarkGreen text-brandCream px-4 py-2.5 rounded-xl font-bold shadow-sm flex items-center justify-center min-w-[44px]">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </section>
+
+                <section class="bg-brandCardBg/90 backdrop-blur-md p-4 rounded-2xl border border-brandBeige shadow-sm">
+                    <h3 id="lblAiHeader" class="font-bold text-xs text-brandDarkGreen mb-2 flex items-center gap-1.5">
+                        <i data-lucide="bot" class="w-4 h-4 text-brandGold"></i> Barkwalk AI Advisor
+                    </h3>
+                    <div id="aiChatBox" class="bg-brandCream/90 p-2.5 rounded-xl h-28 overflow-y-auto text-xs space-y-2 mb-2 border border-brandBeige">
+                        <div id="aiIntroMsg" class="bg-brandBeige/60 p-2 rounded-lg max-w-[85%] text-brandTextDark">👋 Hi Doucleiver. Ask me about rates, services, or care for Max.</div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <input id="aiChatInput" type="text" placeholder="Ask AI..." class="bg-white/90 border border-brandBeige rounded-xl px-3 py-2.5 text-xs w-full focus:outline-none focus:border-brandDarkGreen" onkeypress="if(event.key==='Enter') sendAiMessage()">
+                        <button onclick="sendAiMessage()" class="bg-brandDarkGreen text-brandCream px-4 py-2.5 rounded-xl font-bold shadow-sm flex items-center justify-center min-w-[44px]">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </section>
+
+                <section class="bg-brandCardBg/90 backdrop-blur-md p-4 rounded-2xl border border-brandBeige shadow-sm space-y-3">
+                    <div class="flex items-center justify-between border-b border-brandBeige pb-2">
+                        <h3 id="txtVetHeader" class="font-bold text-xs text-brandDarkGreen flex items-center gap-1.5">
+                            <i data-lucide="cross" class="w-4 h-4 text-red-600"></i> Emergency Vet Hospitals (Homewood / BHAM)
+                        </h3>
+                        <span class="text-[9px] bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded-full">24/7</span>
+                    </div>
+                    <div class="space-y-2 text-xs">
+                        <div class="bg-brandCream p-3 rounded-xl border border-brandBeige flex justify-between items-center">
+                            <div>
+                                <p class="font-bold text-brandTextDark">Metro Animal Hospital</p>
+                                <p id="lblVet1Desc" class="text-[10px] text-gray-600">Homewood, AL • General Care & Emergency</p>
+                            </div>
+                            <div class="flex space-x-1.5">
+                                <a href="tel:2058712345" class="bg-brandDarkGreen text-white p-2.5 rounded-lg shadow-sm min-w-[36px] flex items-center justify-center"><i data-lucide="phone" class="w-4 h-4"></i></a>
+                                <a href="https://maps.google.com/?q=Metro+Animal+Hospital+Homewood+AL" target="_blank" class="bg-brandGold text-brandDarkGreen p-2.5 rounded-lg shadow-sm min-w-[36px] flex items-center justify-center"><i data-lucide="navigation" class="w-4 h-4"></i></a>
+                            </div>
+                        </div>
+                        <div class="bg-brandCream p-3 rounded-xl border border-brandBeige flex justify-between items-center">
+                            <div>
+                                <p class="font-bold text-brandTextDark">Alabama Veterinary Specialists</p>
+                                <p id="lblVet2Desc" class="text-[10px] text-gray-600">Birmingham, AL • 24-Hour Emergency Hospital</p>
+                            </div>
+                            <div class="flex space-x-1.5">
+                                <a href="tel:2059677389" class="bg-brandDarkGreen text-white p-2.5 rounded-lg shadow-sm min-w-[36px] flex items-center justify-center"><i data-lucide="phone" class="w-4 h-4"></i></a>
+                                <a href="https://maps.google.com/?q=Alabama+Veterinary+Specialists+Birmingham+AL" target="_blank" class="bg-brandGold text-brandDarkGreen p-2.5 rounded-lg shadow-sm min-w-[36px] flex items-center justify-center"><i data-lucide="navigation" class="w-4 h-4"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <!-- VISTA SHOPPER -->
+            <main id="shopperView" class="px-4 py-4 space-y-4 max-w-md mx-auto w-full hidden">
+                <section class="bg-brandCardBg/90 backdrop-blur-md p-4 rounded-2xl border border-brandBeige space-y-3 shadow-sm">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 id="lblWalkerStatusHeader" class="font-bold text-xs text-brandDarkGreen">Walker Status</h3>
+                            <p id="lblWalkerStatusOnline" class="text-[10px] text-green-700 font-bold">🟢 Online • Receiving Walks</p>
+                        </div>
+                        <span class="text-sm font-black text-brandDarkGreen">$144.00</span>
+                    </div>
+
+                    <div class="bg-white p-3 rounded-xl border border-brandBeige space-y-2">
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-1">
+                            <span class="text-[11px] font-bold text-brandDarkGreen flex items-center gap-1">💰 Wallet & Cash Out (1099)</span>
+                            <span class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Disponible: $144.00</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="handleWalletCashout(this)" class="flex-1 bg-brandDarkGreen text-white font-bold py-2.5 rounded-xl text-xs shadow-sm min-h-[44px] flex items-center justify-center gap-1.5">
+                                <span>⚡ Retiro Exprés</span>
+                            </button>
+                            <button onclick="alert('Formulario IRS W-9 y 1099-NEC descargados correctamente.')" class="bg-brandCardBg text-brandDarkGreen font-bold px-3 py-2.5 rounded-xl text-xs border border-brandBeige min-h-[44px]">📄 W-9 / 1099</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-red-50 p-3 rounded-xl border border-red-200 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600 animate-pulse"></i>
+                            <div>
+                                <p class="font-bold text-red-900 text-xs">Botón de Emergencia SOS</p>
+                                <p class="text-[9px] text-red-700">Asistencia inmediata ante incidentes</p>
+                            </div>
+                        </div>
+                        <button onclick="alert('🚨 Alerta SOS enviada a Soporte Barkwalk y al Propietario. Un agente se comunicará de inmediato.')" class="bg-red-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md min-h-[44px] active:scale-95">SOS 911</button>
+                    </div>
+
+                    <div class="bg-white p-3 rounded-xl border border-brandBeige space-y-1.5">
+                        <span class="text-[11px] font-bold text-brandDarkGreen flex items-center gap-1">🗺️ Ruta Optimizada (Multi-Pet Pickup)</span>
+                        <div class="text-[10px] text-gray-700 space-y-1 bg-brandCream p-2 rounded-lg border border-brandBeige">
+                            <p><b>1. Max</b> (Golden Retriever) • Homewood (Lockbox #4821)</p>
+                            <p><b>2. Luna</b> (Poodle) • 2 cuadras adelante (Smart Lock #9921)</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-3 rounded-xl border border-brandBeige space-y-2">
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-1">
+                            <span id="lblAccessInfoTitle" class="text-[11px] font-bold text-brandDarkGreen flex items-center gap-1">🔑 Access Info (Max's Home)</span>
+                            <span class="text-[9px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full">Lockbox #4821</span>
+                        </div>
+                        <p id="lblAccessInfoSub" class="text-[10px] text-gray-600">Back door entrance. Alarm Code: 1234 (Disarm upon entry).</p>
+                    </div>
+
+                    <div class="bg-brandCream p-3 rounded-xl border border-brandBeige space-y-2">
+                        <span id="lblWalkLogHeader" class="text-[11px] font-bold text-brandDarkGreen block border-b border-gray-100 pb-1">Walk Log (1-Tap Health Logger)</span>
+                        <div class="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+                            <button onclick="logActivity('pee')" class="bg-amber-50 text-amber-900 border border-amber-200 py-2.5 rounded-lg font-bold min-h-[44px] active:scale-95"><span id="lblPeeBtn">🟡 Pee</span> (<span id="cntPee">0</span>)</button>
+                            <button onclick="logActivity('poop')" class="bg-orange-50 text-orange-900 border border-orange-200 py-2.5 rounded-lg font-bold min-h-[44px] active:scale-95"><span id="lblPoopBtn">🟤 Poop</span> (<span id="cntPoop">0</span>)</button>
+                            <button onclick="logActivity('water')" class="bg-blue-50 text-blue-900 border border-blue-200 py-2.5 rounded-lg font-bold min-h-[44px] active:scale-95"><span id="lblWaterBtn">💧 Water</span> (<span id="cntWater">0</span>)</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-3 rounded-xl border border-brandBeige space-y-2">
+                        <span id="lblDogBehaviorTitle" class="text-[11px] font-bold text-brandDarkGreen block border-b border-gray-100 pb-1">🐕 Pet Behavior Assessment (Shopper Internal Rating)</span>
+                        <div class="grid grid-cols-2 gap-1.5 text-[10px]">
+                            <label class="flex items-center gap-1.5 bg-brandCream p-2.5 rounded-lg border border-brandBeige"><input type="checkbox" checked class="accent-brandDarkGreen w-4 h-4"> Friendly / Calm</label>
+                            <label class="flex items-center gap-1.5 bg-brandCream p-2.5 rounded-lg border border-brandBeige"><input type="checkbox" class="accent-brandDarkGreen w-4 h-4"> Pulls Leash</label>
+                            <label class="flex items-center gap-1.5 bg-brandCream p-2.5 rounded-lg border border-brandBeige"><input type="checkbox" checked class="accent-brandDarkGreen w-4 h-4"> High Energy</label>
+                            <label class="flex items-center gap-1.5 bg-brandCream p-2.5 rounded-lg border border-brandBeige"><input type="checkbox" class="accent-brandDarkGreen w-4 h-4"> Reactive to Dogs</label>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-3 rounded-xl border border-brandBeige space-y-2">
+                        <span id="lblDropoffPhotoUpload" class="text-[11px] font-bold text-brandDarkGreen block">📸 Drop-off Photo Proof</span>
+                        <button onclick="alert('Camera activated: Photo proof attached to Pooch Report Card!')" class="w-full bg-brandCream border border-brandBeige text-brandDarkGreen font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 min-h-[44px] active:scale-95">
+                            <i data-lucide="camera" class="w-4 h-4"></i> Take Delivery Photo
+                        </button>
+                    </div>
+
+                    <button id="btnStartWalk" onclick="toggleWalkStatus()" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-sm mt-2 min-h-[48px] flex items-center justify-center gap-2 cursor-pointer">
+                        <span id="btnStartWalkText">Start Walk</span>
+                        <i id="btnWalkSpinner" data-lucide="loader-2" class="w-4 h-4 animate-spin hidden"></i>
+                    </button>
+                </section>
+            </main>
+        </div>
+
+        <div id="tabMetrics" class="px-4 py-4 space-y-4 max-w-md mx-auto w-full hidden animate-fade"></div>
+
+        <div id="tabProfile" class="px-4 py-4 space-y-4 max-w-md mx-auto w-full hidden animate-fade">
+            <section class="bg-brandCardBg/90 backdrop-blur-md p-4 rounded-2xl border border-brandBeige shadow-sm space-y-3 text-center">
+                <div class="w-16 h-16 bg-brandCream rounded-full flex items-center justify-center mx-auto border border-brandGold/40 shadow-sm">
+                    <i data-lucide="user" class="w-8 h-8 text-brandDarkGreen"></i>
+                </div>
+                <div>
+                    <h3 id="profileName" class="font-bold text-base text-brandTextDark">Doucleiver González</h3>
+                    <p id="lblProfileSub" class="text-xs text-brandDarkGreen font-semibold">Pet Owner</p>
+                </div>
+                <button id="btnLogout" onclick="goHome()" class="w-full bg-red-50 text-red-700 border border-red-200 py-3 rounded-xl text-xs font-bold min-h-[48px] active:scale-95">Log Out</button>
+            </section>
+        </div>
+
+        <nav class="fixed bottom-0 left-0 right-0 bg-brandCream/95 backdrop-blur-md border-t border-brandBeige px-6 py-3 flex justify-around items-center z-40 max-w-md mx-auto shadow-lg">
+            <button onclick="switchTab('home')" class="flex flex-col items-center text-brandDarkGreen cursor-pointer font-bold p-1"><i data-lucide="home" class="w-5 h-5"></i><span id="navHome" class="text-[10px]">Home</span></button>
+            <button onclick="switchTab('metrics')" class="flex flex-col items-center text-brandDarkGreen/50 p-1"><i data-lucide="file-text" class="w-5 h-5"></i><span id="navHistory" class="text-[10px]">History</span></button>
+            <button onclick="switchTab('profile')" class="flex flex-col items-center text-brandDarkGreen/50 p-1"><i data-lucide="user" class="w-5 h-5"></i><span id="navProfile" class="text-[10px]">Profile</span></button>
+        </nav>
+    </div>
+
+    <script>
+        let currentLang = 'en';
+        let currentUserRole = 'client';
+        let currentBasePrice = 16;
+        let selectedPayment = 'card';
+        let isPublicAiOpen = false;
+        let walkActive = false;
+        let markerPos = 10;
+        let isProcessingAction = false;
+        let activityLog = { pee: 0, poop: 0, water: 0 };
+
+        const translations = {
+            en: {
+                txtLiveStatus: "🟢 14 Active Walkers in Homewood / BHAM",
+                btnAboutLink: "About Us →",
+                txtHeroTitle: "Find professional dog walkers near you",
+                txtHeroSub: "Meet your walker and access your pet's health information.",
+                txtHeroTagline: "Certified dog walkers and happy dogs",
+                btnToggleAiText: "💬 FAQ AI Assistant",
+                lblPublicAiHeader: "Barkwalk AI Advisor (Pre-Registration)",
+                publicAiIntro: "👋 Hi! Have questions about Barkwalk USA before signing up? Ask me about services, safety, pricing, or walker earnings.",
+                publicAiInput: "Type your question...",
+                txtChooseAccount: "Choose your account type",
+                btnPetOwner: "Pet Owner Registration",
+                btnDogWalker: "Dog Walker Registration",
+                txtAboutModalTitle: "About Barkwalk USA",
+                txtAboutSec1Title: "🚀 What is our platform?",
+                txtAboutSec1Desc: "Barkwalk USA is an on-demand pet care network connecting pet owners with vetted independent 1099 walkers in Alabama.",
+                txtAboutSec2Title: "🛡️ Safety & Trust",
+                txtAboutSec2Desc: "• Background-checked walkers.<br>• Real-time interactive GPS tracking.<br>• Visible pet medical card with allergy alerts.",
+                btnAboutClose: "Got it / Back to Start",
+                regModalTitle: "Create Account",
+                lblFullName: "Full Name",
+                lblEmail: "Email Address",
+                lblPass: "Password",
+                btnSubmitRegText: "Complete Registration & Enter",
+                modalTitleBooking: "Book Service",
+                lblServiceType: "Service Type",
+                lblSelectPet: "Select Pet",
+                lblDuration: "Walk Duration",
+                lblRecurringTitle: "📅 Recurring Scheduling (Automatic)",
+                lblLargeDogOpt: "Large / High Energy Dog (+50lbs)",
+                lblExtraDogOpt: "Additional Dog (Same home)",
+                lblGroomingOpt: "Express Bath & Blow Dry (+ $20)",
+                lblBaseTariff: "Base Service Fee",
+                lblTotalPay: "Total Amount (Sales Tax Exempt)",
+                lblPaymentMethod: "Payment Method",
+                lblCardSectionHeader: "💳 Credit / Debit Card Details",
+                lblCardHolder: "Cardholder Name",
+                lblCardNumber: "Card Number",
+                lblCardExp: "Expiration (MM/YY)",
+                lblCardCvc: "CVC / CVV",
+                lblApplePayDesc: "Press button below to authenticate with FaceID / TouchID.",
+                lblAchHeader: "🏦 Direct ACH Bank Transfer",
+                lblAchDesc: "Connect directly with Wells Fargo, Truist, or Regions via Plaid.",
+                btnLinkBank: "Link Bank Account",
+                btnConfirmBookingText: "Confirm and Process Payment",
+                txtPassportTitle: "Health Passport & Vaccines",
+                txtVaccineHeader: "💉 Digital Vaccination Record",
+                tagRabies: "Up to date (Exp: 10/2027)",
+                tagBordetella: "Up to date (Exp: 04/2027)",
+                tagDhpp: "Up to date (Exp: 12/2026)",
+                txtPrimaryVetHeader: "🩺 Primary Veterinarian",
+                txtHealthNoticeHeader: "⚠️ Health Notes & Allergies",
+                txtHealthNoticeDesc: "Chicken allergy. If anxious during thunderstorms, give 1 calming chew from the pantry.",
+                btnSavePassport: "Save & Close Passport",
+                txtReportTitle: "Pooch Report Card (Walk Summary)",
+                lblDropoffPhoto: "📸 Drop-off door photo",
+                lblTimeStat: "Time",
+                lblDistStat: "Distance",
+                lblLogStat: "Log",
+                lblWalkerNoteHeader: "💬 Walker Note:",
+                lblWalkerNoteBody: '"Max was amazing today. He drank fresh water when finished and is now resting happily."',
+                btnSaveReport: "Got it / Save Report",
+                txtAccessTitle: "Secure Home Access",
+                lblEntryMethod: "Entry Method",
+                lblEntryCode: "Entry Code / Instructions",
+                lblAlarmCode: "Alarm Code (If applicable)",
+                txtEncryptedNotice: "Security encrypted: Info only visible to assigned walker during service time.",
+                btnSaveAccess: "Save Access Settings",
+                txtReviewTitle: "Rate Walker & Tip",
+                txtRateQuestion: "How was the walk with Alex?",
+                lblTipHeader: "Add Tip for Walker (100% goes to them)",
+                btnTipCustom: "Custom",
+                btnSubmitReview: "Submit Review & Tip",
+                userRoleBadge: "Client",
+                txtAllergyNotice: "⚠️ Chicken Allergy • View Passport",
+                btnQuickPassport: "Health Passport",
+                btnQuickAccess: "Home Access",
+                btnQuickReport: "Last Report",
+                lblLiveGalleryTitle: "📸 Live Walk Photo Gallery",
+                lblGpsHeader: "Live GPS Tracker",
+                lblGpsStatus: "On Route",
+                lblPetMarkerText: "Max in motion",
+                btnSimulateGps: "🔄 Simulate GPS Move",
+                lblWalkerChatHeader: "Direct Chat with Walker",
+                walkerIntroMsg: "Hi! I picked up Max, heading to the park 🐾.",
+                walkerChatInput: "Write to walker...",
+                lblAiHeader: "Barkwalk AI Advisor",
+                aiIntroMsg: "👋 Hi Doucleiver. Ask me about rates, services, or care for Max.",
+                aiChatInput: "Ask AI...",
+                txtVetHeader: "Emergency Vet Hospitals (Homewood / BHAM)",
+                lblVet1Desc: "Homewood, AL • General Care & Emergency",
+                lblVet2Desc: "Birmingham, AL • 24-Hour Emergency Hospital",
+                lblWalkerStatusHeader: "Walker Status",
+                lblWalkerStatusOnline: "🟢 Online • Receiving Walks",
+                lblWalkLogHeader: "Walk Log (1-Tap Health Logger)",
+                lblPeeBtn: "🟡 Pee",
+                lblPoopBtn: "🟤 Poop",
+                lblWaterBtn: "💧 Water",
+                lblAccessInfoTitle: "🔑 Access Info (Max's Home)",
+                lblAccessInfoSub: "Back door entrance. Alarm Code: 1234 (Disarm upon entry).",
+                lblDogBehaviorTitle: "🐕 Pet Behavior Assessment (Shopper Internal Rating)",
+                lblDropoffPhotoUpload: "📸 Drop-off Photo Proof",
+                btnStartWalkText: "Start Walk",
+                lblProfileSub: "Pet Owner",
+                btnLogout: "Log Out",
+                navHome: "Home",
+                navHistory: "History",
+                navProfile: "Profile",
+                lblOfflineText: "No internet connection. Please check network."
+            },
+            es: {
+                txtLiveStatus: "🟢 14 Paseadores Activos en Homewood / BHAM",
+                btnAboutLink: "Conócenos →",
+                txtHeroTitle: "Encuentra paseadores de perros profesionales cerca de ti",
+                txtHeroSub: "Conoce a tu paseador y accede a la información de salud de tu mascota.",
+                txtHeroTagline: "Paseadores certificados y perros felices",
+                btnToggleAiText: "💬 Preguntas F.A.Q. AI",
+                lblPublicAiHeader: "Barkwalk AI Advisor (Pre-Registro)",
+                publicAiIntro: "👋 ¡Hola! ¿Tienes dudas sobre Barkwalk USA antes de registrarte? Pregúntame sobre quiénes somos, seguridad, precios o ganancias para paseadores.",
+                publicAiInput: "Escribe tu pregunta...",
+                txtChooseAccount: "Elige tu tipo de cuenta",
+                btnPetOwner: "Registro Propietario de Mascota",
+                btnDogWalker: "Registro Paseador de Perros",
+                txtAboutModalTitle: "Sobre Barkwalk USA",
+                txtAboutSec1Title: "🚀 ¿De qué trata nuestra plataforma?",
+                txtAboutSec1Desc: "Barkwalk USA es la red de paseos y cuidado de mascotas bajo demanda diseñada para conectar a propietarios exigentes con paseadores independientes (Shoppers 1099) verificados en Alabama.",
+                txtAboutSec2Title: "🛡️ Seguridad & Confianza",
+                txtAboutSec2Desc: "• Paseadores examinados con verificación de antecedentes.<br>• Rastreo GPS interactivo en tiempo real durante cada paseo.<br>• Ficha médica de la mascota visible con alerta de alergias.",
+                btnAboutClose: "Entendido / Volver al Inicio",
+                regModalTitle: "Crear Cuenta",
+                lblFullName: "Nombre Completo",
+                lblEmail: "Correo Electrónico",
+                lblPass: "Contraseña",
+                btnSubmitRegText: "Completar Registro y Entrar",
+                modalTitleBooking: "Reservar Servicio",
+                lblServiceType: "Tipo de Servicio",
+                lblSelectPet: "Seleccionar Mascota",
+                lblDuration: "Duración del Paseo",
+                lblRecurringTitle: "📅 Agendamiento Recurrente (Automático)",
+                lblLargeDogOpt: "Perro Grande / Alta Energía (+50lbs)",
+                lblExtraDogOpt: "Perro Adicional (Misma casa)",
+                lblGroomingOpt: "Baño Exprés + Secado (+ $20)",
+                lblBaseTariff: "Tarifa Servicio Base",
+                lblTotalPay: "Total a Pagar (Exento Sales Tax)",
+                lblPaymentMethod: "Método de Pago",
+                lblCardSectionHeader: "💳 Datos de la Tarjeta de Crédito / Débito",
+                lblCardHolder: "Nombre en la Tarjeta",
+                lblCardNumber: "Número de Tarjeta",
+                lblCardExp: "Expiración (MM/AA)",
+                lblCardCvc: "CVC / CVV",
+                lblApplePayDesc: "Presiona el botón de abajo para autenticar con FaceID / TouchID.",
+                lblAchHeader: "🏦 Transferencia Bancaria ACH Directa",
+                lblAchDesc: "Conecta directamente con Wells Fargo, Truist o Regions mediante Plaid.",
+                btnLinkBank: "Vincular Cuenta Bancaria",
+                btnConfirmBookingText: "Confirmar y Procesar Pago",
+                txtPassportTitle: "Pasaporte de Salud & Vacunas",
+                txtVaccineHeader: "💉 Carnet Digital de Vacunación",
+                tagRabies: "Al Día (Exp: 10/2027)",
+                tagBordetella: "Al Día (Exp: 04/2027)",
+                tagDhpp: "Al Día (Exp: 12/2026)",
+                txtPrimaryVetHeader: "🩺 Veterinario de Cabecera",
+                txtHealthNoticeHeader: "⚠️ Instrucciones de Salud & Alergias",
+                txtHealthNoticeDesc: "Alergico al pollo. Si demuestra ansiedad con tormentas, dar 1 masticable calmante provisto en la alacena.",
+                btnSavePassport: "Guardar y Cerrar Ficha",
+                txtReportTitle: "Pooch Report Card (Resumen Final)",
+                lblDropoffPhoto: "📸 Foto de entrega en puerta",
+                lblTimeStat: "Tiempo",
+                lblDistStat: "Distancia",
+                lblLogStat: "Bitácora",
+                lblWalkerNoteHeader: "💬 Nota del Paseador:",
+                lblWalkerNoteBody: '"Max se portó excelente. Bebió agua fresca al terminar y quedó descansando feliz."',
+                btnSaveReport: "Entendido / Guardar Reporte",
+                txtAccessTitle: "Acceso Seguro a Propiedad",
+                lblEntryMethod: "Método de Entrada",
+                lblEntryCode: "Código de Entrada / Instrucciones",
+                lblAlarmCode: "Código de Alarma (Si aplica)",
+                txtEncryptedNotice: "Cifrado de seguridad: Información visible solo para el paseador verificado durante la hora del servicio.",
+                btnSaveAccess: "Guardar Configuración de Acceso",
+                txtReviewTitle: "Calificar Paseador & Propina",
+                txtRateQuestion: "¿Qué tal estuvo el paseo con Alex?",
+                lblTipHeader: "Añadir Propina para el Paseador (100% para él)",
+                btnTipCustom: "Otro",
+                btnSubmitReview: "Enviar Calificación y Propina",
+                userRoleBadge: "Cliente",
+                txtAllergyNotice: "⚠️ Alergia: Pollo • Ver Pasaporte",
+                btnQuickPassport: "Pasaporte Salud",
+                btnQuickAccess: "Acceso Casa",
+                btnQuickReport: "Último Reporte",
+                lblLiveGalleryTitle: "📸 Galería en Vivo del Paseo (Live Stream)",
+                lblGpsHeader: "Live GPS Tracker",
+                lblGpsStatus: "En Ruta",
+                lblPetMarkerText: "Max en marcha",
+                btnSimulateGps: "🔄 Simular Avance GPS",
+                lblWalkerChatHeader: "Chat Directo con Paseador",
+                walkerIntroMsg: "¡Hola! Ya recogí a Max, vamos camino al parque 🐾.",
+                walkerChatInput: "Escribe al paseador...",
+                lblAiHeader: "Barkwalk AI Advisor",
+                aiIntroMsg: "👋 Hola Doucleiver. Pregúntame sobre tarifas, servicios o cuidados de Max.",
+                aiChatInput: "Pregunta a la IA...",
+                txtVetHeader: "Urgencias Veterinarias (Homewood / BHAM)",
+                lblVet1Desc: "Homewood, AL • Atención General y Urgencias",
+                lblVet2Desc: "Birmingham, AL • Hospital de Emergencias 24 Horas",
+                lblWalkerStatusHeader: "Estado del Paseador",
+                lblWalkerStatusOnline: "🟢 En Línea • Recibiendo Paseos",
+                lblWalkLogHeader: "Bitácora del Paseo (1-Tap Health Logger)",
+                lblPeeBtn: "🟡 Pipí",
+                lblPoopBtn: "🟤 Popó",
+                lblWaterBtn: "💧 Agua",
+                lblAccessInfoTitle: "🔑 Información de Acceso (Casa de Max)",
+                lblAccessInfoSub: "Entrada por puerta trasera. Código Alarma: 1234 (Desactivar al entrar).",
+                lblDogBehaviorTitle: "🐕 Evaluación de Conducta del Perro (Uso Interno Paseador)",
+                lblDropoffPhotoUpload: "📸 Evidencia Fotográfica de Entrega",
+                btnStartWalkText: "Iniciar Paseo",
+                lblProfileSub: "Propietario de Mascota",
+                btnLogout: "Cerrar Sesión",
+                navHome: "Inicio",
+                navHistory: "Historial",
+                navProfile: "Perfil",
+                lblOfflineText: "Sin conexión a internet. Verifique su red."
+            }
+        };
+
+        // MONITOREO DE CONEXIÓN A INTERNET
+        window.addEventListener('online', updateNetworkStatus);
+        window.addEventListener('offline', updateNetworkStatus);
+
+        function updateNetworkStatus() {
+            const banner = document.getElementById('offlineBanner');
+            if (!navigator.onLine) {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            const dict = translations[lang];
+
+            document.getElementById('btnEN').className = lang === 'en' ? "px-2.5 py-0.5 rounded-full bg-white text-black font-bold transition-all" : "px-2.5 py-0.5 rounded-full text-white/80 font-medium transition-all";
+            document.getElementById('btnES').className = lang === 'es' ? "px-2.5 py-0.5 rounded-full bg-white text-black font-bold transition-all" : "px-2.5 py-0.5 rounded-full text-white/80 font-medium transition-all";
+            document.getElementById('btnEN2').className = lang === 'en' ? "px-2 py-0.5 rounded-full bg-brandDarkGreen text-brandCream font-bold transition-all" : "px-2 py-0.5 rounded-full text-brandDarkGreen font-medium transition-all";
+            document.getElementById('btnES2').className = lang === 'es' ? "px-2 py-0.5 rounded-full bg-brandDarkGreen text-brandCream font-bold transition-all" : "px-2 py-0.5 rounded-full text-brandDarkGreen font-medium transition-all";
+
+            for (const key in dict) {
+                const el = document.getElementById(key);
+                if (el) {
+                    if (el.tagName === 'INPUT' && el.type === 'text') {
+                        el.placeholder = dict[key];
+                    } else if (key === 'btnToggleAiText') {
+                        el.innerText = dict[key];
+                    } else {
+                        el.innerHTML = dict[key];
+                    }
+                }
+            }
+
+            document.getElementById('txtVetHeader').innerHTML = `<i data-lucide="cross" class="w-4 h-4 text-red-600"></i> ${dict.txtVetHeader}`;
+            document.getElementById('txtPassportTitle').innerHTML = `<i data-lucide="shield-alert" class="w-4 h-4 text-brandGold"></i> ${dict.txtPassportTitle}`;
+            document.getElementById('txtReportTitle').innerHTML = `<i data-lucide="award" class="w-4 h-4 text-brandGold"></i> ${dict.txtReportTitle}`;
+            document.getElementById('txtAccessTitle').innerHTML = `<i data-lucide="key" class="w-4 h-4 text-brandGold"></i> ${dict.txtAccessTitle}`;
+            document.getElementById('txtReviewTitle').innerHTML = `<i data-lucide="star" class="w-4 h-4 text-amber-500 fill-amber-500"></i> ${dict.txtReviewTitle}`;
+            document.getElementById('modalTitleBooking').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 text-brandGold animate-bounce"></i> ${dict.modalTitleBooking}`;
+            document.getElementById('lblGpsHeader').innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 text-brandGold animate-bounce"></i> ${dict.lblGpsHeader}`;
+            document.getElementById('lblWalkerChatHeader').innerHTML = `<i data-lucide="message-square" class="w-4 h-4 text-brandGold"></i> ${dict.lblWalkerChatHeader}`;
+            document.getElementById('lblAiHeader').innerHTML = `<i data-lucide="bot" class="w-4 h-4 text-brandGold"></i> ${dict.lblAiHeader}`;
+
+            lucide.createIcons();
+        }
+
+        function toggleRecurringOptions() {
+            const isChecked = document.getElementById('chkRecurring').checked;
+            document.getElementById('recurringOptions').classList.toggle('hidden', !isChecked);
+        }
+
+        function changeServiceType(val) {
+            const durationSec = document.getElementById('durationSection');
+            if (val === 'walk') {
+                durationSec.classList.remove('hidden');
+                currentBasePrice = 16;
+            } else if (val === 'dropin') {
+                durationSec.classList.add('hidden');
+                currentBasePrice = 18;
+            } else if (val === 'boarding') {
+                durationSec.classList.add('hidden');
+                currentBasePrice = 45;
+            } else if (val === 'sitting') {
+                durationSec.classList.add('hidden');
+                currentBasePrice = 55;
+            }
+            recalculateTotal();
+        }
+
+        function selectPaymentMethod(method, btn) {
+            selectedPayment = method;
+            document.querySelectorAll('.pay-method').forEach(b => {
+                b.className = "pay-method min-h-[44px] bg-white text-brandDarkGreen border border-brandBeige font-semibold py-2 rounded-xl flex items-center justify-center gap-1 cursor-pointer";
+            });
+            btn.className = "pay-method pay-method-selected min-h-[44px] font-bold py-2 rounded-xl flex items-center justify-center gap-1 cursor-pointer";
+
+            document.getElementById('formCardDetails').classList.toggle('hidden', method !== 'card');
+            document.getElementById('formApplePayDetails').classList.toggle('hidden', method !== 'applepay');
+            document.getElementById('formBankDetails').classList.toggle('hidden', method !== 'bank');
+        }
+
+        function simulateGpsMove() {
+            markerPos = (markerPos + 25) % 85;
+            const marker = document.getElementById('simulatedPetMarker');
+            if(marker) marker.style.left = `${markerPos}%`;
+        }
+
+        function togglePublicAiWidget() {
+            isPublicAiOpen = !isPublicAiOpen;
+            document.getElementById('publicAiWidget').classList.toggle('hidden', !isPublicAiOpen);
+        }
+
+        function openAboutModal() { document.getElementById('aboutModal').classList.remove('hidden'); }
+        function closeAboutModal() { document.getElementById('aboutModal').classList.add('hidden'); }
+        function openRegistrationModal(role) { currentUserRole = role; document.getElementById('registerModal').classList.remove('hidden'); }
+        function closeRegistrationModal() { 
+            document.getElementById('registerModal').classList.add('hidden'); 
+            document.getElementById('regErrorMsg').classList.add('hidden');
+        }
+        function openBookingModal() { document.getElementById('bookingModal').classList.remove('hidden'); }
+        function closeBookingModal() { document.getElementById('bookingModal').classList.add('hidden'); }
+
+        function openPetPassportModal() { document.getElementById('petPassportModal').classList.remove('hidden'); }
+        function closePetPassportModal() { document.getElementById('petPassportModal').classList.add('hidden'); }
+        function openPoochReportModal() { document.getElementById('poochReportModal').classList.remove('hidden'); }
+        function closePoochReportModal() { document.getElementById('poochReportModal').classList.add('hidden'); }
+        function openHomeAccessModal() { document.getElementById('homeAccessModal').classList.remove('hidden'); }
+        function closeHomeAccessModal() { document.getElementById('homeAccessModal').classList.add('hidden'); }
+        function openReviewTipModal() { document.getElementById('reviewTipModal').classList.remove('hidden'); }
+        function closeReviewTipModal() { document.getElementById('reviewTipModal').classList.add('hidden'); }
+
+        function updatePrice(price, btn) {
+            currentBasePrice = price;
+            document.querySelectorAll('.opt-duration').forEach(b => {
+                b.className = "opt-duration min-h-[44px] bg-brandCardBg text-brandTextDark border border-brandBeige font-semibold py-2.5 rounded-xl text-center";
+            });
+            btn.className = "opt-duration min-h-[44px] bg-brandDarkGreen text-brandCream border border-brandDarkGreen font-bold py-2.5 rounded-xl text-center shadow-sm";
+            recalculateTotal();
+        }
+
+        function recalculateTotal() {
+            let total = currentBasePrice;
+            if(document.getElementById('chkLargeDog').checked) total += 4;
+            if(document.getElementById('chkExtraDog').checked) total += 8;
+            if(document.getElementById('chkGrooming').checked) total += 20;
+            document.getElementById('lblBasePrice').innerText = `$${currentBasePrice}.00`;
+            document.getElementById('lblTotalPrice').innerText = `$${total}.00`;
+        }
+
+        function sendWalkerMessage() {
+            const input = document.getElementById('walkerChatInput');
+            const chatBox = document.getElementById('walkerChatBox');
+            if(!input.value.trim()) return;
+            chatBox.innerHTML += `<div class="bg-brandDarkGreen text-white p-2.5 rounded-lg max-w-[85%] ml-auto text-right shadow-xs">${input.value}</div>`;
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function sendAiMessage() {
+            const input = document.getElementById('aiChatInput');
+            const chatBox = document.getElementById('aiChatBox');
+            if(!input.value.trim()) return;
+            chatBox.innerHTML += `<div class="bg-brandDarkGreen text-white p-2.5 rounded-lg max-w-[85%] ml-auto text-right shadow-xs">${input.value}</div>`;
+            input.value = '';
+            setTimeout(() => {
+                const reply = currentLang === 'es' ? '🤖 Entendido. Estoy aquí para ayudarte con el servicio en Homewood.' : '🤖 Understood. I am here to help you with service in Homewood.';
+                chatBox.innerHTML += `<div class="bg-brandBeige/60 p-2.5 rounded-lg max-w-[85%] text-brandTextDark shadow-xs">${reply}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, 250);
+        }
+
+        function sendPublicAiMessage() {
+            const input = document.getElementById('publicAiInput');
+            const chatBox = document.getElementById('publicAiBox');
+            if(!input.value.trim()) return;
+            chatBox.innerHTML += `<div class="bg-brandGreen text-white p-2.5 rounded-lg max-w-[85%] ml-auto text-right shadow-xs">${input.value}</div>`;
+            input.value = '';
+            setTimeout(() => {
+                const reply = currentLang === 'es' ? '🐾 Barkwalk USA conecta dueños con paseadores 1099 verificados con exención de impuestos en Alabama.' : '🐾 Barkwalk USA connects owners with vetted 1099 walkers with tax exemption in Alabama.';
+                chatBox.innerHTML += `<div class="bg-white/20 p-2.5 rounded-lg max-w-[85%] text-gray-100 shadow-xs">${reply}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, 250);
+        }
+
+        function toggleWalkStatus() {
+            if (isProcessingAction) return;
+            isProcessingAction = true;
+
+            const btn = document.getElementById('btnStartWalk');
+            const spinner = document.getElementById('btnWalkSpinner');
+            const btnText = document.getElementById('btnStartWalkText');
+
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+
+            setTimeout(() => {
+                walkActive = !walkActive;
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                isProcessingAction = false;
+
+                if (currentLang === 'es') {
+                    btnText.innerText = walkActive ? "Finalizar Paseo" : "Iniciar Paseo";
+                } else {
+                    btnText.innerText = walkActive ? "Finish Walk" : "Start Walk";
+                }
+                btn.className = walkActive ? "w-full bg-amber-600 text-white font-bold py-3.5 rounded-xl text-xs shadow-sm mt-2 min-h-[48px] flex items-center justify-center gap-2 cursor-pointer" : "w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-sm mt-2 min-h-[48px] flex items-center justify-center gap-2 cursor-pointer";
+                
+                if(!walkActive && currentUserRole === 'client') {
+                    openReviewTipModal();
+                } else if(!walkActive && currentUserRole === 'shopper') {
+                    alert(currentLang === 'es' ? 'Paseo finalizado y ganancias sumadas a tu Wallet.' : 'Walk completed and earnings added to your Wallet.');
+                }
+            }, 600);
+        }
+
+        function handleWalletCashout(btn) {
+            if (isProcessingAction) return;
+            isProcessingAction = true;
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
+            lucide.createIcons();
+
+            setTimeout(() => {
+                alert(currentLang === 'es' ? 'Cash Out procesado a tu tarjeta de débito vinculada con éxito.' : 'Cash Out processed to your linked debit card successfully.');
+                btn.disabled = false;
+                btn.innerHTML = `<span>⚡ Retiro Exprés</span>`;
+                isProcessingAction = false;
+            }, 800);
+        }
+
+        function logActivity(type) {
+            if(type === 'pee') { activityLog.pee++; document.getElementById('cntPee').innerText = activityLog.pee; }
+            if(type === 'poop') { activityLog.poop++; document.getElementById('cntPoop').innerText = activityLog.poop; }
+            if(type === 'water') { activityLog.water++; document.getElementById('cntWater').innerText = activityLog.water; }
+        }
+
+        function confirmBooking() {
+            if (isProcessingAction) return;
+            isProcessingAction = true;
+
+            const btn = document.getElementById('btnConfirmBooking');
+            const spinner = document.getElementById('btnBookingSpinner');
+            const btnText = document.getElementById('btnConfirmBookingText');
+
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+
+            setTimeout(() => {
+                alert(currentLang === 'es' ? "¡Reserva y pago procesados con éxito!" : "Booking and payment processed successfully!");
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                isProcessingAction = false;
+                closeBookingModal();
+            }, 750);
+        }
+
+        function handleRegistration(e) {
+            e.preventDefault();
+            const name = document.getElementById('regName').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const pass = document.getElementById('regPass').value.trim();
+
+            if (!name || !email || !pass) {
+                document.getElementById('regErrorMsg').classList.remove('hidden');
+                return;
+            }
+
+            if (isProcessingAction) return;
+            isProcessingAction = true;
+
+            const btn = document.getElementById('btnSubmitReg');
+            const spinner = document.getElementById('btnSubmitRegSpinner');
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+
+            setTimeout(() => {
+                document.getElementById('profileName').innerText = name;
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                isProcessingAction = false;
+                
+                closeRegistrationModal();
+                document.getElementById('welcomeView').classList.add('hidden');
+                document.getElementById('appDashboard').classList.remove('hidden');
+
+                showDashboardWithSkeleton();
+            }, 650);
+        }
+
+        function showDashboardWithSkeleton() {
+            const skeleton = document.getElementById('dashboardSkeleton');
+            skeleton.classList.remove('hidden');
+            
+            document.getElementById('clientView').classList.add('hidden');
+            document.getElementById('shopperView').classList.add('hidden');
+
+            setTimeout(() => {
+                skeleton.classList.add('hidden');
+                document.getElementById('clientView').classList.toggle('hidden', currentUserRole !== 'client');
+                document.getElementById('shopperView').classList.toggle('hidden', currentUserRole !== 'shopper');
+                document.getElementById('userRoleBadge').innerText = currentUserRole === 'client' ? (currentLang === 'es' ? 'Cliente' : 'Client') : (currentLang === 'es' ? 'Paseador' : 'Walker');
+                switchTab('home');
+            }, 500);
+        }
+
+        function goHome() {
+            document.getElementById('appDashboard').classList.add('hidden');
+            document.getElementById('welcomeView').classList.remove('hidden');
+        }
+
+        function switchTab(tab) {
+            document.getElementById('tabHome').classList.add('hidden');
+            document.getElementById('tabMetrics').classList.add('hidden');
+            document.getElementById('tabProfile').classList.add('hidden');
+            if(tab === 'home') document.getElementById('tabHome').classList.remove('hidden');
+            if(tab === 'metrics') document.getElementById('tabMetrics').classList.remove('hidden');
+            if(tab === 'profile') document.getElementById('tabProfile').classList.remove('hidden');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => { 
+            lucide.createIcons();
+            setLanguage('en');
+            updateNetworkStatus();
+updateNetworkStatus();
+    });
+</script>
+
+<!-- Librería de Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Script en tiempo real definitivo -->
+<script>
+  const SUPABASE_URL = "https://hdtgtrnbqoyvjasvzilr.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkdGd0cm5icW95dmphc3ppbHIiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTczMDkwOTczNywiZXhwIjoyMDQ2NDg1NzM3fQ._f1cN10hSanuo-HrE3Ajcmk4QCsk70a0LPxQ";
+
+  const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  
+  console.log("Supabase conectado correctamente para tiempo real.");
+
+  _supabase
+    .channel('room_walk_requests')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'walk_requests' },
+      (payload) => {
+        console.log('¡Nuevo paseo recibido en tiempo real!', payload.new);
+        const paseo = payload.new;
+
+        // 1. Reproducir sonido de alerta sutil
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(587.33, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (e) {
+          console.log("Audio bloqueado temporalmente por el navegador.");
+        }
+
+        // 2. Crear la tarjeta flotante en pantalla
+        let notificationBanner = document.getElementById('custom-walk-alert');
+        if (!notificationBanner) {
+          notificationBanner = document.createElement('div');
+          notificationBanner.id = 'custom-walk-alert';
+          notificationBanner.style.cssText = `
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 400px; background: #111827; color: #fff;
+            padding: 20px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            z-index: 9999; font-family: system-ui, sans-serif; border: 2px solid #10B981;
+          `;
+          document.body.appendChild(notificationBanner);
+        }
+
+        notificationBanner.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="background: #10B981; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">🔔 NUEVA SOLICITUD</span>
+            <span style="font-size: 14px; color: #9CA3AF;">$${paseo.total_price || '0.00'}</span>
+          </div>
+          <h3 style="margin: 0 0 8px 0; font-size: 18px;">🐾 Mascota: ${paseo.pet_name || 'No especificada'}</h3>
+          <p style="margin: 0 0 4px 0; font-size: 14px; color: #D1D5DB;"><strong>Cliente:</strong> ${paseo.client_name || 'Anónimo'}</p>
+          <p style="margin: 0 0 15px 0; font-size: 14px; color: #D1D5DB;"><strong>Servicio:</strong> ${paseo.service_type || 'Standard'}</p>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="document.getElementById('custom-walk-alert').remove()" style="flex: 1; background: #EF4444; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Rechazar</button>
+            <button onclick="alert('¡Paseo aceptado!'); document.getElementById('custom-walk-alert').remove();" style="flex: 1; background: #10B981; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Aceptar Paseo</button>
+          </div>
+        `;
+      }
+    )
+    .subscribe((status, err) => {
+      console.log("Estado de la conexión Realtime:", status);
+      if (err) console.error("Error detallado:", err);
+    });
+</script>
