@@ -35,7 +35,12 @@ function match(row, key, expr) {
   if (expr.startsWith('in.(')) return decodeURIComponent(expr.slice(4, -1)).split(',').map(s => s.replace(/"/g, '')).includes(String(v));
   throw new Error('unsupported filter ' + key + '=' + expr);
 }
+let RESEND = { calls: [], status: 200 };
 global.fetch = async (url, opts = {}) => {
+  if (String(url).startsWith('https://api.resend.com/')) { // Resend simulado
+    RESEND.calls.push({ headers: opts.headers, body: JSON.parse(opts.body) });
+    return resp(RESEND.status, RESEND.status < 300 ? { id: 'email_' + RESEND.calls.length } : { message: 'simulated error' });
+  }
   const u = new URL(url);
   const table = u.pathname.replace('/rest/v1/', '');
   const rows = DB[table];
@@ -228,6 +233,64 @@ async function callWebhook(type, object) {
   await t('regresión: evento no manejado → 200 ignorado', async () => {
     const r = await callWebhook('invoice.paid', { id: 'in_1' });
     assert.equal(r.status, 200); assert.equal(r.body.ignored, 'invoice.paid');
+  });
+
+  // ---------- Correo de reembolso al cliente (Resend) ----------
+  const conResend = async (fn) => {
+    process.env.RESEND_API_KEY = 're_test_key'; RESEND = { calls: [], status: 200 };
+    DB.profiles = [{ id: 'c1', full_name: 'Ana Pérez', email: 'ana.perfil@example.com', role: 'client' }];
+    DB.walk_requests.forEach((w, i) => { w.scheduled_date = `2026-12-0${i + 1}`; w.scheduled_time = '09:30:00'; });
+    try { await fn(); } finally { process.env.RESEND_API_KEY = ''; }
+  };
+  await t('correo de reembolso total: soporte@, monto, referencia y días cancelados', async () => conResend(async () => {
+    CHARGE = { id: 'ch_1', payment_intent: 'pi_1', amount: 5000, amount_refunded: 5000, refunded: true, currency: 'usd', billing_details: { email: 'ana@cliente.com' } };
+    const r = await callWebhook('charge.refunded', CHARGE);
+    assert.equal(r.status, 200); assert.equal(r.body.email, 'sent'); assert.equal(r.body.notify, undefined, 'sin datos del cliente en la respuesta');
+    assert.equal(RESEND.calls.length, 1);
+    const { body, headers } = RESEND.calls[0];
+    assert.equal(body.from, 'Barkwalk USA <soporte@barkwalkusa.com>'); assert.deepEqual(body.to, ['ana@cliente.com']);
+    assert.equal(body.reply_to, 'soporte@barkwalkusa.com'); assert.equal(headers['Idempotency-Key'], 'refund-ch_1-5000');
+    assert.match(body.subject, /Reembolso confirmado \(\$50\.00\) · #b1/);
+    assert.match(body.html, /email-logo\.png/); assert.match(body.html, /\$50\.00/); assert.match(body.html, /#b1/);
+    assert.match(body.html, /quedaron <strong>cancelados<\/strong>/);
+    assert.equal((body.html.match(/>Cancelado</g) || []).length, 3, 'w3 y w4 cancelados ahora + w5 que ya lo estaba');
+    assert.equal((body.html.match(/>Completado</g) || []).length, 2, 'w1 y w2 ya se hicieron');
+    assert.equal((body.html.match(/>En curso</g) || []).length, 1, 'w6 en curso no se corta');
+    assert.ok(!/Sigue activo/.test(body.html), 'en un reembolso total nada figura como activo');
+    assert.match(body.text, /Días cancelados:/);
+  }));
+  await t('correo de reembolso: sin email en Stripe → usa el de profiles', async () => conResend(async () => {
+    CHARGE = { id: 'ch_1', payment_intent: 'pi_1', amount: 5000, amount_refunded: 5000, refunded: true, currency: 'usd', billing_details: { email: null }, receipt_email: null };
+    await callWebhook('charge.refunded', CHARGE);
+    assert.deepEqual(RESEND.calls[0].body.to, ['ana.perfil@example.com']);
+    assert.match(RESEND.calls[0].body.html, /Hola Ana Pérez/);
+  }));
+  await t('correo de reembolso parcial: texto de reserva activa', async () => conResend(async () => {
+    CHARGE = { id: 'ch_1', payment_intent: 'pi_1', amount: 5000, amount_refunded: 1000, refunded: false, currency: 'usd', receipt_email: 'ana@cliente.com' };
+    await callWebhook('charge.refunded', CHARGE);
+    assert.match(RESEND.calls[0].body.subject, /Reembolso parcial confirmado \(\$10\.00\)/);
+    assert.match(RESEND.calls[0].body.html, /tu reserva sigue activa/);
+    assert.equal(RESEND.calls[0].headers['Idempotency-Key'], 'refund-ch_1-1000');
+  }));
+  await t('correo de reembolso: Resend 5xx → 500 para que Stripe reintente; 4xx → 200 sin reintento', async () => conResend(async () => {
+    CHARGE = { id: 'ch_1', payment_intent: 'pi_1', amount: 5000, amount_refunded: 5000, refunded: true, currency: 'usd', receipt_email: 'ana@cliente.com' };
+    RESEND.status = 503;
+    const r = await callWebhook('charge.refunded', CHARGE);
+    assert.equal(r.status, 500); assert.equal(r.body.error, 'email_retry');
+    RESEND.status = 422;
+    const r2 = await callWebhook('charge.refunded', CHARGE);
+    assert.equal(r2.status, 200); assert.equal(r2.body.email, 'failed');
+    assert.equal(DB.bookings[0].payment_status, 'refunded', 'el reembolso queda aplicado aunque falle el correo');
+  }));
+  await t('correo de reembolso: cargo sin reserva (p. ej. membresía) → no se envía', async () => conResend(async () => {
+    CHARGE = { id: 'ch_sub', payment_intent: 'pi_sub', amount: 1299, amount_refunded: 1299, refunded: true, receipt_email: 'x@y.com' };
+    const r = await callWebhook('charge.refunded', CHARGE);
+    assert.equal(r.status, 200); assert.equal(RESEND.calls.length, 0);
+  }));
+  await t('correo de reembolso: sin RESEND_API_KEY → 200 y "skipped"', async () => {
+    CHARGE = { id: 'ch_1', payment_intent: 'pi_1', amount: 5000, amount_refunded: 5000, refunded: true, receipt_email: 'ana@cliente.com' };
+    const r = await callWebhook('charge.refunded', CHARGE);
+    assert.equal(r.status, 200); assert.equal(r.body.email, 'skipped');
   });
 
   console.log(`\n${passed} pruebas OK`);

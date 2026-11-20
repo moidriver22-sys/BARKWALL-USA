@@ -40,7 +40,7 @@ async function findBooking({ paymentIntentId, chargeId }) {
 
 async function walksOf(bookingId) {
   return sbOrThrow(`/rest/v1/walk_requests?booking_id=eq.${enc(bookingId)}`
-    + '&select=id,status,payment_status,walker_id,walker_payout_status,walker_transfer_id,walker_payout_cents,payout_review_required,payout_review_reason'
+    + '&select=id,status,payment_status,walker_id,walker_payout_status,walker_transfer_id,walker_payout_cents,payout_review_required,payout_review_reason,scheduled_date,scheduled_time'
     + '&order=created_at.asc&limit=200');
 }
 
@@ -115,10 +115,17 @@ async function handleChargeRefunded(eventCharge, stripe, canCallApi) {
   } });
 
   const walks = await walksOf(booking.id);
+  // Datos para el correo al cliente (el webhook lo envía; NO viajan en la respuesta a Stripe)
+  const dia = (w) => ({ date: w.scheduled_date || null, time: w.scheduled_time || null, status: w.status || 'pending' });
+  const notify = (cancelledIds) => ({
+    booking, charge, full, refundedCents: refunded, currency: charge.currency || booking.currency || 'usd',
+    cancelledDays: walks.filter((w) => w.status === 'cancelled' || cancelledIds.includes(w.id)).map(dia),
+    activeDays: walks.filter((w) => w.status !== 'cancelled' && !cancelledIds.includes(w.id)).map(dia),
+  });
   if (!full) {
     const held = await holdUnpaid(walks, REASON.partial);
     console.log(`Reserva ${booking.id}: reembolso PARCIAL ${refunded}/${charge.amount}; ${held.length} día(s) en revisión.`);
-    return { booking: booking.id, refund: 'partial', refundedCents: refunded, held: held.length };
+    return { booking: booking.id, refund: 'partial', refundedCents: refunded, held: held.length, notify: notify([]) };
   }
   // Total: nada de esta reserva se vuelve a pagar (walk_requests.payment_status ≠ 'paid' la saca del cron)
   const cancelled = await cancelNotStarted(walks, { payment_status: 'refunded' });
@@ -128,7 +135,7 @@ async function handleChargeRefunded(eventCharge, stripe, canCallApi) {
   await patchWalks(resto.filter((w) => w.walker_payout_status === 'paid').map((w) => w.id), { payment_status: 'refunded' });
   const rev = await reversePaid(stripe, resto, REASON.refund);
   console.log(`Reserva ${booking.id}: reembolso TOTAL; ${cancelled.length} día(s) cancelados, ${rev.reversed.length} transferencia(s) revertidas, ${rev.failed.length} fallida(s).`);
-  return { booking: booking.id, refund: 'full', cancelled: cancelled.length, reversed: rev.reversed.length, reversalFailed: rev.failed.length, processing: rev.processing };
+  return { booking: booking.id, refund: 'full', cancelled: cancelled.length, reversed: rev.reversed.length, reversalFailed: rev.failed.length, processing: rev.processing, notify: notify(cancelled) };
 }
 
 // ---------- charge.dispute.created / charge.dispute.closed ----------

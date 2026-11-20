@@ -17,6 +17,7 @@ const { isConfigured, sb, sbOrThrow, getAuthUserEmail, enc } = require('./_lib/s
 const { localToUtcIso } = require('./_lib/time');
 const { syncSubscription } = require('./_lib/membership');
 const { handleChargeRefunded, handleDispute } = require('./_lib/refunds');
+const { sendRefundEmail } = require('./_lib/refund-email');
 const EMAIL = require('./_lib/email-layout'); // diseño común (logo, colores, pie) para los correos
 
 // Reembolsos y disputas: añade estos eventos al endpoint en Stripe (ver _lib/refunds.js)
@@ -317,12 +318,21 @@ async function handler(req, res) {
       const r = event.type === 'charge.refunded'
         ? await handleChargeRefunded(obj, stripe, canCallApi)
         : await handleDispute(event.type, obj, stripe, canCallApi);
-      console.log(`${event.type} ${obj.id}: ${JSON.stringify(r)}`);
+      const { notify, ...resumen } = r; // notify lleva datos del cliente: no va al log ni a la respuesta
+      console.log(`${event.type} ${obj.id}: ${JSON.stringify(resumen)}`);
       // El cron estaba pagando un día de esta reserva en este instante: que Stripe reintente en unos minutos
       // para revertir esa transferencia. Solo durante 1 h (después queda en revisión y se responde 200).
-      const recent = Date.now() / 1000 - (event.created || 0) < 3600;
-      if (r.processing && r.processing.length && recent) return send(res, 500, { error: 'payout_in_progress', retry: true });
-      return send(res, 200, { received: true, ...r });
+      const edad = Date.now() / 1000 - (event.created || 0);
+      if (r.processing && r.processing.length && edad < 3600) return send(res, 500, { error: 'payout_in_progress', retry: true });
+      // Correo al cliente (charge.refunded). Idempotente por cargo + monto; un fallo temporal de Resend se
+      // reintenta solo durante 24 h (ventana de idempotencia de Resend); después se registra y se responde 200.
+      if (notify) {
+        const mail = await sendRefundEmail(notify).catch((e) => ({ status: 'retry', reason: e.message }));
+        resumen.email = mail.status;
+        if (mail.status !== 'sent') console.warn(`Correo de reembolso (${obj.id}): ${mail.status} · ${mail.reason || ''}`);
+        if (mail.status === 'retry' && edad < 86400) return send(res, 500, { error: 'email_retry', retry: true });
+      }
+      return send(res, 200, { received: true, ...resumen });
     } catch (e) {
       console.error(`Error procesando ${event.type}:`, e.message);
       return send(res, 500, { error: 'processing_failed' }); // Stripe reintenta

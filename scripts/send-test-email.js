@@ -6,6 +6,7 @@
 //   $env:EMAIL_FROM     = 'Barkwalk USA <no-reply@barkwalkusa.com>'
 //   node scripts/send-test-email.js tu-correo@gmail.com en          # o "es"
 //   node scripts/send-test-email.js --dry                           # solo genera test-email.html, sin enviar
+//   node scripts/send-test-email.js tu-correo@gmail.com es --refund # correo de reembolso (remitente soporte@)
 const fs = require('fs');
 const path = require('path');
 const { buildEmail } = require('../api/stripe-webhook');
@@ -26,7 +27,22 @@ const booking = {
   pets_count: 2, per_day_cents: 3000, currency: 'usd', scheduled_time: '09:30',
   dates: ['2026-12-01', '2026-12-02', '2026-12-04'],
 };
-const msg = buildEmail(booking, { amount_received: 9000, currency: 'usd' }, 'Ana');
+// --refund: correo de "Reembolso confirmado" con los datos REALES del reembolso de prueba del 20/11
+// (reserva 8e81294f…, $16.00, 1 día cancelado). La reserva ya se borró de Supabase, así que el webhook
+// no puede reenviarlo; esto genera el mismo correo con la misma función de producción (buildRefundEmail).
+const refund = args.includes('--refund');
+let msg;
+if (refund) {
+  const { buildRefundEmail } = require('../api/_lib/refund-email');
+  msg = buildRefundEmail({
+    booking: { id: '8e81294f-c62f-4c8c-9e53-037cbb02454a', lang, total_cents: 1600, service_label: lang === 'es' ? '🚶 Paseo Estándar · 15 min' : '🚶 Standard Walk · 15 min' },
+    full: true, refundedCents: 1600, currency: 'usd',
+    cancelledDays: [{ date: null, time: null, status: 'cancelled' }], // la fecha exacta se borró con la reserva
+    activeDays: [],
+  }, args.find((a) => a.startsWith('--name='))?.slice(7) || '');
+} else {
+  msg = buildEmail(booking, { amount_received: 9000, currency: 'usd' }, 'Ana');
+}
 const subject = `[TEST] ${msg.subject}`;
 
 (async () => {
@@ -38,7 +54,7 @@ const subject = `[TEST] ${msg.subject}`;
   }
   if (!to) throw new Error('Indica el destinatario: node scripts/send-test-email.js tu-correo@gmail.com [en|es]');
   const key = (process.env.RESEND_API_KEY || '').trim();
-  const from = (process.env.EMAIL_FROM || '').trim();
+  const from = refund ? (process.env.REFUND_EMAIL_FROM || 'Barkwalk USA <soporte@barkwalkusa.com>').trim() : (process.env.EMAIL_FROM || '').trim();
   if (!/^re_/.test(key) || !from) throw new Error('Define RESEND_API_KEY (re_...) y EMAIL_FROM antes de ejecutar.');
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
