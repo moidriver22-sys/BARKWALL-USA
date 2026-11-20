@@ -4,7 +4,8 @@
   "description": "Barkwalk USA: sitio estático (index.html) + Vercel Functions en /api",
   "scripts": {
     "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o tailwind.css --minify",
-    "test": "node tests/stripe-webhook.test.js"
+    "test": "node tests/stripe-webhook.test.js",
+    "build:emails": "node scripts/build-email-templates.js"
   },
   "engines": {
     "node": ">=20"

@@ -17,6 +17,7 @@ const { isConfigured, sb, sbOrThrow, getAuthUserEmail, enc } = require('./_lib/s
 const { localToUtcIso } = require('./_lib/time');
 const { syncSubscription } = require('./_lib/membership');
 const { handleChargeRefunded, handleDispute } = require('./_lib/refunds');
+const EMAIL = require('./_lib/email-layout'); // diseño común (logo, colores, pie) para los correos
 
 // Reembolsos y disputas: añade estos eventos al endpoint en Stripe (ver _lib/refunds.js)
 const REFUND_EVENTS = new Set(['charge.refunded', 'charge.dispute.created', 'charge.dispute.closed']);
@@ -117,41 +118,51 @@ function buildEmail(booking, pi, clientName) {
   const total = money(pi.amount_received, pi.currency);
   const porDia = money(booking.per_day_cents, booking.currency || 'usd');
   const hora = fmtTime(String(booking.scheduled_time || '').slice(0, 5));
-  const dias = (booking.dates || []).map((d) => `<li style="padding:3px 0">📅 ${escapeHtml(fmtDate(d, booking.lang))}${hora ? ' · ' + escapeHtml(hora) : ''}</li>`).join('');
-  const fotos = pets.map((p) => `
-      <td style="padding:6px;text-align:center;vertical-align:top;width:${Math.floor(100 / Math.max(1, pets.length))}%">
+  const L = EMAIL;
+  // Días: una fila por fecha (las listas <ul> se descuadran en Gmail para Android)
+  const dias = (booking.dates || []).map((d) => `
+      <tr><td style="padding:7px 12px;border-bottom:1px solid ${L.C.line};font-size:14px;line-height:20px;color:${L.C.text}">📅 <strong>${escapeHtml(fmtDate(d, booking.lang))}</strong>${hora ? ` <span style="color:${L.C.muted}">· ${escapeHtml(hora)}</span>` : ''}</td></tr>`).join('');
+  // Mascotas: hasta 4 por fila; foto redonda (sin object-fit, que Gmail ignora) o un emoji si no hay foto
+  const ancho = Math.floor(100 / Math.min(4, Math.max(1, pets.length)));
+  const fotos = pets.slice(0, 4).map((p) => `
+      <td align="center" valign="top" width="${ancho}%" style="padding:6px 4px;font-family:${L.FONT}">
         ${p.photo && /^https:\/\//.test(p.photo)
-          ? `<img src="${escapeHtml(p.photo)}" alt="${escapeHtml(p.name)}" width="96" height="96" style="width:96px;height:96px;border-radius:48px;object-fit:cover;border:3px solid #F6F1E7">`
-          : `<div style="width:96px;height:96px;border-radius:48px;background:#F6F1E7;line-height:96px;font-size:40px;margin:0 auto">🐶</div>`}
-        <div style="font-weight:700;margin-top:6px">${escapeHtml(p.name)}</div>
-        ${p.breed ? `<div style="font-size:12px;color:#5b6b63">${escapeHtml(p.breed)}</div>` : ''}
+          ? `<img src="${escapeHtml(p.photo)}" alt="${escapeHtml(p.name)}" width="84" height="84" style="display:block;margin:0 auto;width:84px;height:84px;border-radius:42px;border:3px solid ${L.C.page}">`
+          : `<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center"><tr><td width="84" height="84" align="center" valign="middle" bgcolor="${L.C.page}" style="width:84px;height:84px;border-radius:42px;background:${L.C.page};font-size:38px;line-height:84px">🐶</td></tr></table>`}
+        <div style="margin-top:8px;font-size:14px;font-weight:700;color:${L.C.text}">${escapeHtml(p.name)}</div>
+        ${p.breed ? `<div style="font-size:12px;line-height:16px;color:${L.C.muted}">${escapeHtml(p.breed)}</div>` : ''}
       </td>`).join('');
-  const fila = (k, v) => (v ? `<tr><td style="padding:6px 0;color:#5b6b63">${k}</td><td style="padding:6px 0;font-weight:700;text-align:right">${escapeHtml(v)}</td></tr>` : '');
+  const fila = (k, v, fuerte) => (v ? `
+      <tr><td style="padding:9px 0;border-bottom:1px solid ${L.C.line};font-size:14px;line-height:20px;color:${L.C.muted}">${k}</td>
+          <td align="right" style="padding:9px 0 9px 12px;border-bottom:1px solid ${L.C.line};font-size:${fuerte ? 17 : 14}px;line-height:20px;font-weight:700;color:${fuerte ? L.C.ink : L.C.text}">${escapeHtml(v)}</td></tr>` : '');
 
-  const html = `<!doctype html><html><body style="margin:0;background:#F6F1E7;font-family:Arial,Helvetica,sans-serif;color:#1F2A24">
-  <div style="max-width:560px;margin:0 auto;padding:24px 16px">
-    <div style="background:#0F3D2E;color:#F6F1E7;border-radius:16px 16px 0 0;padding:20px 24px">
-      <p style="margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.8">Barkwalk USA</p>
-      <h1 style="margin:6px 0 0;font-size:22px">${t('¡Pago confirmado! 🐾', 'Payment confirmed! 🐾')}</h1>
-    </div>
-    <div style="background:#ffffff;border-radius:0 0 16px 16px;padding:24px">
-      <p style="margin:0 0 12px">${t('Hola', 'Hi')}${clientName ? ' ' + escapeHtml(clientName) : ''}, ${t('recibimos tu pago y tu reserva está confirmada.', 'we received your payment and your booking is confirmed.')}</p>
-      <table style="width:100%;border-collapse:collapse"><tr>${fotos}</tr></table>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;border-top:1px solid #eee;border-bottom:1px solid #eee;margin:12px 0">
+  const body = `
+      <h1 style="margin:0 0 6px;font-family:${L.FONT};font-size:24px;line-height:30px;font-weight:800;color:${L.C.ink}">${t('¡Pago confirmado! 🐾', 'Payment confirmed! 🐾')}</h1>
+      <p style="margin:0 0 18px">${t('Hola', 'Hi')}${clientName ? ' ' + escapeHtml(clientName) : ''}, ${t('recibimos tu pago y tu reserva está confirmada.', 'we received your payment and your booking is confirmed.')}</p>
+      ${fotos ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0 0 14px"><tr>${fotos}</tr></table>` : ''}
+      <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-top:1px solid ${L.C.line}">
         ${fila(t('Servicio', 'Service'), booking.service_label)}
         ${fila(t('Dirección', 'Address'), booking.address)}
         ${fila(t('Mascotas', 'Pets'), String(booking.pets_count || pets.length))}
         ${fila(t('Precio por día', 'Price per day'), porDia)}
         ${fila(t('Días', 'Days'), String((booking.dates || []).length))}
-        ${fila(t('Total pagado', 'Total paid'), total)}
+        ${fila(t('Total pagado', 'Total paid'), total, true)}
       </table>
-      <p style="margin:12px 0 4px;font-weight:700">${t('Tus días de servicio', 'Your service days')}</p>
-      <ul style="margin:0;padding-left:0;list-style:none;font-size:14px">${dias}</ul>
-      <p style="margin:16px 0 0;font-size:13px;color:#5b6b63">${t('Te avisaremos en la app cuando tu paseador acepte y vaya en camino. Los códigos de acceso solo se muestran al paseador asignado 1 hora antes de cada cita.',
-        'We will notify you in the app when your walker accepts and is on the way. Access codes are only shown to your assigned walker 1 hour before each visit.')}</p>
-      <p style="margin:12px 0 0;font-size:11px;color:#8a978f">${t('Reserva', 'Booking')} #${escapeHtml(String(booking.id).slice(0, 8))} · ${t('Aceptaste la Exención de Responsabilidad de Acceso al Hogar y Custodia de Llaves', 'You accepted the Key Handling & House Access Release of Liability')}.</p>
-    </div>
-  </div></body></html>`;
+      <p style="margin:22px 0 8px;font-size:13px;line-height:18px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${L.C.ink}">${t('Tus días de servicio', 'Your service days')}</p>
+      <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="${L.C.soft}" style="background:${L.C.soft};border:1px solid ${L.C.line};border-radius:12px">${dias}</table>
+      <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top:18px"><tr>
+        <td bgcolor="#EEF6F1" style="background:#EEF6F1;border-left:4px solid ${L.C.green};border-radius:8px;padding:12px 14px;font-size:13px;line-height:19px;color:${L.C.text}">
+          ${t('Te avisaremos en la app cuando tu paseador acepte y vaya en camino. Los códigos de acceso solo se muestran al paseador asignado 1 hora antes de cada cita.',
+              'We will notify you in the app when your walker accepts and is on the way. Access codes are only shown to your assigned walker 1 hour before each visit.')}
+        </td></tr></table>
+      ${L.button(`${L.SITE}/`, t('Abrir Barkwalk', 'Open Barkwalk'))}`;
+  const html = L.emailShell({
+    title: t('Reserva confirmada', 'Booking confirmed'),
+    preheader: t(`Tu reserva de ${(booking.dates || []).length} día(s) está confirmada · ${total}`, `Your ${(booking.dates || []).length}-day booking is confirmed · ${total}`),
+    lang: es ? 'es' : 'en',
+    bodyHtml: body,
+    footerNote: `${t('Reserva', 'Booking')} #${escapeHtml(String(booking.id).slice(0, 8))} · ${t('Aceptaste la Exención de Responsabilidad de Acceso al Hogar y Custodia de Llaves', 'You accepted the Key Handling &amp; House Access Release of Liability')}.`,
+  });
 
   const text = [
     t('¡Pago confirmado!', 'Payment confirmed!'),

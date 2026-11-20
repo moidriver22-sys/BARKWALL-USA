@@ -4,3 +4,4 @@ node_modules
 tailwind.config.js
 tailwind.input.css
 tests
+scripts
