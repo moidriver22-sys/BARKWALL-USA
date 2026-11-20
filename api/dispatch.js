@@ -12,6 +12,8 @@ const { send, bearerToken } = require('./_lib/http');
 const { isConfigured } = require('./_lib/supabase');
 const { runDispatch } = require('./_lib/dispatch');
 const { sendTestRefundEmail } = require('./_lib/test-email');
+const { runFinanceAudit } = require('./_lib/finance-agent');
+// ?action=finance_audit[&dry=1] → Agente de Cobros y Finanzas (ver _lib/finance-agent.js)
 // ?action=test_refund_email&to=<correo>[&lang=en] → correo de reembolso [TEST] (ver _lib/test-email.js)
 
 function secretOk(given) {
@@ -42,6 +44,17 @@ async function handler(req, res) {
     }
   }
   const dryRun = url.searchParams.get('dry') === '1';
+  // Empleado virtual #2: Agente de Cobros y Finanzas (job 'barkwalk-finance' de pg_cron)
+  if (url.searchParams.get('action') === 'finance_audit') {
+    try {
+      const r = await runFinanceAudit({ dryRun });
+      console.log('finance_audit:', JSON.stringify(r));
+      return send(res, 200, r);
+    } catch (e) {
+      console.error('finance_audit:', e.message);
+      return send(res, 500, { error: 'internal_error' });
+    }
+  }
   try {
     const r = await runDispatch({ dryRun });
     console.log('dispatch:', JSON.stringify({ ...r, alerts: undefined }));
