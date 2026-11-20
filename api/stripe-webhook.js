@@ -80,6 +80,9 @@ async function insertWalkDays(booking, clientName) {
     scheduled_time: booking.scheduled_time,
     scheduled_at: localToUtcIso(fecha, String(booking.scheduled_time || '').slice(0, 5)),
     payment_status: 'paid',
+    // Explícito: en producción el default heredado de la columna era 'pending', que viola su CHECK
+    // (ver supabase/migrations/20261121_fix_walker_payout_default.sql)
+    walker_payout_status: 'unpaid',
     paid_at: booking.paid_at || new Date().toISOString(),
     payment_method: 'card',
     liability_accepted_at: booking.liability_accepted_at,
