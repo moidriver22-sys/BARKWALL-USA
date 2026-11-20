@@ -9,6 +9,7 @@
 const Stripe = require('stripe');
 const { sb, sbOrThrow, enc } = require('./supabase');
 const { proPayoutPercent } = require('./membership');
+const { disputeBlocks } = require('./refunds');
 
 const WALKER_ROLES = new Set(['walker', 'shopper']);
 
@@ -108,6 +109,8 @@ async function payoutCompletedWalks(stripe, walkerId, { walkId } = {}) {
       }
       const booking = bookings.get(w.booking_id);
       if (!booking || booking.payment_status !== 'paid') throw new Error('booking_not_paid');
+      // Contracargo sin resolver: no se paga aunque el día se haya liberado (ver _lib/refunds.js)
+      if (disputeBlocks(booking.dispute_status)) throw new Error('booking_disputed');
       // Socio Pro AL ACEPTAR el paseo (walk_requests.walker_is_pro, lo fija la base): 80 %; si no, el base (75 %)
       const pctPaseo = w.walker_is_pro === true && proPct ? proPct : pct;
       const amount = Math.floor(listPriceCents(booking) * pctPaseo / 100);

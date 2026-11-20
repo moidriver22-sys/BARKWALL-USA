@@ -16,6 +16,10 @@ const { send, readRawBody, escapeHtml } = require('./_lib/http');
 const { isConfigured, sb, sbOrThrow, getAuthUserEmail, enc } = require('./_lib/supabase');
 const { localToUtcIso } = require('./_lib/time');
 const { syncSubscription } = require('./_lib/membership');
+const { handleChargeRefunded, handleDispute } = require('./_lib/refunds');
+
+// Reembolsos y disputas: añade estos eventos al endpoint en Stripe (ver _lib/refunds.js)
+const REFUND_EVENTS = new Set(['charge.refunded', 'charge.dispute.created', 'charge.dispute.closed']);
 
 const SUBSCRIPTION_EVENTS = new Set(['checkout.session.completed', 'customer.subscription.created',
   'customer.subscription.updated', 'customer.subscription.deleted']);
@@ -286,6 +290,25 @@ async function handler(req, res) {
       const r = await syncSubscription(stripe, subId);
       console.log(`Membresía ${subId}: ${JSON.stringify(r)}`);
       return send(res, 200, { received: true, membership: r.status });
+    } catch (e) {
+      console.error(`Error procesando ${event.type}:`, e.message);
+      return send(res, 500, { error: 'processing_failed' }); // Stripe reintenta
+    }
+  }
+
+  // Reembolsos y disputas → reserva, días y pagos al paseador
+  if (REFUND_EVENTS.has(event.type)) {
+    try {
+      const obj = event.data.object;
+      const r = event.type === 'charge.refunded'
+        ? await handleChargeRefunded(obj, stripe, canCallApi)
+        : await handleDispute(event.type, obj, stripe, canCallApi);
+      console.log(`${event.type} ${obj.id}: ${JSON.stringify(r)}`);
+      // El cron estaba pagando un día de esta reserva en este instante: que Stripe reintente en unos minutos
+      // para revertir esa transferencia. Solo durante 1 h (después queda en revisión y se responde 200).
+      const recent = Date.now() / 1000 - (event.created || 0) < 3600;
+      if (r.processing && r.processing.length && recent) return send(res, 500, { error: 'payout_in_progress', retry: true });
+      return send(res, 200, { received: true, ...r });
     } catch (e) {
       console.error(`Error procesando ${event.type}:`, e.message);
       return send(res, 500, { error: 'processing_failed' }); // Stripe reintenta
