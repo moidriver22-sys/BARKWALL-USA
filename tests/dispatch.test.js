@@ -167,5 +167,20 @@ const kinds = (r) => r.alerts.map((a) => `${a.kind}:${a.walk}`).sort();
     assert.ok(!/@/.test(JSON.stringify(r.body)), 'sin direcciones de correo en la respuesta');
   });
 
+  await t('acción test_refund_email: exige secreto y solo envía a OPS o a perfiles registrados', async () => {
+    const auth = { authorization: `Bearer ${process.env.CRON_SECRET}` };
+    assert.equal((await call({}, '/api/dispatch?action=test_refund_email&to=cliente@example.com')).status, 401);
+    const extraño = await call(auth, '/api/dispatch?action=test_refund_email&to=desconocido@otro.com');
+    assert.equal(extraño.status, 400); assert.equal(extraño.body.error, 'recipient_not_allowed'); assert.equal(RESEND.calls.length, 0);
+    const ok = await call(auth, '/api/dispatch?action=test_refund_email&to=Cliente@Example.com');
+    assert.equal(ok.status, 200); assert.equal(ok.body.sent, true); assert.equal(ok.body.to, 'cl***@example.com');
+    const { body } = RESEND.calls[0];
+    assert.deepEqual(body.to, ['cliente@example.com']); assert.equal(body.from, 'Barkwalk USA <soporte@barkwalkusa.com>');
+    assert.match(body.subject, /^\[TEST\] Barkwalk · Reembolso confirmado \(\$16\.00\) · #8e81294f$/);
+    assert.match(body.html, /email-logo\.png/); assert.match(body.html, /Hola Ana/);
+    const ops = await call(auth, '/api/dispatch?action=test_refund_email&to=ops@barkwalkusa.com');
+    assert.equal(ops.status, 200);
+  });
+
   console.log(`\n${passed} pruebas OK`);
 })().catch((e) => { console.error('✗ FALLO:', e.message); process.exit(1); });

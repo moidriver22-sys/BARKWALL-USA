@@ -138,4 +138,16 @@ async function sendRefundEmail(notify) {
   return { status: r.status >= 500 || r.status === 429 ? 'retry' : 'failed', reason: `resend ${r.status}: ${detalle}` };
 }
 
-module.exports = { buildRefundEmail, sendRefundEmail, resolveRecipient, DEFAULT_FROM };
+// Muestra para pruebas: datos REALES del reembolso de prueba del 20/11 (reserva 8e81294f…, $16.00, 1 día
+// cancelado; la fecha exacta se borró con la reserva). La usan scripts/send-test-email.js --refund y
+// /api/dispatch?action=test_refund_email.
+function testRefundSample(lang = 'es') {
+  return {
+    booking: { id: '8e81294f-c62f-4c8c-9e53-037cbb02454a', lang, total_cents: 1600,
+      service_label: lang === 'es' ? '🚶 Paseo Estándar · 15 min' : '🚶 Standard Walk · 15 min' },
+    full: true, refundedCents: 1600, currency: 'usd',
+    cancelledDays: [{ date: null, time: null, status: 'cancelled' }], activeDays: [],
+  };
+}
+
+module.exports = { buildRefundEmail, sendRefundEmail, resolveRecipient, testRefundSample, DEFAULT_FROM };

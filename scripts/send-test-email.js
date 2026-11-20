@@ -33,13 +33,8 @@ const booking = {
 const refund = args.includes('--refund');
 let msg;
 if (refund) {
-  const { buildRefundEmail } = require('../api/_lib/refund-email');
-  msg = buildRefundEmail({
-    booking: { id: '8e81294f-c62f-4c8c-9e53-037cbb02454a', lang, total_cents: 1600, service_label: lang === 'es' ? '🚶 Paseo Estándar · 15 min' : '🚶 Standard Walk · 15 min' },
-    full: true, refundedCents: 1600, currency: 'usd',
-    cancelledDays: [{ date: null, time: null, status: 'cancelled' }], // la fecha exacta se borró con la reserva
-    activeDays: [],
-  }, args.find((a) => a.startsWith('--name='))?.slice(7) || '');
+  const { buildRefundEmail, testRefundSample } = require('../api/_lib/refund-email');
+  msg = buildRefundEmail(testRefundSample(lang), args.find((a) => a.startsWith('--name='))?.slice(7) || '');
 } else {
   msg = buildEmail(booking, { amount_received: 9000, currency: 'usd' }, 'Ana');
 }

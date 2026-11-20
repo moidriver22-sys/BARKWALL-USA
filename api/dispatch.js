@@ -11,6 +11,8 @@ const crypto = require('crypto');
 const { send, bearerToken } = require('./_lib/http');
 const { isConfigured } = require('./_lib/supabase');
 const { runDispatch } = require('./_lib/dispatch');
+const { sendTestRefundEmail } = require('./_lib/test-email');
+// ?action=test_refund_email&to=<correo>[&lang=en] → correo de reembolso [TEST] (ver _lib/test-email.js)
 
 function secretOk(given) {
   const expected = process.env.CRON_SECRET || '';
@@ -28,6 +30,17 @@ async function handler(req, res) {
   if (!secretOk(bearerToken(req))) return send(res, 401, { error: 'unauthorized' });
 
   const url = new URL(req.url || '/', 'http://localhost');
+  // Acción de soporte: correo de reembolso de PRUEBA con la configuración real de Resend (solo a OPS o a perfiles registrados)
+  if (url.searchParams.get('action') === 'test_refund_email') {
+    try {
+      const r = await sendTestRefundEmail(url.searchParams.get('to'), url.searchParams.get('lang'));
+      console.log('dispatch test_refund_email:', r.status, r.body.error || 'sent');
+      return send(res, r.status, r.body);
+    } catch (e) {
+      console.error('dispatch test_refund_email:', e.message);
+      return send(res, 500, { error: 'internal_error' });
+    }
+  }
   const dryRun = url.searchParams.get('dry') === '1';
   try {
     const r = await runDispatch({ dryRun });
