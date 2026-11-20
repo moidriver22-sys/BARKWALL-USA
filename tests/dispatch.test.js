@@ -216,6 +216,22 @@ const kinds = (r) => r.alerts.map((a) => `${a.kind}:${a.walk}`).sort();
     assert.equal(r.push.not_configured, 2); assert.equal(r.sent, 2); assert.equal(RESEND.calls.length, 2);
   });
 
+  await t('acción test_push: exige secreto, solo a perfiles registrados, y llega a sus dispositivos', async () => {
+    const auth = { authorization: `Bearer ${process.env.CRON_SECRET}` };
+    assert.equal((await call({}, '/api/dispatch?action=test_push&to=paseador@example.com')).status, 401);
+    process.env.VAPID_PUBLIC_KEY = 'pub'; process.env.VAPID_PRIVATE_KEY = 'priv'; setPushSender(fakePush); PUSHES = [];
+    try {
+      DB.push_subscriptions = [{ id: 1, user_id: 'wk', endpoint: 'https://push.example/wk-phone', p256dh: 'k', auth: 'a', fail_count: 0 }];
+      const no = await call(auth, '/api/dispatch?action=test_push&to=desconocido@otro.com');
+      assert.equal(no.status, 400); assert.equal(no.body.error, 'recipient_not_allowed');
+      const ok = await call(auth, '/api/dispatch?action=test_push&to=Paseador@Example.com');
+      assert.equal(ok.status, 200); assert.deepEqual(ok.body, { push: 'sent', sent: 1, failed: 0 });
+      assert.equal(PUSHES[0].endpoint, 'https://push.example/wk-phone'); assert.match(PUSHES[0].payload.title, /Prueba de Barkwalk/);
+      const sinDispositivos = await call(auth, '/api/dispatch?action=test_push&to=cliente@example.com');
+      assert.equal(sinDispositivos.status, 409); assert.equal(sinDispositivos.body.push, 'no_devices');
+    } finally { setPushSender(null); delete process.env.VAPID_PUBLIC_KEY; delete process.env.VAPID_PRIVATE_KEY; }
+  });
+
   await t('acción test_refund_email: exige secreto y solo envía a OPS o a perfiles registrados', async () => {
     const auth = { authorization: `Bearer ${process.env.CRON_SECRET}` };
     assert.equal((await call({}, '/api/dispatch?action=test_refund_email&to=cliente@example.com')).status, 401);

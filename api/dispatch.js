@@ -11,7 +11,8 @@ const crypto = require('crypto');
 const { send, bearerToken } = require('./_lib/http');
 const { isConfigured } = require('./_lib/supabase');
 const { runDispatch } = require('./_lib/dispatch');
-const { sendTestRefundEmail } = require('./_lib/test-email');
+const { sendTestRefundEmail, sendTestPush } = require('./_lib/test-email');
+// ?action=test_push&to=<correo> → notificación push de prueba a ese perfil (ver _lib/test-email.js)
 const { runFinanceAudit } = require('./_lib/finance-agent');
 // ?action=finance_audit[&dry=1] → Agente de Cobros y Finanzas (ver _lib/finance-agent.js)
 // ?action=test_refund_email&to=<correo>[&lang=en] → correo de reembolso [TEST] (ver _lib/test-email.js)
@@ -40,6 +41,17 @@ async function handler(req, res) {
       return send(res, r.status, r.body);
     } catch (e) {
       console.error('dispatch test_refund_email:', e.message);
+      return send(res, 500, { error: 'internal_error' });
+    }
+  }
+  // Push de PRUEBA a los dispositivos de un perfil registrado (verifica VAPID + suscripción real)
+  if (url.searchParams.get('action') === 'test_push') {
+    try {
+      const r = await sendTestPush(url.searchParams.get('to'));
+      console.log('dispatch test_push:', r.status, JSON.stringify(r.body));
+      return send(res, r.status, r.body);
+    } catch (e) {
+      console.error('dispatch test_push:', e.message);
       return send(res, 500, { error: 'internal_error' });
     }
   }

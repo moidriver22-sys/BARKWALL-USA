@@ -37,4 +37,22 @@ async function sendTestRefundEmail(to, lang = 'es') {
   return { status: 200, body: { sent: true, id: j.id, to: masked, subject: `[TEST] ${msg.subject}` } };
 }
 
-module.exports = { sendTestRefundEmail, allowedRecipient };
+// Notificación push de PRUEBA a todos los dispositivos de un perfil registrado (claves VAPID de producción).
+// Lo expone /api/dispatch?action=test_push&to=<correo del perfil> (protegido con CRON_SECRET).
+async function sendTestPush(to) {
+  const { sendPushToUsers, pushConfigured } = require('./push');
+  if (!pushConfigured()) return { status: 503, body: { error: 'vapid_not_configured' } };
+  const email = String(to || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return { status: 400, body: { error: 'invalid_email' } };
+  const r = await sb(`/rest/v1/profiles?email=eq.${enc(email)}&select=id&limit=1`);
+  const p = r.ok && Array.isArray(r.data) && r.data[0];
+  if (!p) return { status: 400, body: { error: 'recipient_not_allowed' } };
+  const res = await sendPushToUsers([p.id], {
+    title: '🔔 Prueba de Barkwalk USA',
+    body: 'Si ves esto, las notificaciones de este teléfono funcionan. · Notifications are working on this device.',
+    url: '/', tag: 'barkwalk-test-push', urgent: false,
+  });
+  return { status: res.status === 'sent' ? 200 : 409, body: { push: res.status, sent: res.sent, failed: res.failed } };
+}
+
+module.exports = { sendTestRefundEmail, sendTestPush, allowedRecipient };
