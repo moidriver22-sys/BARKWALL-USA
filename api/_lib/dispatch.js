@@ -16,6 +16,7 @@
 // ---------------------------------------------------------------------------
 const { sb, sbOrThrow, enc, getAuthUserEmail } = require('./supabase');
 const L = require('./email-layout');
+const { sendPushToUsers, adminUserIds } = require('./push');
 
 const MIN = 60 * 1000;
 const LOOKBACK_MS = 3 * 24 * 60 * MIN; // solo paseos recientes: nunca se despiertan alertas viejas
@@ -152,6 +153,26 @@ function buildDispatchEmail(kind, w, cfg, recipientName = '') {
   return { subject, html, text };
 }
 
+// Texto corto para la notificación del teléfono (bilingüe, como los correos)
+function pushText(kind, w) {
+  const pet = w.pet_name || 'tu mascota';
+  const c = whenText(w);
+  const hora = typeof c === 'string' ? c : c.es;
+  const T = {
+    pending_walker_reminder: ['⏳ Solicitud sin aceptar', `${pet} te está esperando. Ábrela para aceptarla. · A walk request is waiting for you.`],
+    upcoming_walker: ['🐾 Tu paseo empieza pronto', `${pet} · ${hora}. Los códigos de acceso ya están en la app.`],
+    upcoming_client: ['🐾 Tu paseo empieza pronto', `${pet} · ${hora}. Podrás seguirlo en vivo en la app.`],
+    late_start_walker: ['⚠️ Tu paseo ya debía empezar', `${pet} estaba programado para ${hora}. Márcalo en la app o escribe al cliente.`],
+    overdue_walker: ['⏱️ ¿Ya terminaste el paseo?', `El paseo de ${pet} lleva más tiempo del contratado. Márcalo como completado.`],
+    pending_open_ops: ['[Ops] Solicitud sin paseador', `${pet} · ${hora}: nadie la ha aceptado.`],
+    pending_near_start_ops: ['[Ops] URGENTE: paseo sin aceptar', `${pet} empieza ${hora} y sigue sin paseador.`],
+    late_start_ops: ['[Ops] Paseo sin iniciar', `${pet} · ${hora}: aceptado pero no ha empezado.`],
+    overdue_ops: ['[Ops] Paseo abierto demasiado tiempo', `${pet}: sigue en curso más allá de su duración.`],
+  }[kind] || ['Barkwalk USA', pet];
+  const urgent = /near_start|late_start|overdue/.test(kind);
+  return { title: T[0], body: T[1], url: '/', tag: `${kind}-${String(w.id).slice(0, 12)}`, urgent };
+}
+
 async function sendEmail(cfg, to, msg, idem) {
   const key = (process.env.RESEND_API_KEY || '').trim();
   const r = await fetch('https://api.resend.com/emails', {
@@ -180,7 +201,7 @@ async function runDispatch({ now = Date.now(), dryRun = false } = {}) {
   const cfg = config();
   const walks = await loadWalks(now);
   const plan = planAlerts(walks, now, cfg);
-  const resumen = { checked: walks.length, planned: plan.length, sent: 0, skipped: 0, failed: 0, byKind: {}, dryRun, alerts: [] };
+  const resumen = { checked: walks.length, planned: plan.length, sent: 0, skipped: 0, failed: 0, byKind: {}, push: {}, dryRun, alerts: [] };
   const anota = (a, status) => {
     resumen.alerts.push({ kind: a.kind, walk: String(a.walk.id).slice(0, 8), role: a.role, status });
     resumen.byKind[a.kind] = (resumen.byKind[a.kind] || 0) + (status === 'sent' || status === 'would_send' ? 1 : 0);
@@ -194,8 +215,14 @@ async function runDispatch({ now = Date.now(), dryRun = false } = {}) {
     if (resumen.sent >= cfg.maxPerRun) { anota(a, 'deferred'); continue; } // tope por ejecución; sigue en la próxima
     if (!(await claim(a.walk.id, a.kind, a.role))) { resumen.skipped++; continue; } // ya avisado antes
     try {
+      // 1) Teléfono (Web Push): destinatario directo, o los administradores en las alertas de operaciones.
+      //    Nunca bloquea: si falla o no hay dispositivos, el correo sigue saliendo como respaldo.
+      const userIds = a.role === 'ops' ? await adminUserIds() : [a.role === 'walker' ? a.walk.walker_id : a.walk.client_id];
+      const push = await sendPushToUsers(userIds, pushText(a.kind, a.walk)).catch((e) => ({ status: 'error', sent: 0, reason: e.message }));
+      resumen.push[push.status] = (resumen.push[push.status] || 0) + 1;
+      // 2) Correo (respaldo)
       const dest = a.role === 'ops' ? { email: cfg.opsEmail, name: '' } : await emailOf(a.role === 'walker' ? a.walk.walker_id : a.walk.client_id);
-      if (!dest) { anota(a, 'no_recipient'); continue; } // el reclamo se queda: no hay a quién avisar
+      if (!dest) { anota(a, push.sent ? 'push_only' : 'no_recipient'); if (push.sent) resumen.sent++; continue; } // el reclamo se queda
       await sendEmail(cfg, dest.email, buildDispatchEmail(a.kind, a.walk, cfg, dest.name), `dispatch-${a.walk.id}-${a.kind}`);
       resumen.sent++; anota(a, 'sent');
     } catch (e) {
@@ -206,4 +233,4 @@ async function runDispatch({ now = Date.now(), dryRun = false } = {}) {
   return resumen;
 }
 
-module.exports = { runDispatch, planAlerts, buildDispatchEmail, durationMinutes, config };
+module.exports = { runDispatch, planAlerts, buildDispatchEmail, pushText, durationMinutes, config };

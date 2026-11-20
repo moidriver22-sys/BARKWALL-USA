@@ -18,6 +18,13 @@
       ]
     },
     {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
       "source": "/.well-known/apple-developer-merchantid-domain-association",
       "headers": [
         { "key": "Content-Type", "value": "text/plain" }

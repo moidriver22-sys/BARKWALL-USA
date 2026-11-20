@@ -3583,6 +3583,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             try { const n = input.value.length; input.setSelectionRange(n, n); } catch (e) {}
         }
         function openBookingModal() {
+            if (window.bwPushGate && !window.bwPushGate.require()) return; // reservar exige notificaciones activas
             document.getElementById('bookingModal').classList.remove('hidden');
             initBookingSchedule(); // días, hora, mascotas y cláusula legal
             if (typeof initCardPayments === 'function' && selectedPayment === 'card') initCardPayments(); // Stripe Elements + tarjetas guardadas
@@ -4042,6 +4043,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 
         async function logoutUser() {
             const sb = window.supabaseClient;
+            // Con la sesión aún activa: este dispositivo deja de recibir avisos push de esta cuenta
+            if (window.bwPushGate) { try { await window.bwPushGate.unregister(); } catch (e) { console.warn('push unregister:', e); } }
             try {
                 const { error } = (await sb?.auth.signOut()) || {};
                 // Sin red, supabase-js devuelve error y NO borra la sesión local: al recargar seguiría dentro.
@@ -4093,6 +4096,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 // El mapa necesita estar visible para calcular su tamaño
                 if (currentUserRole === 'client' && typeof onClientDashboardShown === 'function') onClientDashboardShown();
                 if (currentUserRole === 'shopper' && typeof onWalkerDashboardShown === 'function') onWalkerDashboardShown();
+                // Notificaciones obligatorias: si este dispositivo no las tiene activas, pantalla de activación (push-client.js)
+                if (window.bwPushGate) window.bwPushGate.check();
             }, 500);
         }
 
@@ -4275,6 +4280,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 
 <!-- Librería de Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<!-- Notificaciones push obligatorias (service worker /sw.js + suscripción en Supabase) -->
+<script src="/push-client.js?v=20261120" defer></script>
 
 <!-- Script en tiempo real definitivo -->
 <script>
@@ -4532,6 +4539,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   }
 
   async function acceptWalk(paseo, box) {
+    if (window.bwPushGate && !window.bwPushGate.require()) return; // aceptar exige notificaciones activas
     const es = currentLang === 'es';
     const btnAccept = box.querySelector('[data-action="accept"]');
     const btnReject = box.querySelector('[data-action="reject"]');

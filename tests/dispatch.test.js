@@ -59,10 +59,18 @@ global.fetch = async (url, opts = {}) => {
   const hit = rows.filter((r) => filters.every(([k, e]) => (k === 'or' ? matchOr(r, e) : cmp(r, k, e))));
   if (method === 'GET') return resp(200, hit);
   if (method === 'DELETE') { DB[table] = rows.filter((r) => !hit.includes(r)); return resp(204, null); }
+  if (method === 'PATCH') { const b = JSON.parse(opts.body); hit.forEach((r) => Object.assign(r, b)); return resp(204, null); }
   throw new Error('método no soportado ' + method);
 };
 
 const { runDispatch, planAlerts, durationMinutes, config } = require(path.join(ROOT, 'api/_lib/dispatch.js'));
+const { setPushSender } = require(path.join(ROOT, 'api/_lib/push.js'));
+// Push simulado: registra cada envío; los endpoints con "gone" responden 410 (suscripción caducada)
+let PUSHES = [];
+const fakePush = async (sub, payload, opts) => {
+  if (/gone/.test(sub.endpoint)) { const e = new Error('Gone'); e.statusCode = 410; throw e; }
+  PUSHES.push({ endpoint: sub.endpoint, payload: JSON.parse(payload), opts });
+};
 const handler = require(path.join(ROOT, 'api/dispatch.js'));
 let passed = 0;
 const t = async (name, fn) => { reset(); await fn(); passed++; console.log('✓', name); };
@@ -165,6 +173,47 @@ const kinds = (r) => r.alerts.map((a) => `${a.kind}:${a.walk}`).sort();
     const r = await call({ authorization: `Bearer ${process.env.CRON_SECRET}` }, '/api/dispatch?dry=1');
     assert.equal(r.status, 200); assert.equal(r.body.dryRun, true); assert.equal(r.body.planned, 2);
     assert.ok(!/@/.test(JSON.stringify(r.body)), 'sin direcciones de correo en la respuesta');
+  });
+
+  await t('push al teléfono: paseador/cliente directos, ops → administradores; correo como respaldo', async () => {
+    setPushSender(fakePush); PUSHES = [];
+    try {
+      DB.profiles.push({ id: 'adm', email: 'admin@example.com', full_name: 'Admin', is_admin: true });
+      DB.push_subscriptions = [
+        { id: 1, user_id: 'wk', endpoint: 'https://push.example/wk-phone', p256dh: 'k', auth: 'a', fail_count: 0 },
+        { id: 2, user_id: 'cli', endpoint: 'https://push.example/cli-phone', p256dh: 'k', auth: 'a', fail_count: 0 },
+        { id: 3, user_id: 'adm', endpoint: 'https://push.example/adm-phone', p256dh: 'k', auth: 'a', fail_count: 0 },
+      ];
+      walk('w-soon', { status: 'accepted', walker_id: 'wk', scheduled_at: iso(50) });        // upcoming_client + upcoming_walker
+      walk('w-overdue', { status: 'in_progress', walker_id: 'wk', duration: '30 min', started_at: iso(-80) }); // overdue_ops + overdue_walker
+      const r = await runDispatch({ now: NOW });
+      assert.equal(r.sent, 4); assert.equal(r.push.sent, 4);
+      const por = (ep) => PUSHES.filter((p) => p.endpoint.endsWith(ep)).map((p) => p.payload.title).sort();
+      assert.deepEqual(por('wk-phone'), ['⏱️ ¿Ya terminaste el paseo?', '🐾 Tu paseo empieza pronto']);
+      assert.deepEqual(por('cli-phone'), ['🐾 Tu paseo empieza pronto']);
+      assert.deepEqual(por('adm-phone'), ['[Ops] Paseo abierto demasiado tiempo']);
+      const urgente = PUSHES.find((p) => p.payload.title.startsWith('[Ops]'));
+      assert.equal(urgente.payload.urgent, true); assert.equal(urgente.opts.urgency, 'high'); assert.match(urgente.payload.tag, /^overdue_ops-w-overdue/);
+      assert.equal(RESEND.calls.length, 4, 'el correo sigue saliendo como respaldo');
+    } finally { setPushSender(null); }
+  });
+
+  await t('push: suscripción caducada (410) se borra; sin dispositivos el correo sale igual', async () => {
+    setPushSender(fakePush); PUSHES = [];
+    try {
+      DB.push_subscriptions = [{ id: 9, user_id: 'wk', endpoint: 'https://push.example/gone', p256dh: 'k', auth: 'a', fail_count: 0 }];
+      walk('w-soon', { status: 'accepted', walker_id: 'wk', scheduled_at: iso(50) });
+      const r = await runDispatch({ now: NOW });
+      assert.equal(DB.push_subscriptions.length, 0, 'suscripción 410 eliminada');
+      assert.equal(r.sent, 2); assert.equal(RESEND.calls.length, 2);
+      assert.ok(r.push.failed >= 1 && r.push.no_devices >= 1);
+    } finally { setPushSender(null); }
+  });
+
+  await t('push sin claves VAPID: no se intenta y el correo sale igual', async () => {
+    walk('w-soon', { status: 'accepted', walker_id: 'wk', scheduled_at: iso(50) });
+    const r = await runDispatch({ now: NOW });
+    assert.equal(r.push.not_configured, 2); assert.equal(r.sent, 2); assert.equal(RESEND.calls.length, 2);
   });
 
   await t('acción test_refund_email: exige secreto y solo envía a OPS o a perfiles registrados', async () => {
