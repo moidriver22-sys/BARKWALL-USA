@@ -1,0 +1,18 @@
+{
+  "name": "barkwalk-usa",
+  "private": true,
+  "description": "Barkwalk USA: sitio estático (index.html) + Vercel Functions en /api",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o tailwind.css --minify"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
+    "stripe": "23.0.1"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.19"
+  }
+}

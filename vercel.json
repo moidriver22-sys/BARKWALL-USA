@@ -1,0 +1,27 @@
+{
+  "crons": [
+    { "path": "/api/cron-payouts", "schedule": "0 15 * * *" }
+  ],
+  "rewrites": [
+    { "source": "/reset-password", "destination": "/index.html" },
+    { "source": "/terminos-clientes", "destination": "/terminos-clientes.html" },
+    { "source": "/terminos-paseadores", "destination": "/terminos-paseadores.html" },
+    { "source": "/privacidad", "destination": "/privacidad.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+      ]
+    },
+    {
+      "source": "/.well-known/apple-developer-merchantid-domain-association",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain" }
+      ]
+    }
+  ]
+}
