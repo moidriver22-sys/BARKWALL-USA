@@ -17,6 +17,8 @@ const { sendTestRefundEmail, sendTestPush, sendTestGrowth } = require('./_lib/te
 const { runFinanceAudit } = require('./_lib/finance-agent');
 // ?action=finance_audit[&dry=1] → Agente de Cobros y Finanzas (ver _lib/finance-agent.js)
 const { runGrowth } = require('./_lib/growth-agent');
+const { backfillEarnings } = require('./_lib/earnings');
+// ?action=backfill_earnings → rellena la ganancia neta del paseador en días ya creados (ver _lib/earnings.js)
 // ?action=growth[&dry=1] → Agente de Fidelización y Crecimiento (ver _lib/growth-agent.js)
 // ?action=test_refund_email&to=<correo>[&lang=en] → correo de reembolso [TEST] (ver _lib/test-email.js)
 
@@ -55,6 +57,16 @@ async function handler(req, res) {
       return send(res, r.status, r.body);
     } catch (e) {
       console.error('dispatch test_push:', e.message);
+      return send(res, 500, { error: 'internal_error' });
+    }
+  }
+  if (url.searchParams.get('action') === 'backfill_earnings') {
+    try {
+      const r = await backfillEarnings();
+      console.log('backfill_earnings:', JSON.stringify(r));
+      return send(res, 200, r);
+    } catch (e) {
+      console.error('backfill_earnings:', e.message);
       return send(res, 500, { error: 'internal_error' });
     }
   }

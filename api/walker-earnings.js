@@ -15,7 +15,8 @@
 const { send, bearerToken } = require('./_lib/http');
 const { rateLimit } = require('./_lib/rate-limit');
 const { isConfigured, sb, sbOrThrow, getUserFromToken, enc } = require('./_lib/supabase');
-const { WALKER_ROLES, payoutPercent, listPriceCents } = require('./_lib/connect');
+const { WALKER_ROLES, payoutPercent } = require('./_lib/connect');
+const { walkerEarningCents } = require('./_lib/earnings');
 const { proPayoutPercent } = require('./_lib/membership');
 
 async function handler(req, res) {
@@ -66,8 +67,7 @@ async function handler(req, res) {
         if (w.walker_payout_status === 'processing' && Number(w.walker_payout_cents) > 0) { pendingCents += Number(w.walker_payout_cents); continue; }
         const b = bookings.get(String(w.booking_id));
         if (!b || b.payment_status !== 'paid') continue;
-        const p = w.walker_is_pro === true && proPct ? proPct : pct;
-        pendingCents += Math.floor(listPriceCents(b) * p / 100);
+        pendingCents += walkerEarningCents(b, { pro: w.walker_is_pro === true }) || 0;
       }
     }
 

@@ -15,6 +15,7 @@ const Stripe = require('stripe');
 const { send, readRawBody, escapeHtml } = require('./_lib/http');
 const { isConfigured, sb, sbOrThrow, getAuthUserEmail, enc } = require('./_lib/supabase');
 const { localToUtcIso } = require('./_lib/time');
+const { earningColumns } = require('./_lib/earnings');
 const { syncSubscription } = require('./_lib/membership');
 const { handleChargeRefunded, handleDispute } = require('./_lib/refunds');
 const { sendRefundEmail } = require('./_lib/refund-email');
@@ -53,7 +54,8 @@ function fmtTime(hm) {
 
 // ---------- Días de paseo (una fila de walk_requests por fecha) ----------
 const OPTIONAL_WALK_COLUMNS = ['pet_photo_url', 'pet_ids', 'pets_count', 'scheduled_date', 'scheduled_time', 'scheduled_at', 'booking_id',
-  'payment_status', 'paid_at', 'payment_method', 'pickup_address', 'pickup_latitude', 'pickup_longitude', 'liability_accepted_at', 'special_notes'];
+  'payment_status', 'paid_at', 'payment_method', 'pickup_address', 'pickup_latitude', 'pickup_longitude', 'liability_accepted_at', 'special_notes',
+  'walker_earning_std_cents', 'walker_earning_pro_cents'];
 
 async function insertWalkDays(booking, clientName) {
   const pets = Array.isArray(booking.pets) ? booking.pets : [];
@@ -72,7 +74,9 @@ async function insertWalkDays(booking, clientName) {
     status: 'pending',
     service_type: booking.service_label,
     duration: duracion,
-    total_price: (Number(booking.per_day_cents) || 0) / 100, // cada día es un servicio independiente
+    // Privacidad: el precio que pagó el cliente NO va en walk_requests (lo leen los paseadores). Vive en
+    // bookings.per_day_cents (solo dueño y admin). Aquí solo va la ganancia neta del paseador (_lib/earnings.js).
+    ...earningColumns(booking),
     address: booking.address,
     pickup_address: booking.address,
     pickup_latitude: booking.pickup_lat != null ? booking.pickup_lat : undefined,

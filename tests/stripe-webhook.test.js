@@ -192,12 +192,18 @@ async function callWebhook(type, object) {
   };
   await t('regresión payment_intent.succeeded: marca pagada, crea 2 días, sin duplicar en reintento', async () => {
     bookingNuevo();
+    process.env.WALKER_PAYOUT_PERCENT = '75'; process.env.WALKER_PRO_PAYOUT_PERCENT = '80';
     PI = { id: 'pi_2', status: 'succeeded', amount_received: 4400, currency: 'usd', created: 1, latest_charge: 'ch_2', metadata: { booking_id: 'b2' } };
     const r = await callWebhook('payment_intent.succeeded', PI);
     assert.equal(r.status, 200); assert.equal(r.body.paid, true);
     const b = DB.bookings.find(x => x.id === 'b2');
     assert.equal(b.payment_status, 'paid'); assert.ok(b.walks_created_at);
     assert.equal(DB.walk_requests.filter(w => w.booking_id === 'b2').length, 2);
+    // Privacidad: los días (que leen los paseadores) NO llevan el precio del cliente, solo su ganancia neta
+    const dias = DB.walk_requests.filter(w => w.booking_id === 'b2');
+    assert.ok(dias.every(w => w.total_price == null), 'walk_requests sin total_price');
+    assert.ok(dias.every(w => w.walker_earning_std_cents === 1650 && w.walker_earning_pro_cents === 1760), 'ganancia 75 % / 80 % de $22.00');
+    delete process.env.WALKER_PAYOUT_PERCENT; delete process.env.WALKER_PRO_PAYOUT_PERCENT;
     b.walks_created_at = null; // fuerza que el reintento vuelva a intentar insertar
     await callWebhook('payment_intent.succeeded', PI);
     assert.equal(DB.walk_requests.filter(w => w.booking_id === 'b2').length, 2, 'sin días duplicados');

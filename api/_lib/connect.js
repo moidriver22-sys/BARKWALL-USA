@@ -9,6 +9,8 @@
 const Stripe = require('stripe');
 const { sb, sbOrThrow, enc } = require('./supabase');
 const { proPayoutPercent } = require('./membership');
+// Cálculo de la ganancia del paseador: fuente única en _lib/earnings.js (también lo usan la app y el webhook)
+const { payoutPercent, listPriceCents, walkerEarningCents } = require('./earnings');
 const { disputeBlocks } = require('./refunds');
 
 const WALKER_ROLES = new Set(['walker', 'shopper']);
@@ -27,11 +29,6 @@ function getStripe() {
   return Stripe(process.env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient(), maxNetworkRetries: 2 });
 }
 
-// Porcentaje del precio por día que recibe el paseador. Sin valor válido NO se transfiere nada.
-function payoutPercent() {
-  const p = Number(process.env.WALKER_PAYOUT_PERCENT);
-  return Number.isFinite(p) && p > 0 && p <= 100 ? p : null;
-}
 
 function siteUrl() {
   return (process.env.PUBLIC_SITE_URL || 'https://www.barkwalkusa.com').replace(/\/+$/, '');
@@ -57,15 +54,6 @@ async function syncAccountStatus(stripe, profile) {
   return { ...profile, ...estado, account: acct };
 }
 
-// Precio de LISTA por día (base del pago al paseador): el descuento del Club lo absorbe Barkwalk.
-// Solo se usa per_day_list_cents si es coherente con lo cobrado; si no, lo cobrado (nunca se paga de más).
-function listPriceCents(booking) {
-  const cobrado = Number(booking.per_day_cents) || 0;
-  const lista = Number(booking.per_day_list_cents) || 0;
-  const pct = Number(booking.member_discount_pct) || 0;
-  if (lista > cobrado && pct > 0 && Math.round(lista * (100 - pct) / 100) === cobrado) return lista;
-  return cobrado;
-}
 
 // Id del cargo (ch_…) del pago de la reserva; se usa como source_transaction de la transferencia
 async function chargeIdForBooking(stripe, booking) {
@@ -113,7 +101,7 @@ async function payoutCompletedWalks(stripe, walkerId, { walkId } = {}) {
       if (disputeBlocks(booking.dispute_status)) throw new Error('booking_disputed');
       // Socio Pro AL ACEPTAR el paseo (walk_requests.walker_is_pro, lo fija la base): 80 %; si no, el base (75 %)
       const pctPaseo = w.walker_is_pro === true && proPct ? proPct : pct;
-      const amount = Math.floor(listPriceCents(booking) * pctPaseo / 100);
+      const amount = walkerEarningCents(booking, { pro: w.walker_is_pro === true });
       if (amount < 1) throw new Error('invalid_amount');
       const chargeId = await chargeIdForBooking(stripe, booking);
       if (!chargeId) throw new Error('charge_not_found');
