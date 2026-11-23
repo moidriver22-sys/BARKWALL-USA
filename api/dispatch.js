@@ -15,6 +15,8 @@ const { sendTestRefundEmail, sendTestPush } = require('./_lib/test-email');
 // ?action=test_push&to=<correo> → notificación push de prueba a ese perfil (ver _lib/test-email.js)
 const { runFinanceAudit } = require('./_lib/finance-agent');
 // ?action=finance_audit[&dry=1] → Agente de Cobros y Finanzas (ver _lib/finance-agent.js)
+const { runGrowth } = require('./_lib/growth-agent');
+// ?action=growth[&dry=1] → Agente de Fidelización y Crecimiento (ver _lib/growth-agent.js)
 // ?action=test_refund_email&to=<correo>[&lang=en] → correo de reembolso [TEST] (ver _lib/test-email.js)
 
 function secretOk(given) {
@@ -56,6 +58,17 @@ async function handler(req, res) {
     }
   }
   const dryRun = url.searchParams.get('dry') === '1';
+  // Empleado virtual #3: Agente de Fidelización y Crecimiento (job 'barkwalk-growth' de pg_cron)
+  if (url.searchParams.get('action') === 'growth') {
+    try {
+      const r = await runGrowth({ dryRun });
+      console.log('growth:', JSON.stringify({ ...r, items: undefined }));
+      return send(res, 200, r);
+    } catch (e) {
+      console.error('growth:', e.message);
+      return send(res, 500, { error: 'internal_error' });
+    }
+  }
   // Empleado virtual #2: Agente de Cobros y Finanzas (job 'barkwalk-finance' de pg_cron)
   if (url.searchParams.get('action') === 'finance_audit') {
     try {
