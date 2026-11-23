@@ -1569,23 +1569,43 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 
     <!-- MODAL DE RESERVA Y SERVICIOS -->
     <div id="bookingModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-brandCream border border-brandBeige w-full max-w-md rounded-3xl p-6 space-y-4 text-brandTextDark shadow-2xl max-h-[90vh] overflow-y-auto animate-modal">
+        <div class="bk-card bg-brandCream border border-brandBeige w-full max-w-md rounded-3xl p-6 space-y-4 text-brandTextDark shadow-2xl max-h-[90vh] overflow-y-auto animate-modal">
+            <!-- CANCELAR: confirmación amable. Nada se borra hasta pulsar "Sí, cancelar" -->
+            <div id="bkCancel" class="bk-cancel" role="alertdialog" aria-modal="true" aria-labelledby="bkCancelTitle" aria-describedby="bkCancelText" hidden>
+                <div class="bk-cancel-box">
+                    <span class="bk-cancel-emoji" aria-hidden="true">🐶</span>
+                    <h4 id="bkCancelTitle">¿Quieres cancelar tu reserva?</h4>
+                    <p id="bkCancelText">Tranquilo: no se ha hecho ningún cargo. Si sigues, todo lo que elegiste se queda tal cual.</p>
+                    <button type="button" id="bkKeep" class="bk-btn bk-btn-primary">💚 Seguir con mi reserva</button>
+                    <button type="button" id="bkConfirmCancel" class="bk-btn bk-btn-soft">Sí, cancelar</button>
+                </div>
+            </div>
             <div class="flex justify-between items-center border-b border-brandBeige pb-3">
                 <h3 id="modalTitleBooking" class="font-bold text-base text-brandDarkGreen flex items-center gap-2">
                     <i data-lucide="calendar" class="w-4 h-4 text-brandGold animate-bounce"></i> Book Service
                 </h3>
-                <button onclick="closeBookingModal()" class="text-brandDarkGreen/60 hover:text-brandDarkGreen active:scale-90 transition-all cursor-pointer p-1">
+                <button onclick="window.BWBookingFlow ? BWBookingFlow.requestClose() : closeBookingModal()" aria-label="Cerrar / Close" class="text-brandDarkGreen/60 hover:text-brandDarkGreen active:scale-90 transition-all cursor-pointer p-1">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
             
             <div class="space-y-5">
-                <!-- CATÁLOGO DE SERVICIOS (renderizado por renderCatalog()) -->
-                <div>
-                    <p id="lblServiceType" class="bw-label">Service Type</p>
-                    <div id="serviceCatalog" class="space-y-3"></div>
-                </div>
+                <!-- PASOS DE LA RESERVA (booking-flow.js): indicador hecho / activo / pendiente.
+                     Sin ese script, todo el formulario se ve de una vez como antes (stepper y navegación ocultos). -->
+                <nav id="bkStepper" class="bk-stepper" aria-label="Pasos de la reserva / Booking steps" hidden>
+                    <ol>
+                        <li><button type="button" data-goto="0"><span class="bk-dot">1</span><span class="bk-dot-label">Mascotas</span></button></li>
+                        <li><button type="button" data-goto="1"><span class="bk-dot">2</span><span class="bk-dot-label">Servicio</span></button></li>
+                        <li><button type="button" data-goto="2"><span class="bk-dot">3</span><span class="bk-dot-label">Cuándo</span></button></li>
+                        <li><button type="button" data-goto="3"><span class="bk-dot">4</span><span class="bk-dot-label">Revisar</span></button></li>
+                    </ol>
+                    <div class="bk-track" aria-hidden="true"><span id="bkProgressBar"></span></div>
+                </nav>
+                <!-- Resumen en vivo: se actualiza con cada elección -->
+                <div id="bkLive" class="bk-live" aria-live="polite"></div>
 
+                <section class="bk-step" data-step="0" aria-label="1">
+                    <h4 class="bk-step-title" data-title="0"></h4>
                 <div>
                     <p id="lblSelectPet" class="bw-label">Pets in this booking</p>
                     <!-- Mascota principal (compatibilidad): la primera marcada en la lista de abajo -->
@@ -1598,6 +1618,44 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <button type="button" id="btnBookingManagePets" onclick="openMyPetsModal()" class="text-[11px] font-bold text-brandDarkGreen underline underline-offset-2 mt-1 cursor-pointer">🐾 Manage my pets</button>
                 </div>
 
+                </section>
+
+                <section class="bk-step" data-step="1" aria-label="2">
+                    <h4 class="bk-step-title" data-title="1"></h4>
+                <!-- CATÁLOGO DE SERVICIOS (renderizado por renderCatalog()) -->
+                <div>
+                    <p id="lblServiceType" class="bw-label">Service Type</p>
+                    <div id="serviceCatalog" class="space-y-3"></div>
+                </div>
+
+                <!-- COMPLEMENTOS: interruptores -->
+                <div>
+                    <p id="lblExtrasHeader" class="bw-label">Add-ons</p>
+                    <div class="space-y-2.5 pt-1">
+                        <div class="addon-card">
+                            <label class="addon-row">
+                                <span class="addon-icon"><i data-lucide="dog" class="w-4 h-4"></i></span>
+                                <span class="addon-text">
+                                    <span id="lblLargeDogOpt" class="addon-title">Large / high-energy dog</span>
+                                    <span id="lblLargeDogSub" class="addon-sub">Over 50 lbs</span>
+                                </span>
+                                <span class="addon-price">+$4</span>
+                                <input type="checkbox" id="chkLargeDog" onchange="recalculateTotal()" class="addon-input sr-only">
+                                <span class="bw-switch" aria-hidden="true"></span>
+                            </label>
+                        </div>
+
+
+                        <!-- Grooming Extras (baño, uñas): renderizados desde GROOMING_ADDONS -->
+                        <p id="lblGroomingHeader" class="bw-label pt-2">✂️ Grooming Extras</p>
+                        <div id="groomingAddons" class="space-y-2.5"></div>
+                    </div>
+                </div>
+
+                </section>
+
+                <section class="bk-step" data-step="2" aria-label="3">
+                    <h4 class="bk-step-title" data-title="2"></h4>
                 <!-- DÍAS Y HORA: cada día seleccionado es un servicio independiente -->
                 <div>
                     <div class="flex items-center justify-between gap-2 mb-1">
@@ -1633,30 +1691,12 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <input type="text" id="hpBooking" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="bw-hp" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;opacity:0">
                 </div>
 
-                <!-- COMPLEMENTOS: interruptores -->
-                <div>
-                    <p id="lblExtrasHeader" class="bw-label">Add-ons</p>
-                    <div class="space-y-2.5 pt-1">
-                        <div class="addon-card">
-                            <label class="addon-row">
-                                <span class="addon-icon"><i data-lucide="dog" class="w-4 h-4"></i></span>
-                                <span class="addon-text">
-                                    <span id="lblLargeDogOpt" class="addon-title">Large / high-energy dog</span>
-                                    <span id="lblLargeDogSub" class="addon-sub">Over 50 lbs</span>
-                                </span>
-                                <span class="addon-price">+$4</span>
-                                <input type="checkbox" id="chkLargeDog" onchange="recalculateTotal()" class="addon-input sr-only">
-                                <span class="bw-switch" aria-hidden="true"></span>
-                            </label>
-                        </div>
+                </section>
 
-
-                        <!-- Grooming Extras (baño, uñas): renderizados desde GROOMING_ADDONS -->
-                        <p id="lblGroomingHeader" class="bw-label pt-2">✂️ Grooming Extras</p>
-                        <div id="groomingAddons" class="space-y-2.5"></div>
-                    </div>
-                </div>
-
+                <section class="bk-step" data-step="3" aria-label="4">
+                    <h4 class="bk-step-title" data-title="3"></h4>
+                    <!-- Revisión final animada (booking-flow.js) -->
+                    <div id="bkReview" class="bk-review" aria-live="polite"></div>
                 <!-- RESUMEN -->
                 <div class="bg-white rounded-2xl border-2 border-brandBeige p-4 space-y-2">
                     <div class="flex justify-between gap-3 text-xs text-brandTextDark/80 font-semibold">
@@ -1721,10 +1761,21 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <p id="expressPayStatus" class="text-[11px] font-bold min-h-[1em]" role="status"></p>
                 </div>
 
-                <button id="btnConfirmBooking" onclick="confirmBooking()" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-md active:scale-95 transition-all cursor-pointer mt-2 min-h-[48px] flex items-center justify-center gap-2">
+                <button id="btnConfirmBooking" onclick="window.BWBookingFlow ? BWBookingFlow.confirm() : confirmBooking()" class="w-full bg-brandDarkGreen text-brandCream font-bold py-3.5 rounded-xl text-xs shadow-md active:scale-95 transition-all cursor-pointer mt-2 min-h-[48px] flex items-center justify-center gap-2">
                     <span id="btnConfirmBookingText">Confirm and Process Payment</span>
                     <i id="btnBookingSpinner" data-lucide="loader-2" class="w-4 h-4 animate-spin hidden"></i>
                 </button>
+                </section>
+
+                <!-- Navegación entre pasos + Cancelar (siempre a mano) -->
+                <div id="bkNavBar" class="bk-navbar" hidden>
+                    <p id="bkStepError" class="bk-error" role="alert"></p>
+                    <div class="bk-navrow">
+                        <button type="button" id="bkBack" class="bk-btn bk-btn-ghost" hidden>← Atrás</button>
+                        <button type="button" id="bkNext" class="bk-btn bk-btn-primary">Continuar →</button>
+                    </div>
+                    <button type="button" id="bkCancelLink" class="bk-cancel-link">Cancelar reserva</button>
+                </div>
             </div>
         </div>
     </div>
@@ -3592,6 +3643,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             if (typeof initCardPayments === 'function' && selectedPayment === 'card') initCardPayments(); // Stripe Elements + tarjetas guardadas
             if (typeof initExpressCheckout === 'function') initExpressCheckout(); // Apple Pay / Google Pay si el dispositivo lo soporta
             // PayPal deshabilitado: solo tarjeta y Apple / Google Pay
+            if (window.BWBookingFlow) BWBookingFlow.open(); // reserva por pasos (empieza en el paso 1, conserva lo elegido)
         }
         function closeBookingModal() { document.getElementById('bookingModal').classList.add('hidden'); }
 
@@ -3656,6 +3708,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 }
                 if (dias) { dias.classList.remove('bump'); void dias.offsetWidth; dias.classList.add('bump'); }
             }
+            if (window.BWBookingFlow) BWBookingFlow.refresh(); // resumen en vivo e indicadores de los pasos
         }
 
         // Chat del cliente → se guarda en Supabase (walk_messages); ver sección CHAT DIRECTO
@@ -4294,6 +4347,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <!-- Seguridad: filtro de lenguaje (copia de api/_lib/content-filter.js) + avisos, anti-bots y antifuga -->
 <script src="/content-filter.js?v=20261126" defer></script>
 <script src="/bw-safety.js?v=20261126" defer></script>
+<!-- Reserva por pasos animada (pasos, resumen en vivo, revisión final y Cancelar amable) -->
+<script src="/booking-flow.js?v=20261128" defer></script>
 
 <!-- Script en tiempo real definitivo -->
 <script>
@@ -6914,7 +6969,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         const on = BOOKING_PETS.has(n);
         const detalle = [p.breed, sizeLabel(p.size)].filter(Boolean).join(' · ');
         return `
-          <label class="flex items-center gap-3 bg-white border ${on ? 'border-brandDarkGreen' : 'border-brandBeige'} rounded-2xl p-2.5 cursor-pointer">
+          <label class="bk-pet ${on ? 'is-on' : ''} flex items-center gap-3 bg-white border-2 ${on ? 'border-brandDarkGreen' : 'border-brandBeige'} rounded-2xl p-2.5 cursor-pointer">
             <input type="checkbox" class="w-4 h-4 accent-[#0F3D2E] shrink-0" ${on ? 'checked' : ''} data-pet-index="${i}" onchange="toggleBookingPet(this)">
             ${petAvatar(p, 40)}
             <span class="min-w-0 flex-1">
@@ -9572,6 +9627,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   // ---------- Idioma e inicialización ----------
   function onLanguageChanged() {
     if (window.BWSafety) BWSafety.refresh(); // avisos de IA, antifuga y privacidad en el idioma activo
+    if (window.BWBookingFlow) BWBookingFlow.refresh(); // textos de los pasos de la reserva
     if (typeof applyAuthModeUI === 'function') applyAuthModeUI(); // setLanguage reescribe título/botón del modal
     if (!document.getElementById('tabMetrics')?.classList.contains('hidden') && HISTORY.role) renderHistory();
     renderWalkerPassport();
