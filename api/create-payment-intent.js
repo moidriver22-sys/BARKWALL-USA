@@ -114,6 +114,9 @@ async function handler(req, res) {
       client_id: user.id, checkout_id: checkoutId, status: 'awaiting_payment', payment_status: 'pending',
       service_id: quote.serviceId, variant_idx: quote.variantIdx,
       service_label: `${quote.serviceIcon} ${quote.serviceName[lang]} · ${quote.variantLabel}`,
+      // Duración CONTRATADA (catálogo del servidor). Los días de paseo la copian de aquí: la pantalla del paseo,
+      // el mínimo para completar y las alertas usan siempre lo que se pagó.
+      duration_label: quote.durationLabel, duration_minutes: quote.durationMinutes,
       grooming: quote.grooming, large_dog: quote.largeDog, pets: snapshotPets, pets_count: quote.petsCount,
       dates: quote.dates, scheduled_time: time, address, notes, lang,
       per_day_cents: quote.perDayCents, total_cents: quote.totalCents, currency: 'usd', quote: { lines: quote.lines },

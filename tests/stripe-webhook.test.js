@@ -202,6 +202,7 @@ async function callWebhook(type, object) {
     // Privacidad: los días (que leen los paseadores) NO llevan el precio del cliente, solo su ganancia neta
     const dias = DB.walk_requests.filter(w => w.booking_id === 'b2');
     assert.ok(dias.every(w => w.total_price == null), 'walk_requests sin total_price');
+    assert.ok(dias.every(w => w.duration === '30 min'), 'cada día lleva la duración contratada en la reserva');
     assert.ok(dias.every(w => w.walker_earning_std_cents === 1650 && w.walker_earning_pro_cents === 1760), 'ganancia 75 % / 80 % de $22.00');
     delete process.env.WALKER_PAYOUT_PERCENT; delete process.env.WALKER_PRO_PAYOUT_PERCENT;
     b.walks_created_at = null; // fuerza que el reintento vuelva a intentar insertar

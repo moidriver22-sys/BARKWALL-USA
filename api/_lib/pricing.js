@@ -39,6 +39,17 @@ class QuoteError extends Error {
   constructor(code, message) { super(message || code); this.code = code; }
 }
 
+// Duración contratada en minutos a partir de la etiqueta de la opción ("15 min", "1 h", "1 day", "1 night").
+// Fuente única: la usan la reserva (create-payment-intent), el webhook y el Agente de Despacho.
+function durationMinutes(d) {
+  const s = String(d || '').toLowerCase();
+  if (/night|noche/.test(s)) return 12 * 60;
+  if (/\bday\b|d[ií]a/.test(s)) return 10 * 60;
+  const n = Number((s.match(/(\d+(?:\.\d+)?)/) || [])[1]);
+  if (!Number.isFinite(n) || n <= 0) return 60;
+  return /\b(h|hr|hrs|hour|hours|hora|horas)\b/.test(s) ? n * 60 : n;
+}
+
 // selection: { serviceId, variantIdx, grooming: [ids], largeDog, petsCount, dates: ['YYYY-MM-DD'] }
 // memberDiscountPct: 0 o MEMBER_DISCOUNT_PCT (lo decide el servidor según la membresía activa del cliente)
 function computeQuote(selection, { today, memberDiscountPct = 0 } = {}) {
@@ -69,6 +80,8 @@ function computeQuote(selection, { today, memberDiscountPct = 0 } = {}) {
   if (pct) lines.push({ code: 'member_discount', label: `Barkwalk Club −${pct}%`, unit: -(perDayListCents - perDayCents) / 100, qty: 1 });
   return {
     serviceId: s.serviceId, variantIdx, variantLabel: variant[0], serviceName: svc.name, serviceIcon: svc.icon,
+    // Duración CONTRATADA (del catálogo, nunca de un texto que llegue del navegador)
+    durationLabel: variant[0], durationMinutes: durationMinutes(variant[0]),
     grooming, largeDog: !!s.largeDog, petsCount: pets, dates, days: dates.length,
     lines, perDay: perDayCents / 100, perDayListCents, perDayCents, memberDiscountPct: pct,
     totalCents: perDayCents * dates.length, currency: 'usd',
@@ -102,4 +115,4 @@ function addDays(ymd, n) {
   return d.toISOString().slice(0, 10);
 }
 
-module.exports = { SERVICES, GROOMING, LARGE_DOG_FEE, EXTRA_PET_FEE, MAX_PETS, MAX_DAYS, MEMBER_DISCOUNT_PCT, computeQuote, normalizeDates, todayInZone, addDays, QuoteError };
+module.exports = { SERVICES, GROOMING, LARGE_DOG_FEE, EXTRA_PET_FEE, MAX_PETS, MAX_DAYS, MEMBER_DISCOUNT_PCT, computeQuote, normalizeDates, todayInZone, addDays, QuoteError, durationMinutes };

@@ -39,15 +39,8 @@ function config() {
   };
 }
 
-// Duración contratada en minutos ("15 min", "1 h", "1 day", "1 night")
-function durationMinutes(d) {
-  const s = String(d || '').toLowerCase();
-  if (/night|noche/.test(s)) return 12 * 60;
-  if (/\bday\b|d[ií]a/.test(s)) return 10 * 60;
-  const n = Number((s.match(/(\d+(?:\.\d+)?)/) || [])[1]);
-  if (!Number.isFinite(n) || n <= 0) return 60;
-  return /\b(h|hr|hrs|hour|hours|hora|horas)\b/.test(s) ? n * 60 : n;
-}
+// Duración contratada en minutos: misma función que la reserva (api/_lib/pricing.js)
+const { durationMinutes } = require('./pricing');
 const ts = (v) => (v ? Date.parse(v) : NaN);
 
 // Decide qué alertas tocan ahora (función pura: fácil de probar)

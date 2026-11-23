@@ -16,6 +16,7 @@ const { send, readRawBody, escapeHtml } = require('./_lib/http');
 const { isConfigured, sb, sbOrThrow, getAuthUserEmail, enc } = require('./_lib/supabase');
 const { localToUtcIso } = require('./_lib/time');
 const { earningColumns } = require('./_lib/earnings');
+const { SERVICES } = require('./_lib/pricing');
 const { syncSubscription } = require('./_lib/membership');
 const { handleChargeRefunded, handleDispute } = require('./_lib/refunds');
 const { sendRefundEmail } = require('./_lib/refund-email');
@@ -57,11 +58,22 @@ const OPTIONAL_WALK_COLUMNS = ['pet_photo_url', 'pet_ids', 'pets_count', 'schedu
   'payment_status', 'paid_at', 'payment_method', 'pickup_address', 'pickup_latitude', 'pickup_longitude', 'liability_accepted_at', 'special_notes',
   'walker_earning_std_cents', 'walker_earning_pro_cents'];
 
+// Duración contratada de la reserva: la guardada al cobrar (bookings.duration_label, del catálogo del servidor).
+// Reservas anteriores a esa columna: se reconstruye desde el catálogo (service_id + variant_idx) y, en último
+// caso, desde el texto de la etiqueta. Un trigger de la base (20261128) además obliga a que coincida.
+function bookingDuration(booking) {
+  if (booking.duration_label) return String(booking.duration_label);
+  const svc = SERVICES[booking.service_id];
+  const v = svc && svc.variants[Number(booking.variant_idx)];
+  if (v) return v[0];
+  return String(booking.service_label || '').split(' · ').pop() || null;
+}
+
 async function insertWalkDays(booking, clientName) {
   const pets = Array.isArray(booking.pets) ? booking.pets : [];
   const nombres = pets.map((p) => p.name).filter(Boolean).join(' + ') || 'Pet';
   const primera = pets[0] || {};
-  const duracion = String(booking.service_label || '').split(' · ').pop() || null;
+  const duracion = bookingDuration(booking);
   let filas = (booking.dates || []).map((fecha) => ({
     booking_id: booking.id,
     client_id: booking.client_id,
@@ -355,4 +367,5 @@ async function handler(req, res) {
 }
 
 module.exports = handler;
+module.exports.bookingDuration = bookingDuration;
 module.exports.buildEmail = buildEmail;
