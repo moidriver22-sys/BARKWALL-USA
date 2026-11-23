@@ -55,4 +55,39 @@ async function sendTestPush(to) {
   return { status: res.status === 'sent' ? 200 : 409, body: { push: res.status, sent: res.sent, failed: res.failed } };
 }
 
-module.exports = { sendTestRefundEmail, sendTestPush, allowedRecipient };
+// PRUEBA de los dos mensajes del Agente de Fidelización (agradecimiento + reactivación): push + correo [TEST]
+// a un perfil registrado. Lo expone /api/dispatch?action=test_growth&to=<correo> (CRON_SECRET).
+// No toca dispatch_alerts: no cuenta como envío real ni bloquea los avisos reales de ese cliente.
+async function sendTestGrowth(to) {
+  const G = require('./growth-agent');
+  const { sendPushToUsers } = require('./push');
+  if (!(process.env.RESEND_API_KEY || '').trim()) return { status: 503, body: { error: 'resend_not_configured' } };
+  const email = String(to || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return { status: 400, body: { error: 'invalid_email' } };
+  const r = await sb(`/rest/v1/profiles?email=eq.${enc(email)}&select=id,full_name&limit=1`);
+  const p = r.ok && Array.isArray(r.data) && r.data[0];
+  if (!p) return { status: 400, body: { error: 'recipient_not_allowed' } };
+  const pets = await sb(`/rest/v1/pets?owner_id=eq.${enc(p.id)}&select=name&order=created_at.asc&limit=1`);
+  const pet = (pets.ok && Array.isArray(pets.data) && pets.data[0] && pets.data[0].name) || 'Toby';
+  const cfg = G.config();
+  const minuto = Math.floor(Date.now() / 60000);
+  const muestras = [
+    { kind: 'growth_thanks', clientId: String(p.id), walk: { id: `test-${minuto}`, pet_name: pet }, walks: 1 },
+    { kind: 'growth_reactivate', clientId: String(p.id), walk: { id: `test-${minuto}`, pet_name: pet }, days: 16 },
+  ];
+  const out = { to: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'), results: [] };
+  for (const a of muestras) {
+    const pt = G.pushText(a);
+    const push = await sendPushToUsers([p.id], { ...pt, title: `[TEST] ${pt.title}`, tag: `${pt.tag}-test` })
+      .catch((e) => ({ status: 'error', sent: 0, failed: 0, reason: e.message }));
+    const msg = G.buildGrowthEmail(a, p.full_name);
+    let mail = 'sent';
+    try { await G.sendEmail(cfg, email, { ...msg, subject: `[TEST] ${msg.subject}` }, `test-${a.kind}-${email}-${minuto}`); }
+    catch (e) { mail = `failed: ${String(e.message).slice(0, 120)}`; }
+    out.results.push({ kind: a.kind, push: push.status, pushSent: push.sent, pushFailed: push.failed, email: mail });
+  }
+  const ok = out.results.every((x) => x.email === 'sent');
+  return { status: ok ? 200 : 502, body: out };
+}
+
+module.exports = { sendTestRefundEmail, sendTestPush, sendTestGrowth, allowedRecipient };

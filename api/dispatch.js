@@ -11,7 +11,8 @@ const crypto = require('crypto');
 const { send, bearerToken } = require('./_lib/http');
 const { isConfigured } = require('./_lib/supabase');
 const { runDispatch } = require('./_lib/dispatch');
-const { sendTestRefundEmail, sendTestPush } = require('./_lib/test-email');
+const { sendTestRefundEmail, sendTestPush, sendTestGrowth } = require('./_lib/test-email');
+// ?action=test_growth&to=<correo> → prueba de los 2 mensajes del Agente de Fidelización (push + correo [TEST])
 // ?action=test_push&to=<correo> → notificación push de prueba a ese perfil (ver _lib/test-email.js)
 const { runFinanceAudit } = require('./_lib/finance-agent');
 // ?action=finance_audit[&dry=1] → Agente de Cobros y Finanzas (ver _lib/finance-agent.js)
@@ -54,6 +55,16 @@ async function handler(req, res) {
       return send(res, r.status, r.body);
     } catch (e) {
       console.error('dispatch test_push:', e.message);
+      return send(res, 500, { error: 'internal_error' });
+    }
+  }
+  if (url.searchParams.get('action') === 'test_growth') {
+    try {
+      const r = await sendTestGrowth(url.searchParams.get('to'));
+      console.log('dispatch test_growth:', r.status, JSON.stringify(r.body));
+      return send(res, r.status, r.body);
+    } catch (e) {
+      console.error('dispatch test_growth:', e.message);
       return send(res, 500, { error: 'internal_error' });
     }
   }

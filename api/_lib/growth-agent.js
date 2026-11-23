@@ -202,4 +202,4 @@ async function runGrowth({ now = Date.now(), dryRun = false } = {}) {
   return out;
 }
 
-module.exports = { runGrowth, planGrowth, buildGrowthEmail, pushText, chicagoHour, config };
+module.exports = { runGrowth, planGrowth, buildGrowthEmail, pushText, sendEmail, chicagoHour, config };

@@ -180,5 +180,21 @@ const claves = () => DB.dispatch_alerts.map((a) => a.walk_id).sort();
     assert.equal(RESEND.calls.length, 0);
   });
 
+  await t('acción test_growth: los 2 mensajes [TEST] a un perfil registrado, sin tocar dispatch_alerts', async () => {
+    const auth = { authorization: `Bearer ${process.env.CRON_SECRET}` };
+    assert.equal((await call({}, '/api/dispatch?action=test_growth&to=ana@example.com')).status, 401);
+    const no = await call(auth, '/api/dispatch?action=test_growth&to=desconocido@otro.com');
+    assert.equal(no.status, 400); assert.equal(no.body.error, 'recipient_not_allowed');
+    DB.pets = [{ owner_id: 'c-ana', name: 'Luna' }];
+    const ok = await call(auth, '/api/dispatch?action=test_growth&to=Ana@Example.com');
+    assert.equal(ok.status, 200); assert.equal(ok.body.to, 'an***@example.com');
+    assert.deepEqual(ok.body.results.map((x) => [x.kind, x.push, x.email]), [['growth_thanks', 'sent', 'sent'], ['growth_reactivate', 'sent', 'sent']]);
+    assert.deepEqual(RESEND.calls.map((c) => c.body.subject.slice(0, 7)), ['[TEST] ', '[TEST] ']);
+    assert.match(RESEND.calls[1].body.subject, /Luna te extraña/);
+    assert.equal(PUSHES.length, 2); assert.ok(PUSHES.every((x) => x.payload.title.startsWith('[TEST]')));
+    assert.notEqual(PUSHES[0].payload.tag, PUSHES[1].payload.tag, 'las dos notificaciones se ven, no se reemplazan');
+    assert.equal(DB.dispatch_alerts.length, 0);
+  });
+
   console.log(`\n${passed} pruebas OK`);
 })().catch((e) => { console.error('✗ FALLO:', e.stack); process.exit(1); });
