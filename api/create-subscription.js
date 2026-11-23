@@ -8,6 +8,7 @@
 // Variables: STRIPE_SECRET_KEY, STRIPE_PRICE_CLUB, STRIPE_PRICE_WALKER_PRO, SUPABASE_*, PUBLIC_SITE_URL (opcional)
 // ---------------------------------------------------------------------------
 const { send, bearerToken, readJsonBody } = require('./_lib/http');
+const { rateLimit } = require('./_lib/rate-limit');
 
 // Versión vigente de los Términos (terminos-clientes.html / terminos-paseadores.html). Cámbiala junto con index.html.
 const TERMS_VERSION = '2026-11-14';
@@ -25,6 +26,7 @@ async function handler(req, res) {
 
   const user = await getUserFromToken(bearerToken(req)).catch(() => null);
   if (!user) return send(res, 401, { error: 'unauthorized' });
+  if (!(await rateLimit('stripe_user', user.id))) return send(res, 429, { error: 'rate_limited' });
 
   // Aceptación obligatoria de los Términos (versión vigente) antes de abrir Stripe Checkout
   let b;

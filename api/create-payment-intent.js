@@ -27,6 +27,11 @@ const { isConfigured, sb, sbOrThrow, getUserFromToken, enc } = require('./_lib/s
 const { computeQuote, QuoteError, MAX_PETS, MEMBER_DISCOUNT_PCT } = require('./_lib/pricing');
 const { getMembership, isActiveMember } = require('./_lib/membership');
 const { isValidTime, localToUtcIso } = require('./_lib/time');
+const { clientIp } = require('./_lib/http');
+const { verifyHuman } = require('./_lib/bot-guard');
+const { rateLimit } = require('./_lib/rate-limit');
+const contentFilter = require('./_lib/content-filter');
+const { sanitizePickupCoords } = require('./_lib/location-privacy');
 
 const MAX_TOTAL_CENTS = 500000; // tope de seguridad: $5,000 por reserva
 const LIABILITY_VERSION = '2026-11-11';
@@ -63,10 +68,14 @@ async function handler(req, res) {
   // 1) Sesión
   const user = await getUserFromToken(bearerToken(req)).catch(() => null);
   if (!user) return send(res, 401, { error: 'unauthorized' });
+  if (!(await rateLimit('payment_user', user.id))) return send(res, 429, { error: 'rate_limited' });
 
   // 2) Datos de la reserva
   let b;
   try { b = await readJsonBody(req); } catch (e) { return send(res, 400, { error: e.message }); }
+  // Anti-bots (honeypot siempre; Turnstile cuando estén las claves en Vercel)
+  const human = await verifyHuman(b, clientIp(req), 'booking');
+  if (!human.ok) return send(res, human.error === 'bot_detected' ? 400 : 403, { error: human.error });
   const checkoutId = String(b.checkoutId || '');
   if (!UUID.test(checkoutId)) return send(res, 400, { error: 'invalid_checkout_id' });
   if (b.liabilityAccepted !== true) return send(res, 400, { error: 'liability_not_accepted' });
@@ -75,6 +84,7 @@ async function handler(req, res) {
   const time = String(b.time || '');
   if (!isValidTime(time)) return send(res, 400, { error: 'invalid_time' });
   const notes = String(b.notes || '').trim().slice(0, 500) || null;
+  if (!contentFilter.check(notes).ok) return send(res, 400, { error: 'content_blocked', field: 'notes' });
   const lang = b.lang === 'en' ? 'en' : 'es';
   const petIds = Array.isArray(b.petIds) ? [...new Set(b.petIds.map(String))] : [];
   if (!petIds.length || petIds.length > MAX_PETS || !petIds.every((id) => PET_ID.test(id))) return send(res, 400, { error: 'invalid_pets' });
@@ -111,9 +121,10 @@ async function handler(req, res) {
       ...(quote.memberDiscountPct ? { per_day_list_cents: quote.perDayListCents, member_discount_pct: quote.memberDiscountPct } : {}),
       liability_accepted_at: new Date().toISOString(), liability_version: LIABILITY_VERSION,
     };
-    // Coordenadas opcionales de la dirección (distancia/ETA del paseador)
-    const lat = Number(b.pickupLat), lng = Number(b.pickupLng);
-    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) { values.pickup_lat = lat; values.pickup_lng = lng; }
+    // Coordenadas opcionales de la DIRECCIÓN de recogida (distancia/ETA del paseador), redondeadas a ~11 m.
+    // Nunca la ubicación en vivo del dueño (ver api/_lib/location-privacy.js).
+    const pickup = sanitizePickupCoords(b.pickupLat, b.pickupLng);
+    if (pickup) { values.pickup_lat = pickup.lat; values.pickup_lng = pickup.lng; }
 
     // 4) Reserva: la misma checkoutId reutiliza la fila (doble clic, reintento, cambio de días)
     let booking = await findBooking(user.id, checkoutId);

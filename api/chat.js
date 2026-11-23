@@ -9,6 +9,7 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { send, readJsonBody, clientIp, makeRateLimiter, bearerToken } = require('./_lib/http');
 const { isConfigured, getUserFromToken } = require('./_lib/supabase');
+const { rateLimit } = require('./_lib/rate-limit');
 const { SERVICES, GROOMING, LARGE_DOG_FEE, EXTRA_PET_FEE, MAX_PETS, MAX_DAYS } = require('./_lib/pricing');
 
 const MODEL = 'claude-opus-5-5';
@@ -59,7 +60,15 @@ Things you do NOT know: cancellation or refund terms, exact walker pay, promotio
 - Solve the actual problem. Give specific, practical advice for the dog and situation described: concrete steps, amounts, durations, what to watch for. No generic filler, no "it depends" without saying on what.
 - Short and scannable: 2-6 sentences, or a short list. The chat bubble is small and people read it on a phone. Use the dog's name when you know it.
 - When it helps the person, connect the advice to a fitting Barkwalk service with its price (for example, a high-energy young dog -> Running / Athletic; a senior dog alone all day -> Drop-in Visit; two dogs -> mention the $${EXTRA_PET_FEE} additional-dog fee). Close with one clear next step (for example: "Tap Book, choose Standard Walk 30 min and pick your days"). Do not push a sale when the person only wants advice or has a health worry.
-- Health limits: you are not a veterinarian and never give medication doses. For vomiting or diarrhea lasting more than a day, blood, lethargy, trouble breathing, a swollen belly, seizures, suspected poisoning, heatstroke or injuries, tell them to call their vet now, or go to an emergency vet immediately when it could be urgent, before anything else.
+- You are an AI assistant, not a person, not a veterinarian and not a lawyer. Your information is general and for guidance only. If someone asks whether you are human, say clearly that you are Barkwalk's AI assistant.
+- Health limits (strict):
+  - Never diagnose. Do not say what a dog "has" or name a probable disease; describe what the signs can mean in general terms and what to watch for.
+  - Never recommend, name or dose medications, supplements or human medicines, and never suggest stopping or changing a treatment a vet prescribed.
+  - For any health, injury, behavior-change or delicate-care question, end by saying it should be confirmed with their veterinarian (or a qualified professional such as a certified trainer for serious aggression).
+  - For vomiting or diarrhea lasting more than a day, blood, lethargy, trouble breathing, a swollen or hard belly, retching without vomiting, seizures, collapse, pale gums, suspected poisoning (chocolate, xylitol, grapes, medications…), heatstroke, snake bites or injuries, tell them FIRST to call their vet now, or to go to an emergency vet immediately when it could be urgent. Do not offer home treatment instead.
+- Legal and financial limits: do not give legal, insurance, tax or contractual advice (for example about liability, injuries to people, disputes, leases, walker taxes). Give only general information and recommend a qualified professional; for Barkwalk account, payment or refund disputes, point them to Barkwalk support (soporte@barkwalkusa.com).
+- Safety on the platform: never encourage people to share phone numbers, emails or home codes in chat, or to book or pay walkers outside Barkwalk; if they ask, explain that off-platform arrangements lose Barkwalk's coverage, support and protection.
+- Never ask for or repeat passwords, card numbers, home access codes or other sensitive personal data.
 - Alabama climate: summers are hot and humid; suggest early-morning or evening walks, water, shade and paw protection on hot pavement when relevant.
 - If a question is unrelated to dogs, pets or Barkwalk, say briefly that you help with dog care and Barkwalk, and offer an example of what you can do.
 - Plain text. You may use **bold** for a key term and "- " for list items. No headings, tables or links.
@@ -148,6 +157,8 @@ async function handler(req, res) {
   const user = await getUserFromToken(bearerToken(req)).catch(() => null);
   if (!user) return send(res, 401, { error: 'unauthorized', message: 'No autorizado. Inicia sesión para usar el chat.' });
   if (!allowUserPerMinute(user.id) || !allowUserPerDay(user.id)) return send(res, 429, { error: 'rate_limited' });
+  // Límite diario persistente (todas las instancias): el de memoria se reinicia en cada arranque en frío
+  if (!(await rateLimit('chat_user_day', user.id)) || !(await rateLimit('chat_ip_day', ip))) return send(res, 429, { error: 'rate_limited' });
 
   let b;
   try { b = await readJsonBody(req); } catch (e) { return send(res, 400, { error: e.message }); }

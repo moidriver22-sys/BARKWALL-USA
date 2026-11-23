@@ -13,6 +13,7 @@
 // Variables: SUPABASE_*, WALKER_PAYOUT_PERCENT, WALKER_PRO_PAYOUT_PERCENT (opcional)
 // ---------------------------------------------------------------------------
 const { send, bearerToken } = require('./_lib/http');
+const { rateLimit } = require('./_lib/rate-limit');
 const { isConfigured, sb, sbOrThrow, getUserFromToken, enc } = require('./_lib/supabase');
 const { WALKER_ROLES, payoutPercent, listPriceCents } = require('./_lib/connect');
 const { proPayoutPercent } = require('./_lib/membership');
@@ -23,6 +24,7 @@ async function handler(req, res) {
 
   const user = await getUserFromToken(bearerToken(req)).catch(() => null);
   if (!user) return send(res, 401, { error: 'unauthorized' });
+  if (!(await rateLimit('earnings_user', user.id))) return send(res, 429, { error: 'rate_limited' });
 
   try {
     const prof = (await sbOrThrow(`/rest/v1/profiles?id=eq.${enc(user.id)}&select=role&limit=1`))[0];

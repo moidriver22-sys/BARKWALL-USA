@@ -1496,6 +1496,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 </button>
             </div>
             <form onsubmit="handleRegistration(event)" class="space-y-3">
+                <!-- Campo trampa anti-bots: una persona nunca lo ve ni lo rellena -->
+                <input type="text" id="hpSignup" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="bw-hp" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;opacity:0">
                 <div id="regNameRow">
                     <label id="lblFullName" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Full Name</label>
                     <input type="text" id="regName" required placeholder="Ex: Doucleiver Gonzalez" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
@@ -1628,6 +1630,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 <div>
                     <label id="lblPickupAddress" for="inputPickupAddress" class="bw-label">Pickup Address</label>
                     <input type="text" id="inputPickupAddress" autocomplete="street-address" placeholder="Ex: 1800 Oxmoor Rd, Homewood, AL" class="bw-field">
+                    <input type="text" id="hpBooking" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="bw-hp" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;opacity:0">
                 </div>
 
                 <!-- COMPLEMENTOS: interruptores -->
@@ -3793,6 +3796,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 consent_rejected: tr('No se pudo registrar la aceptación de los documentos legales. Recarga la página e inténtalo de nuevo.', 'We could not record your acceptance of the legal documents. Reload the page and try again.'),
             }[e];
             if (m) return m;
+            const seg = window.BWSafety && BWSafety.serverErrorMessage(e);
+            if (seg) return seg;
             if (out && out.message) return out.message;
             return tr(`No se pudo crear la cuenta (error ${status}). Inténtalo de nuevo.`, `Could not create the account (error ${status}). Please try again.`);
         }
@@ -3894,10 +3899,14 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 } else {
                     // El registro pasa por el servidor: valida edad y documentos y guarda la constancia legal
                     // (fecha, hora, IP real) antes de crear la cuenta en Supabase (ver api/signup.js)
+                    const nombreMalo = window.BWSafety && BWSafety.checkText({ fullName: name });
+                    if (nombreMalo) throw new Error(nombreMalo);
+                    const turnstileToken = window.BWSafety ? await BWSafety.getHumanToken('signup') : null;
                     const resp = await fetch('/api/signup', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
+                            website: window.BWSafety ? BWSafety.honeypot('hpSignup') : '', turnstileToken,
                             email, password: pass, fullName: name, role, birthDate,
                             termsAccepted: true, termsVersion: TERMS_VERSION,
                             privacyAccepted: true, privacyVersion: PRIVACY_VERSION,
@@ -4282,6 +4291,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 <!-- Notificaciones push obligatorias (service worker /sw.js + suscripción en Supabase) -->
 <script src="/push-client.js?v=20261120" defer></script>
+<!-- Seguridad: filtro de lenguaje (copia de api/_lib/content-filter.js) + avisos, anti-bots y antifuga -->
+<script src="/content-filter.js?v=20261126" defer></script>
+<script src="/bw-safety.js?v=20261126" defer></script>
 
 <!-- Script en tiempo real definitivo -->
 <script>
@@ -5495,6 +5507,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 
       <div class="space-y-2">
         <p class="text-[11px] font-bold text-white/75 text-center">🧭 ${es ? 'Navegar a la casa del cliente' : "Navigate to client's home"}</p>
+        <p class="bw-note bw-note-privacy-dark" role="note">${es ? '📍 Solo ves la dirección de recogida acordada. La ubicación en vivo del dueño es privada.' : "📍 You only see the agreed pickup address. The owner's live location is private."}</p>
         <div class="grid grid-cols-2 gap-2">${navButtons}</div>
       </div>
 
@@ -5517,6 +5530,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                  onkeypress="if(event.key==='Enter') sendWalkerSideMessage()">
           <button type="button" onclick="sendWalkerSideMessage()" class="bg-white text-brandDarkGreen font-black px-3 rounded-lg text-sm min-w-[44px] active:scale-95">➤</button>
         </div>
+        <p class="bw-note bw-note-leak-dark" role="note">${es ? '🛡️ No compartas tus datos personales ni ofrezcas o aceptes paseos o cobros por fuera de Barkwalk USA: no hay cobertura, soporte ni pago garantizado, y puede suspenderse tu cuenta. Las traducciones las hace una IA.' : "🛡️ Don't share personal data or offer/accept walks or payments outside Barkwalk USA: there's no coverage, support or guaranteed pay, and your account may be suspended. Translations are made by AI."}</p>
       </div>
       <p id="gpsShareStatus" class="text-[11px] font-semibold text-white/70 text-center">${esc(lastShareText || (es ? 'Iniciando ubicación…' : 'Starting location…'))}</p>
     `;
@@ -6245,6 +6259,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     if (CHAT.walkId !== String(walkId) || CHAT.role !== role) await openChat(walkId, role);
 
     const mensaje = text.slice(0, CHAT_MAX_LEN);
+    // Filtro de lenguaje (bloquea) y aviso antifuga (teléfonos, correos, pagos por fuera: avisa la 1.ª vez)
+    const guard = window.BWSafety ? BWSafety.guardChat(mensaje) : { ok: true };
+    if (!guard.ok) { setChatNotice(guard.message, role); return; }
     input.value = '';
     input.disabled = true;
     // walk_id = paseo activo (paseador: perro enfocado; cliente: su solicitud). sender = UUID (ver insertWalkMessages)
@@ -6253,7 +6270,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     input.focus();
     if (error) {
       input.value = text; // no perder lo escrito
-      setChatNotice('❌ ' + tr('No se pudo enviar: ', 'Could not send: ') + error.message, role);
+      const bloqueado = window.BWSafety && BWSafety.dbErrorMessage(error);
+      setChatNotice(bloqueado || ('❌ ' + tr('No se pudo enviar: ', 'Could not send: ') + error.message), role);
       return;
     }
     if (data && data[0]) renderChatMessage(data[0]);
@@ -7064,6 +7082,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         || mascotas.some(m => m.values.name.toLowerCase() === name.toLowerCase());
       if (repetida) { say(tr(`Ya tienes una mascota llamada ${name}.`, `You already have a pet named ${name}.`)); return; }
       const values = { name, breed: val(`pf_breed_${i}`) || null, notes: val(`pf_notes_${i}`) || null };
+      const malo = window.BWSafety && BWSafety.checkText({ name: values.name, breed: values.breed, notes: values.notes });
+      if (malo) { say(malo); document.getElementById(`pf_name_${i}`)?.focus(); return; }
       if (document.getElementById(`pf_age_${i}`)) {
         const ageRaw = val(`pf_age_${i}`);
         const age = ageRaw === '' ? null : Number(ageRaw);
@@ -7108,7 +7128,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     } catch (e) {
       console.error('Error guardando mascota (pets):', e);
       btn.disabled = false;
-      say('❌ ' + (e.message || e) + (guardadas.length ? tr(` (${guardadas.length} ya guardada(s))`, ` (${guardadas.length} already saved)`) : ''));
+      say('❌ ' + ((window.BWSafety && BWSafety.dbErrorMessage(e)) || e.message || e) + (guardadas.length ? tr(` (${guardadas.length} ya guardada(s))`, ` (${guardadas.length} already saved)`) : ''));
       if (guardadas.length) await loadMyPets();
       return;
     }
@@ -7284,7 +7304,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     }, ['notes']);
     if (res.error || !res.data || !res.data[0]) {
       console.error('pet_passports:', res.error);
-      err.textContent = tr('No se pudo guardar en Supabase: ', 'Could not save to Supabase: ') + ((res.error && res.error.message) || tr('sin respuesta', 'no response'));
+      err.textContent = (window.BWSafety && BWSafety.dbErrorMessage(res.error))
+        || (tr('No se pudo guardar en Supabase: ', 'Could not save to Supabase: ') + ((res.error && res.error.message) || tr('sin respuesta', 'no response')));
       err.classList.remove('hidden');
       if (btn) { btn.disabled = false; btn.textContent = tr('Guardar', 'Save'); }
       return;
@@ -9139,6 +9160,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   };
   function serverPayError(code, message) {
     const m = SERVER_PAY_ERRORS[code];
+    const seg = !m && window.BWSafety && BWSafety.serverErrorMessage(code);
+    if (seg) return seg;
     return m ? tr(m[0], m[1]) : (message || tr('No se pudo iniciar el pago. Intenta de nuevo.', 'Could not start the payment. Please try again.'));
   }
 
@@ -9155,7 +9178,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       grooming: [...BOOKING.grooming], largeDog: !!document.getElementById('chkLargeDog')?.checked,
       petIds: mascotas.map(p => String(p.petId)), selectedDates: resumen.dates, time: datos.time,
       address: datos.address, liabilityAccepted: !!document.getElementById('chkLiability')?.checked, lang: currentLang,
-      pickupLat: datos.coords ? datos.coords.lat : undefined, pickupLng: datos.coords ? datos.coords.lng : undefined
+      pickupLat: datos.coords ? datos.coords.lat : undefined, pickupLng: datos.coords ? datos.coords.lng : undefined,
+      website: window.BWSafety ? BWSafety.honeypot('hpBooking') : '',
+      turnstileToken: window.BWSafety ? await BWSafety.getHumanToken('booking') : null
     };
     let res, j = {};
     try {
@@ -9505,6 +9530,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 
   // ---------- Idioma e inicialización ----------
   function onLanguageChanged() {
+    if (window.BWSafety) BWSafety.refresh(); // avisos de IA, antifuga y privacidad en el idioma activo
     if (typeof applyAuthModeUI === 'function') applyAuthModeUI(); // setLanguage reescribe título/botón del modal
     if (!document.getElementById('tabMetrics')?.classList.contains('hidden') && HISTORY.role) renderHistory();
     renderWalkerPassport();

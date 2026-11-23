@@ -14,8 +14,14 @@
 // Respuesta 200: { user, session|null }  · 409 email_taken · 400 validación · 429 · 503
 // Variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY (opcional; la anon es pública)
 // ---------------------------------------------------------------------------
+// Anti-bots y abuso: honeypot + Cloudflare Turnstile (api/_lib/bot-guard.js), límite persistente
+// (api/_lib/rate-limit.js) y filtro de lenguaje en el nombre (api/_lib/content-filter.js).
+// GET /api/signup?config=1 → { turnstileSiteKey } (pública; null mientras falten las claves en Vercel)
 const { send, readJsonBody, makeRateLimiter } = require('./_lib/http');
 const { supabaseConfig, isConfigured, sb } = require('./_lib/supabase');
+const { verifyHuman, publicBotConfig } = require('./_lib/bot-guard');
+const { rateLimit } = require('./_lib/rate-limit');
+const contentFilter = require('./_lib/content-filter');
 
 // Cambia estas versiones junto con index.html y private.bw_consent_rules() (migración 20261117)
 const TERMS_VERSION = '2026-11-14';
@@ -54,15 +60,19 @@ function todayInAlabama() { // America/Chicago (Birmingham, AL)
 }
 
 async function handler(req, res) {
-  if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return send(res, 405, { error: 'method_not_allowed' }); }
+  if (req.method === 'GET') return send(res, 200, publicBotConfig()); // configuración pública anti-bots
+  if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return send(res, 405, { error: 'method_not_allowed' }); }
   if (!isConfigured()) return send(res, 503, { error: 'not_configured' });
 
   const ip = consentIp(req);
   if (!ip) return send(res, 400, { error: 'ip_unavailable' });
-  if (!allow(ip)) return send(res, 429, { error: 'rate_limited' });
+  if (!allow(ip) || !(await rateLimit('signup_ip', ip))) return send(res, 429, { error: 'rate_limited' });
 
   let b;
   try { b = await readJsonBody(req); } catch (e) { return send(res, 400, { error: e.message }); }
+
+  const human = await verifyHuman(b, ip, 'signup');
+  if (!human.ok) return send(res, human.error === 'bot_detected' ? 400 : 403, { error: human.error });
 
   const email = String(b.email || '').trim().toLowerCase();
   const password = String(b.password || '');
@@ -74,6 +84,8 @@ async function handler(req, res) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) return send(res, 400, { error: 'invalid_email' });
   if (password.length < 6 || password.length > 72) return send(res, 400, { error: 'invalid_password' });
   if (!fullName || fullName.length > 120) return send(res, 400, { error: 'invalid_name' });
+  if (!contentFilter.check(fullName).ok) return send(res, 400, { error: 'content_blocked', field: 'fullName' });
+  if (!(await rateLimit('signup_email', email))) return send(res, 429, { error: 'rate_limited' });
   if (!validDate(birthDate) || birthDate < '1900-01-01') return send(res, 400, { error: 'invalid_birth_date' });
   if (ageOn(birthDate, todayInAlabama()) < MIN_AGE) return send(res, 400, { error: 'underage', minAge: MIN_AGE });
   if (b.termsAccepted !== true || b.termsVersion !== TERMS_VERSION) return send(res, 400, { error: 'terms_not_accepted' });

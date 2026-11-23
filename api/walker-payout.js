@@ -10,6 +10,7 @@
 //   status: 'ok' | 'no_account' | 'account_incomplete' | 'not_configured' | 'not_walker'
 // ---------------------------------------------------------------------------
 const { send, readJsonBody, bearerToken } = require('./_lib/http');
+const { rateLimit } = require('./_lib/rate-limit');
 const { isConfigured, getUserFromToken } = require('./_lib/supabase');
 const { stripeKeyValid, getStripe, payoutCompletedWalks } = require('./_lib/connect');
 
@@ -21,6 +22,7 @@ async function handler(req, res) {
 
   const user = await getUserFromToken(bearerToken(req)).catch(() => null);
   if (!user) return send(res, 401, { error: 'unauthorized' });
+  if (!(await rateLimit('stripe_user', user.id))) return send(res, 429, { error: 'rate_limited' });
 
   let b;
   try { b = await readJsonBody(req); } catch (e) { return send(res, 400, { error: e.message }); }
