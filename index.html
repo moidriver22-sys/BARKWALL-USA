@@ -4128,7 +4128,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 await enterDashboardForUser(user);
             } catch (err) {
                 console.error('auth:', err);
-                showRegError(err?.message || String(err));
+                // Cuenta cerrada desde Perfil: Supabase Auth la tiene bloqueada ("User is banned")
+                if (/banned/i.test(err?.message || '')) showRegError(tr('Esta cuenta fue cerrada. Si quieres reactivarla, escríbenos a soporte@barkwalkusa.com.', 'This account was closed. To reactivate it, email soporte@barkwalkusa.com.'));
+                else showRegError(err?.message || String(err));
             } finally {
                 btn.disabled = false;
                 spinner.classList.add('hidden');
@@ -4516,7 +4518,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="/bw-safety.js?v=20261126" defer></script>
 <!-- Reserva por pasos animada (pasos, resumen en vivo, revisión final y Cancelar amable) -->
 <script src="/terms-gate.js?v=20261202" defer></script>
-<script src="/walker-application.js?v=20261202" defer></script>
+<script src="/walker-application.js?v=20261203" defer></script>
+<script src="/account-close.js?v=20261204" defer></script>
 <script src="/membership-value.js?v=20261130" defer></script>
 <script src="/booking-flow.js?v=20261130" defer></script>
 
@@ -10890,7 +10893,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       <p class="bw-set-cat">Legal</p>
       ${link('file-text', tr('Términos para Clientes', 'Client Terms'), termsUrl('client'), true)}
       ${link('file-text', tr('Acuerdo para Paseadores', 'Walker Agreement'), termsUrl('walker'), true)}
-      ${link('shield', tr('Política de Privacidad', 'Privacy Policy'), privacyUrl(), true)}`;
+      ${link('shield', tr('Política de Privacidad', 'Privacy Policy'), privacyUrl(), true)}
+      <p class="bw-set-cat">${tr('Cuenta', 'Account')}</p>
+      ${btn('user-x', tr('Cerrar mi cuenta', 'Close my account'), '<i data-lucide="chevron-right" class="bw-set-chev"></i>', 'window.BWAccountClose && BWAccountClose.open()', ' style="color:#B91C1C"')}`;
     if (window.lucide) lucide.createIcons();
   };
 

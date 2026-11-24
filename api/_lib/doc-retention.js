@@ -8,10 +8,11 @@
 // Borra con la Storage API (Supabase no permite borrar archivos por SQL) y marca walker_applications.docs_deleted_at.
 // La fila de la postulación (fechas, decisión, historial en walker_reviews) se conserva: solo desaparecen las fotos.
 // ---------------------------------------------------------------------------
-const { sbOrThrow, enc, supabaseConfig } = require('./supabase');
+const { sb, sbOrThrow, enc, supabaseConfig } = require('./supabase');
 const { BUCKET, listOwnFiles } = require('./walker-identity');
 
 const RETENTION_DAYS = 90;
+const OPERATED_RETENTION_YEARS = 3;   // paseador que operó: 3 años desde que cerró su cuenta (account_closures.closed_at)
 const MAX_WALKERS_PER_RUN = 20;
 
 // ¿Quiénes cumplen TODAS las condiciones? (función pura)
@@ -47,7 +48,7 @@ async function deleteFiles(paths) {
   if (!r.ok) throw new Error(`storage delete ${r.status}`);
 }
 
-async function runDocRetention({ dryRun = false, now = Date.now() } = {}) {
+async function runRejectedRetention({ dryRun = false, now = Date.now() } = {}) {
   // Solo postulaciones de paseadores cuyo envío más reciente puede estar rechazado (las demás se descartan arriba)
   const apps = await sbOrThrow('/rest/v1/walker_applications?select=walker_id,status,submitted_at,decided_at,docs_deleted_at&order=submitted_at.desc&limit=2000');
   const rechazados = [...new Set(apps.filter((a) => a.status === 'rejected' && !a.docs_deleted_at).map((a) => a.walker_id))];
@@ -78,4 +79,40 @@ async function runDocRetention({ dryRun = false, now = Date.now() } = {}) {
   return out;
 }
 
-module.exports = { RETENTION_DAYS, retentionCandidates, runDocRetention, deleteFiles };
+// ---------- Cuentas CERRADAS (public.account_closures) ----------
+// Paseador que OPERÓ: 3 años desde closed_at. Paseador que NUNCA operó: 90 días desde closed_at. (función pura)
+function closedCandidates(closures, now = Date.now()) {
+  const tres = new Date(now); tres.setUTCFullYear(tres.getUTCFullYear() - OPERATED_RETENTION_YEARS);
+  const noventa = now - RETENTION_DAYS * 864e5;
+  return (closures || []).filter((c) => !c.docs_deleted_at && ['walker', 'shopper'].includes(c.role)
+    && Date.parse(c.closed_at) <= (c.operated ? tres.getTime() : noventa)).map((c) => c.user_id).slice(0, MAX_WALKERS_PER_RUN);
+}
+
+async function runClosedRetention({ dryRun = false, now = Date.now() } = {}) {
+  const r = await sb('/rest/v1/account_closures?docs_deleted_at=is.null&role=in.(walker,shopper)&select=user_id,role,closed_at,operated,docs_deleted_at&order=closed_at.asc&limit=500');
+  if (!r.ok) return { error: `account_closures ${r.status}` };
+  const candidatos = closedCandidates(r.data || [], now);
+  const out = { checked: (r.data || []).length, eligible: candidatos.length, walkersCleaned: 0, filesDeleted: 0, failed: 0, dryRun };
+  if (dryRun) return out;
+  for (const uid of candidatos) {
+    try {
+      const files = await listOwnFiles(uid);
+      await deleteFiles(files.map((f) => f.path));
+      const ahora = new Date(now).toISOString();
+      await sbOrThrow(`/rest/v1/walker_applications?walker_id=eq.${enc(uid)}&docs_deleted_at=is.null`, { method: 'PATCH', body: { docs_deleted_at: ahora }, prefer: 'return=minimal' });
+      // Constancia del borrado en el registro del cierre
+      await sbOrThrow(`/rest/v1/account_closures?user_id=eq.${enc(uid)}`, { method: 'PATCH', body: { docs_deleted_at: ahora, docs_deleted_count: files.length }, prefer: 'return=minimal' });
+      out.walkersCleaned++; out.filesDeleted += files.length;
+    } catch (e) { out.failed++; console.error(`doc_retention (cierre) ${uid}:`, e.message); }
+  }
+  return out;
+}
+
+// Ronda completa: rechazadas sin operar (90 días) + cuentas cerradas (3 años si operó / 90 días si no)
+async function runDocRetention({ dryRun = false, now = Date.now() } = {}) {
+  const rejected = await runRejectedRetention({ dryRun, now });
+  const closed = await runClosedRetention({ dryRun, now }).catch((e) => ({ error: e.message }));
+  return { ...rejected, closed };
+}
+
+module.exports = { RETENTION_DAYS, OPERATED_RETENTION_YEARS, retentionCandidates, closedCandidates, runDocRetention, runRejectedRetention, runClosedRetention, deleteFiles };

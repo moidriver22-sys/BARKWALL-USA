@@ -53,6 +53,9 @@ async function consentStatus(userId) {
 
 // Para los endpoints: null si puede continuar; si no, el cuerpo de error 403 para responder
 async function requireCurrentConsent(userId) {
+  // Cuenta cerrada: nada de reservas, membresías ni cobros aunque su sesión siga abierta unos minutos
+  const c = await sb(`/rest/v1/account_closures?user_id=eq.${enc(userId)}&select=user_id&limit=1`);
+  if (c.ok && Array.isArray(c.data) && c.data.length) return { error: 'account_closed' };
   const s = await consentStatus(userId);
   return s.ok ? null : { error: 'terms_required', missing: s.missing, versions: CURRENT };
 }
