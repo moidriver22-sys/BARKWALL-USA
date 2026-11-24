@@ -147,6 +147,27 @@ const t = async (name, fn) => { await fn(); passed++; console.log('✓', name); 
     for (const cls of ['.bk-in-forward', '.bk-in-back', '.bk-rv-item', '.bk-cancel-in', '.bk-chip-pop']) assert.ok(rm.includes(cls), cls);
     assert.match(rm, /animation:none!important/); assert.match(rm, /transition:none!important/);
   });
+  await t('acabado visual: profundidad, estados activos marcados y resumen superior fijo', async () => {
+    const P = F.CSS.slice(F.CSS.indexOf('Acabado visual'));
+    assert.ok(P.length > 2000, 'hay capa de acabado');
+    for (const sel of ['#bookingModal .bk-pet.is-on::after', '#bookingModal .svc-tile.is-selected', '#bookingModal .variant-pill[aria-checked="true"]', '#bookingModal .addon-card:has(.addon-input:checked)', '#bookingModal .dp-card.sel', '#bookingModal .pay-method-selected', '#bookingModal #btnConfirmBooking'])
+      assert.ok(P.includes(sel), sel);
+    assert.match(P, /\.bk-live\{position:sticky/); assert.match(P, /\.bk-chip\[data-k="total"\]\{margin-left:auto/);
+    assert.match(P, /:focus-visible/, 'foco visible para teclado');
+    for (const s of F.STEPS) assert.ok(s.hintEs && s.hintEn, 'subtítulo bilingüe en ' + s.id);
+  });
+  await t('acabado visual también respeta prefers-reduced-motion (brillo del botón Pagar y elevaciones)', async () => {
+    const P = F.CSS.slice(F.CSS.indexOf('Acabado visual'));
+    const rm = P.slice(P.indexOf('@media (prefers-reduced-motion: reduce)'));
+    assert.match(rm, /#btnConfirmBooking::after\{animation:none!important/);
+    assert.match(rm, /transition:none!important/); assert.match(rm, /transform:none!important/);
+  });
+  await t('paso final y cancelar: paneles con profundidad y resumen de lo elegido en la confirmación', async () => {
+    const ini = HTML.indexOf('<div id="bookingModal"'); const modal = HTML.slice(ini, HTML.indexOf('<!-- MODAL 1:', ini));
+    assert.match(modal, /id="liabilityBox" class="bk-panel/); assert.match(modal, /id="formCardDetails" class="bk-panel/);
+    assert.match(modal, /class="bk-cancel-head"[\s\S]*id="bkCancelTitle"[\s\S]*id="bkCancelSummary"[\s\S]*id="bkKeep"[\s\S]*id="bkConfirmCancel"/);
+    assert.match(modal, /role="alertdialog" aria-modal="true" aria-labelledby="bkCancelTitle" aria-describedby="bkCancelText"/);
+  });
   await t('booking-flow.js funciona igual cargado en el navegador (window.BWBookingFlow)', async () => {
     const ctx = { self: {} };
     vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'booking-flow.js'), 'utf8'), ctx);

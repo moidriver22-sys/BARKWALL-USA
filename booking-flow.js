@@ -16,10 +16,10 @@
   'use strict';
 
   const STEPS = [
-    { id: 'pets', icon: '🐾', es: 'Mascotas', en: 'Pets' },
-    { id: 'service', icon: '🚶', es: 'Servicio', en: 'Service' },
-    { id: 'when', icon: '📅', es: 'Cuándo', en: 'When' },
-    { id: 'review', icon: '✅', es: 'Revisar', en: 'Review' },
+    { id: 'pets', icon: '🐾', es: 'Mascotas', en: 'Pets', hintEs: '¿Quién sale a pasear?', hintEn: 'Who is going out?' },
+    { id: 'service', icon: '🚶', es: 'Servicio', en: 'Service', hintEs: 'Elige el paseo, la duración y los extras', hintEn: 'Pick the walk, duration and extras' },
+    { id: 'when', icon: '📅', es: 'Cuándo', en: 'When', hintEs: 'Días, hora y dónde recogemos', hintEn: 'Days, time and pickup spot' },
+    { id: 'review', icon: '✅', es: 'Revisar', en: 'Review', hintEs: 'Confirma que todo esté bien y paga seguro', hintEn: 'Check everything and pay securely' },
   ];
 
   const MSG = {
@@ -119,6 +119,133 @@
 
   // ======================= Estilos (Tailwind está precompilado) =======================
   // Usa las variables del tema (--bw-*) para funcionar en modo claro y oscuro.
+  const POLISH = `  /* ===== Acabado visual: profundidad, jerarquía y estados de selección ===== */
+  #bookingModal .bk-card{padding:22px 20px 24px;background:radial-gradient(120% 60% at 100% 0%,rgba(0,168,89,.07),transparent 60%),var(--bw-bg);border-color:var(--bw-line);box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 40px 80px -30px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.03)}
+  #bookingModal #modalTitleBooking{font-size:17px;font-weight:900;letter-spacing:-.01em}
+  .bk-stepper{padding:12px 6px 12px;border-radius:20px;background:var(--bw-surface);border:1px solid var(--bw-line);box-shadow:0 1px 2px rgba(16,24,40,.04),0 12px 26px -20px rgba(27,77,62,.5)}
+  .bk-dot{width:34px;height:34px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+  .bk-stepper button:not([data-status="active"]):hover .bk-dot{transform:translateY(-1px);border-color:#C5A059}
+  .bk-stepper [data-status="active"] .bk-dot{background:linear-gradient(145deg,#1B4D3E,#0F7A4F);border-color:transparent;box-shadow:0 0 0 3px var(--bw-surface),0 0 0 5px rgba(0,168,89,.4),0 10px 18px -8px rgba(0,168,89,.7)}
+  .bk-stepper [data-status="done"] .bk-dot{background:linear-gradient(145deg,#00A859,#19C47D);border-color:transparent;box-shadow:0 6px 12px -8px rgba(0,168,89,.9)}
+  .bk-stepper [data-status="active"] .bk-dot-label{color:var(--bw-ink)}
+  .bk-track{height:5px;margin:10px 18px 0;background:var(--bw-soft)}
+  .bk-track span{box-shadow:0 0 10px rgba(0,168,89,.55)}
+
+  /* Resumen superior fijo: siempre visible al desplazarse */
+  .bk-live{position:sticky;top:-22px;z-index:6;align-items:center;gap:6px;min-height:46px;padding:9px 10px;border-radius:18px;border:1px solid var(--bw-line);background:var(--bw-surface);background:color-mix(in srgb,var(--bw-surface) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 14px 30px -22px rgba(27,77,62,.7),0 1px 2px rgba(16,24,40,.04)}
+  .bk-live:empty::before{content:attr(data-empty);font-size:11.5px;font-weight:700;color:rgb(var(--bw-text-rgb)/.5);padding:0 4px}
+  .bk-chip{padding:5px 11px;background:var(--bw-soft);border-color:transparent;font-size:11.5px;max-width:100%}
+  .bk-chip[data-k="total"]{margin-left:auto;padding:6px 13px;font-size:13.5px;font-weight:900;letter-spacing:-.01em;border:0;background:linear-gradient(135deg,#1B4D3E,#0F7A4F);box-shadow:0 8px 16px -10px rgba(15,122,79,.9)}
+
+  /* Encabezado de cada paso */
+  .bk-step-title{display:flex;align-items:center;gap:12px;padding:0 0 14px;border-bottom:1px solid var(--bw-line);text-transform:none;letter-spacing:0;font-size:inherit}
+  .bk-st-ic{flex:none;width:44px;height:44px;border-radius:15px;display:grid;place-items:center;font-size:21px;background:linear-gradient(145deg,var(--bw-selected),var(--bw-surface));border:1px solid var(--bw-line);box-shadow:0 8px 16px -12px rgba(27,77,62,.6)}
+  .bk-st-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .bk-st-kicker{font-size:10.5px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:#00A859}
+  .bk-st-name{font-size:19px;font-weight:900;letter-spacing:-.015em;line-height:1.1;color:var(--bw-ink)}
+  .bk-st-hint{font-size:12px;font-weight:600;line-height:1.3;color:rgb(var(--bw-text-rgb)/.6)}
+  #bookingModal .bw-label{font-size:10.5px;letter-spacing:.1em;margin-bottom:8px}
+
+  /* Mascotas: tarjeta con marca de selección */
+  #bookingModal .bk-pet{position:relative;padding:12px 48px 12px 12px;border-width:1.5px;border-radius:20px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 18px -14px rgba(27,77,62,.45)}
+  #bookingModal .bk-pet input[type="checkbox"]{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+  #bookingModal .bk-pet::after{content:"";position:absolute;top:50%;right:14px;width:24px;height:24px;margin-top:-12px;border-radius:999px;border:2px solid var(--bw-line);background:var(--bw-surface);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:900;transition:background .2s,border-color .2s,transform .25s cubic-bezier(.34,1.56,.64,1)}
+  #bookingModal .bk-pet:not(.is-on):hover{border-color:#C5A059;box-shadow:0 1px 2px rgba(16,24,40,.05),0 14px 24px -16px rgba(27,77,62,.55)}
+  #bookingModal .bk-pet.is-on,#bookingModal .bk-pet:has(input:checked){border-color:#1B4D3E;background:linear-gradient(160deg,var(--bw-selected),var(--bw-surface) 75%);box-shadow:0 0 0 3px rgba(0,168,89,.16),0 14px 26px -18px rgba(27,77,62,.8)}
+  #bookingModal .bk-pet.is-on::after,#bookingModal .bk-pet:has(input:checked)::after{content:"✓";background:#00A859;border-color:#00A859;transform:scale(1.05)}
+  #bookingModal .bk-pet:has(input:focus-visible){box-shadow:0 0 0 4px rgba(0,168,89,.4)}
+
+  /* Servicios, duración y extras */
+  #bookingModal .cat-tab{padding:9px 15px;border-width:1.5px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  #bookingModal .cat-tab:hover{border-color:#C5A059}
+  #bookingModal .cat-tab[aria-selected="true"]{background:linear-gradient(135deg,#1B4D3E,#0F7A4F);border-color:transparent;box-shadow:0 8px 16px -10px rgba(15,122,79,.9)}
+  #bookingModal .svc-tile{border-width:1.5px;border-radius:20px;padding:15px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 10px 22px -18px rgba(27,77,62,.5)}
+  #bookingModal .svc-tile:not(.is-selected):hover{transform:translateY(-2px);box-shadow:0 1px 2px rgba(16,24,40,.05),0 16px 28px -18px rgba(27,77,62,.6)}
+  #bookingModal .svc-tile.is-selected{border-color:#1B4D3E;background:linear-gradient(160deg,var(--bw-selected),var(--bw-surface) 70%);box-shadow:0 0 0 3px rgba(0,168,89,.16),0 18px 32px -20px rgba(27,77,62,.85)}
+  #bookingModal .svc-emoji{position:relative;box-shadow:inset 0 0 0 1px var(--bw-line)}
+  #bookingModal .svc-tile.is-selected .svc-emoji{background:linear-gradient(145deg,#1B4D3E,#0F7A4F);box-shadow:0 8px 16px -8px rgba(15,122,79,.9)}
+  #bookingModal .svc-tile.is-selected .svc-emoji::after{content:"✓";position:absolute;right:-6px;bottom:-6px;width:20px;height:20px;border-radius:999px;display:grid;place-items:center;background:#00A859;color:#fff;font-size:11px;font-weight:900;border:2px solid var(--bw-surface)}
+  #bookingModal .variant-row{gap:8px;margin-top:12px}
+  #bookingModal .variant-pill{padding:9px 14px;border-width:1.5px;border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+  #bookingModal .variant-pill:hover{border-color:#00A859}
+  #bookingModal .variant-pill[aria-checked="true"]{background:linear-gradient(135deg,#1B4D3E,#0F7A4F);border-color:transparent;box-shadow:0 0 0 3px rgba(0,168,89,.18),0 10px 18px -10px rgba(15,122,79,.95)}
+  #bookingModal .variant-pill[aria-checked="true"]::before{content:"✓ "}
+  #bookingModal .variant-pill:focus-visible{outline:none;box-shadow:0 0 0 4px rgba(0,168,89,.4)}
+  #bookingModal .addon-card{border-width:1.5px;border-radius:20px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 18px -16px rgba(27,77,62,.45)}
+  #bookingModal .addon-card:hover{border-color:#C5A059}
+  #bookingModal .addon-card:has(.addon-input:checked){border-color:#00A859;box-shadow:0 0 0 3px rgba(0,168,89,.14),0 12px 22px -16px rgba(0,168,89,.7)}
+  #bookingModal .addon-card:has(.addon-input:checked) .addon-price{background:#00A859;color:#fff}
+
+  /* Fecha, hora y dirección */
+  #bookingModal .dp-card{border-width:1.5px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 6px 14px -10px rgba(27,77,62,.4)}
+  #bookingModal .dp-card.sel{box-shadow:0 0 0 3px rgba(0,168,89,.18),0 12px 20px -8px rgba(0,168,89,.6)}
+  #bookingModal .bw-field{border-width:1.5px;border-radius:16px;min-height:50px;font-size:14px;box-shadow:inset 0 1px 2px rgba(16,24,40,.05);transition:border-color .2s,box-shadow .2s,background .2s}
+  #bookingModal .bw-field:hover{border-color:#C5A059}
+  #bookingModal .bw-field:focus{border-color:#00A859;box-shadow:0 0 0 4px rgba(0,168,89,.16)}
+  #bookingModal #inputPickupAddress:not(:placeholder-shown){border-color:#1B4D3E;background:var(--bw-selected-alt)}
+
+  /* Pago y paneles del paso final */
+  #bookingModal .bk-panel{border:1px solid var(--bw-line);border-radius:20px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 10px 24px -20px rgba(27,77,62,.55)}
+  #bookingModal .pay-method{border-width:1.5px;border-radius:14px;transition:transform .15s,box-shadow .2s,background .2s}
+  #bookingModal .pay-method-selected{background:linear-gradient(135deg,#1B4D3E,#0F7A4F)!important;border-color:transparent!important;box-shadow:0 0 0 3px rgba(0,168,89,.18),0 10px 18px -10px rgba(15,122,79,.95)}
+  #bookingModal #btnConfirmBooking{position:relative;overflow:hidden;min-height:56px;border-radius:18px;font-size:14px;font-weight:900;letter-spacing:.01em;color:#fff;background:linear-gradient(135deg,#1B4D3E 0%,#0F7A4F 55%,#00A859 100%);box-shadow:0 16px 30px -14px rgba(15,122,79,.95),inset 0 1px 0 rgba(255,255,255,.2)}
+  #bookingModal #btnConfirmBooking::after{content:"";position:absolute;inset:0 auto 0 -40%;width:35%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-18deg);animation:bkShine 3.2s ease-in-out 1s infinite;pointer-events:none}
+  #bookingModal #btnConfirmBooking:hover{filter:brightness(1.05)}
+  #bookingModal #btnConfirmBooking:focus-visible{outline:none;box-shadow:0 0 0 4px rgba(0,168,89,.45),0 16px 30px -14px rgba(15,122,79,.95)}
+
+  /* Revisión final */
+  .bk-review{padding:0;overflow:hidden;border:1px solid var(--bw-line);border-radius:24px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 24px 40px -28px rgba(27,77,62,.8)}
+  .bk-rv-hero{margin:0;padding:18px 18px 16px;background:linear-gradient(135deg,#1B4D3E 0%,#0F7A4F 60%,#00A859 100%);color:#fff;position:relative}
+  .bk-rv-hero::after{content:"";position:absolute;right:-30px;top:-40px;width:140px;height:140px;border-radius:999px;background:radial-gradient(circle,rgba(255,255,255,.18),transparent 70%);pointer-events:none}
+  .bk-rv-paw{width:52px;height:52px;border-radius:18px;display:grid;place-items:center;font-size:30px;background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+  .bk-rv-kicker{color:#BFF5D9}
+  .bk-rv-title{color:#fff;font-size:20px;letter-spacing:-.015em}
+  .bk-rv-list{padding:4px 16px 0}
+  .bk-rv-item{padding:11px 0;gap:12px}
+  .bk-rv-item:first-child{border-top:0}
+  .bk-rv-ic{width:36px;height:36px;border-radius:12px;font-size:16px;background:var(--bw-selected);box-shadow:inset 0 0 0 1px var(--bw-line)}
+  .bk-rv-v{font-size:13.5px;line-height:1.3}
+  .bk-rv-edit{flex:none;padding:6px 11px;border-radius:999px;background:var(--bw-soft);border:1px solid var(--bw-line);color:var(--bw-ink);transition:background .2s,border-color .2s}
+  .bk-rv-edit:hover{border-color:#00A859;background:var(--bw-selected)}
+  .bk-rv-edit:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(0,168,89,.4)}
+  .bk-rv-total{margin:6px 16px 0;padding:14px 16px;border-radius:18px;box-shadow:0 14px 26px -16px rgba(15,122,79,.95),inset 0 1px 0 rgba(255,255,255,.18)}
+  .bk-rv-total b{font-size:26px;letter-spacing:-.02em}
+  .bk-rv-trust{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px;margin:0;padding:12px 16px 16px;font-size:11px;font-weight:700;color:rgb(var(--bw-text-rgb)/.6)}
+
+  /* Cancelar: tarjeta cálida y clara */
+  .bk-cancel{padding:20px;background:rgba(245,240,230,.78)}
+  html.dark .bk-cancel{background:rgba(10,16,13,.8)}
+  .bk-cancel-box{max-width:340px;padding:0 0 18px;overflow:hidden;border:1px solid var(--bw-line);border-radius:26px;box-shadow:0 40px 70px -30px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.03)}
+  .bk-cancel-head{padding:22px 18px 14px;background:linear-gradient(180deg,var(--bw-selected),var(--bw-surface))}
+  .bk-cancel-emoji{width:72px;height:72px;border-radius:999px;display:inline-grid;place-items:center;font-size:38px;background:var(--bw-surface);box-shadow:0 0 0 6px rgba(0,168,89,.12),0 14px 24px -14px rgba(27,77,62,.8)}
+  .bk-cancel-box h4{margin:14px 0 6px;font-size:19px;letter-spacing:-.015em}
+  .bk-cancel-box p{margin:0;padding:0 6px;font-size:13px;line-height:1.5}
+  .bk-cancel-sum{margin:14px 18px 16px;padding:10px 12px;border-radius:16px;background:var(--bw-soft);border:1px dashed var(--bw-dash);font-size:12px;font-weight:800;color:var(--bw-text);overflow-wrap:anywhere}
+  .bk-cancel-sum:empty{display:none}
+  .bk-cancel-sum small{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgb(var(--bw-text-rgb)/.5);margin-bottom:3px}
+  .bk-cancel-box .bk-btn{width:calc(100% - 36px);margin:0 18px}
+  .bk-cancel-box > p + .bk-btn,.bk-cancel-sum:empty + .bk-btn{margin-top:16px}
+  .bk-cancel-box .bk-btn-primary{background:linear-gradient(135deg,#1B4D3E,#0F7A4F);box-shadow:0 14px 26px -14px rgba(15,122,79,.95)}
+  .bk-btn-soft{border-width:1.5px;color:#9A3412;background:transparent}
+  html.dark .bk-btn-soft{color:#FDBA74}
+  .bk-btn-soft:hover{background:rgba(234,88,12,.08);border-color:rgba(234,88,12,.35)}
+  .bk-cancel.is-bye .bk-cancel-sum{display:none}
+
+  /* Barra inferior con efecto vidrio */
+  .bk-navbar{bottom:-24px;margin:18px -20px -24px;padding:14px 20px 16px;background:var(--bw-bg);background:color-mix(in srgb,var(--bw-bg) 88%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top:1px solid var(--bw-line)}
+  .bk-btn{min-height:52px;border-radius:16px;font-size:14px}
+  .bk-btn-primary{background:linear-gradient(135deg,#1B4D3E,#0F7A4F);box-shadow:0 14px 24px -14px rgba(15,122,79,.95),inset 0 1px 0 rgba(255,255,255,.18)}
+  .bk-btn-primary:hover{background:linear-gradient(135deg,#163F33,#0D6B45)}
+  .bk-btn-ghost{border-width:1.5px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+  .bk-error{display:none;align-items:flex-start;gap:8px;border-radius:14px;padding:10px 12px;box-shadow:0 8px 18px -14px rgba(179,38,30,.6)}
+  .bk-error.is-on{display:flex}
+  .bk-error.is-on::before{content:"!";flex:none;width:18px;height:18px;border-radius:999px;display:grid;place-items:center;background:#B3261E;color:#fff;font-size:11px;font-weight:900}
+  @keyframes bkShine{0%{left:-40%}55%,100%{left:120%}}
+  @media (prefers-reduced-motion: reduce){
+    #bookingModal #btnConfirmBooking::after{animation:none!important;display:none}
+    #bookingModal .bk-pet,#bookingModal .bk-pet::after,#bookingModal .svc-tile,#bookingModal .bw-field,#bookingModal .pay-method,.bk-rv-edit{transition:none!important}
+    #bookingModal .bk-pet:hover,#bookingModal .svc-tile:hover,.bk-stepper button:hover .bk-dot{transform:none!important}
+  }`;
   const CSS = `
   .bk-card{position:relative}
   .bk-stepper{margin:2px 0 6px}
@@ -206,7 +333,7 @@
     .bk-rv-item,.bk-rv-total{opacity:1}
     .bk-dot,.bk-track span,.bk-chip,.bk-pet,.bk-btn,#bookingModal .svc-tile,#bookingModal .variant-pill,#bookingModal .addon-card,#bookingModal .cat-tab{transition:none!important}
     .bk-pet:hover,#bookingModal .variant-pill[aria-checked="true"]{transform:none}
-  }`;
+  }` + POLISH;
   function injectCss() {
     if (typeof document === 'undefined' || document.getElementById('bkFlowCss')) return;
     const st = document.createElement('style'); st.id = 'bkFlowCss'; st.textContent = CSS; document.head.appendChild(st);
@@ -269,7 +396,8 @@
       const err = $('bkStepError');
       if (err) { err.textContent = st.error ? message(st.error, lang()) : ''; err.classList.toggle('is-on', !!st.error); if (st.error && !reduced()) { err.classList.remove('bk-shake'); void err.offsetWidth; err.classList.add('bk-shake'); } }
       doc.querySelectorAll('#bookingModal .bk-step-title').forEach((h) => {
-        const i = Number(h.dataset.title); h.textContent = `${STEPS[i].icon} ${tr(STEPS[i].es, STEPS[i].en)} · ${tr('paso', 'step')} ${i + 1}/${STEPS.length}`;
+        const i = Number(h.dataset.title);
+        h.innerHTML = `<span class="bk-st-ic" aria-hidden="true">${STEPS[i].icon}</span><span class="bk-st-txt"><span class="bk-st-kicker">${esc(tr('Paso', 'Step'))} ${i + 1} ${esc(tr('de', 'of'))} ${STEPS.length}</span><span class="bk-st-name">${esc(tr(STEPS[i].es, STEPS[i].en))}</span><span class="bk-st-hint">${esc(tr(STEPS[i].hintEs, STEPS[i].hintEn))}</span></span>`;
       });
       renderLive(s.sum);
       if (st.step === STEPS.length - 1) renderReview(s);
@@ -277,12 +405,15 @@
       const panel = $('bkCancel');
       if (panel) {
         const abierto = st.cancelOpen;
-        if (abierto && panel.hidden) { panel.hidden = false; panel.classList.remove('bk-cancel-out'); void panel.offsetWidth; panel.classList.add('bk-cancel-in'); setTimeout(() => { const k = $('bkKeep'); if (k) k.focus(); }, 30); }
+        if (abierto && panel.hidden) { scrollTop(true); panel.hidden = false; panel.classList.remove('bk-cancel-out'); void panel.offsetWidth; panel.classList.add('bk-cancel-in'); setTimeout(() => { const k = $('bkKeep'); if (k) k.focus(); }, 30); }
         if (!abierto && !panel.hidden) { panel.classList.remove('bk-cancel-in'); panel.classList.add('bk-cancel-out'); setTimeout(() => { if (!flow.state.cancelOpen) panel.hidden = true; }, reduced() ? 0 : 220); }
         const tt = $('bkCancelTitle'); if (tt) tt.textContent = tr('¿Quieres cancelar tu reserva?', 'Cancel your booking?');
         const tx = $('bkCancelText'); if (tx) tx.textContent = tr('Tranquilo: no se ha hecho ningún cargo. Si sigues, todo lo que elegiste se queda tal cual.', "No worries: you haven't been charged. If you continue, everything you picked stays just as it is.");
         const kb = $('bkKeep'); if (kb) kb.textContent = tr('💚 Seguir con mi reserva', '💚 Keep my booking');
         const cb = $('bkConfirmCancel'); if (cb) cb.textContent = tr('Sí, cancelar', 'Yes, cancel');
+        const cs = $('bkCancelSummary');
+        if (cs && abierto) { const sm = s.sum || {}; const parts = [(sm.pets || []).map((p) => p.name).join(' + '), [sm.serviceName, sm.duration].filter(Boolean).join(' · '), sm.days ? `${sm.days} ${tr(sm.days === 1 ? 'día' : 'días', sm.days === 1 ? 'day' : 'days')}` : ''].filter(Boolean);
+          cs.innerHTML = parts.length ? `<small>${esc(tr('Lo que tienes elegido', 'What you picked'))}</small>${esc(parts.join(' · '))}` : ''; }
       }
       if (win.lucide && win.lucide.createIcons) try { win.lucide.createIcons(); } catch (e) { /* iconos opcionales */ }
     }
@@ -291,6 +422,7 @@
     let lastChips = {};
     function renderLive(sum) {
       const box = $('bkLive'); if (!box || !sum) return;
+      box.setAttribute('data-empty', tr('Tu reserva aparecerá aquí mientras eliges ✨', 'Your booking will appear here as you choose ✨'));
       const chips = summaryChips({ petNames: (sum.pets || []).map((p) => p.name), serviceName: sum.serviceName, duration: sum.duration,
         days: sum.days, time: (($('inputBookingTime') || {}).value || ''), total: sum.days ? sum.grandTotal : sum.perDay }, lang());
       box.innerHTML = chips.map((c) => `<span class="bk-chip ${lastChips[c.k] !== undefined && lastChips[c.k] !== c.text && !reduced() ? 'bk-chip-pop' : ''}" data-k="${c.k}"><span aria-hidden="true">${c.icon}</span>${esc(c.text)}</span>`).join('');
@@ -322,7 +454,8 @@
             <button type="button" class="bk-rv-edit" data-edit="${step}">${esc(tr('Cambiar', 'Edit'))}</button>
           </li>`).join('')}
         </ul>
-        <div class="bk-rv-total" style="animation-delay:${reduced() ? 0 : items.length * 60}ms"><span>${esc(tr('Total a pagar', 'Total to pay'))}</span><b>$${Number(total || 0).toFixed(2)}</b></div>`;
+        <div class="bk-rv-total" style="animation-delay:${reduced() ? 0 : items.length * 60}ms"><span>${esc(tr('Total a pagar', 'Total to pay'))}</span><b>$${Number(total || 0).toFixed(2)}</b></div>
+        <p class="bk-rv-trust"><span>🔒 ${esc(tr('Pago seguro con Stripe', 'Secure payment with Stripe'))}</span><span>✓ ${esc(tr('Sin cargo hasta que pagues', 'No charge until you pay'))}</span></p>`;
     }
 
     // Despedida amable al cancelar y cierre
@@ -369,7 +502,7 @@
         if (e.key === 'Escape' && !modal.classList.contains('hidden')) { e.preventDefault(); flow.state.cancelOpen ? flow.keepBooking() : flow.requestCancel(); }
       });
     }
-    function scrollTop() { const card = $('bookingModal') && $('bookingModal').querySelector('.bk-card'); if (card) card.scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' }); }
+    function scrollTop(instant) { const card = $('bookingModal') && $('bookingModal').querySelector('.bk-card'); if (card) card.scrollTo({ top: 0, behavior: instant || reduced() ? 'auto' : 'smooth' }); }
 
     return {
       flow,

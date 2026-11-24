@@ -448,6 +448,19 @@
             background: var(--bw-surface); border: 1px solid var(--bw-line-95); border-radius: 22px; padding: 16px;
             box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 10px 28px -14px rgba(27, 77, 62, .22);
         }
+        .w-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 64px), var(--bw-surface);
+            box-shadow: 0 1px 0 rgba(255, 255, 255, .7) inset, 0 1px 2px rgba(16, 24, 40, .05), 0 14px 32px -18px rgba(27, 77, 62, .32);
+            transition: box-shadow .25s ease, transform .25s ease, border-color .25s ease;
+        }
+        html.dark .w-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, 0) 64px), var(--bw-surface);
+            box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 14px 32px -18px rgba(0, 0, 0, .7);
+        }
+        @media (hover: hover) {
+            .w-card:hover { border-color: rgba(197, 160, 89, .45); box-shadow: 0 1px 0 rgba(255, 255, 255, .7) inset, 0 2px 4px rgba(16, 24, 40, .05), 0 20px 40px -20px rgba(27, 77, 62, .42); }
+        }
+        @media (prefers-reduced-motion: reduce) { .w-card { transition: none; } }
         .w-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
         .w-eyebrow {
             display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 800;
@@ -1573,9 +1586,12 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             <!-- CANCELAR: confirmación amable. Nada se borra hasta pulsar "Sí, cancelar" -->
             <div id="bkCancel" class="bk-cancel" role="alertdialog" aria-modal="true" aria-labelledby="bkCancelTitle" aria-describedby="bkCancelText" hidden>
                 <div class="bk-cancel-box">
-                    <span class="bk-cancel-emoji" aria-hidden="true">🐶</span>
-                    <h4 id="bkCancelTitle">¿Quieres cancelar tu reserva?</h4>
-                    <p id="bkCancelText">Tranquilo: no se ha hecho ningún cargo. Si sigues, todo lo que elegiste se queda tal cual.</p>
+                    <div class="bk-cancel-head">
+                        <span class="bk-cancel-emoji" aria-hidden="true">🐶</span>
+                        <h4 id="bkCancelTitle">¿Quieres cancelar tu reserva?</h4>
+                        <p id="bkCancelText">Tranquilo: no se ha hecho ningún cargo. Si sigues, todo lo que elegiste se queda tal cual.</p>
+                    </div>
+                    <div id="bkCancelSummary" class="bk-cancel-sum"></div>
                     <button type="button" id="bkKeep" class="bk-btn bk-btn-primary">💚 Seguir con mi reserva</button>
                     <button type="button" id="bkConfirmCancel" class="bk-btn bk-btn-soft">Sí, cancelar</button>
                 </div>
@@ -1698,7 +1714,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <!-- Revisión final animada (booking-flow.js) -->
                     <div id="bkReview" class="bk-review" aria-live="polite"></div>
                 <!-- RESUMEN -->
-                <div class="bg-white rounded-2xl border-2 border-brandBeige p-4 space-y-2">
+                <div class="bk-panel bg-white rounded-2xl border-2 border-brandBeige p-4 space-y-2">
                     <div class="flex justify-between gap-3 text-xs text-brandTextDark/80 font-semibold">
                         <span id="lblBaseServiceName">—</span>
                         <span id="lblBasePrice" class="font-bold text-brandTextDark">$16.00</span>
@@ -1714,7 +1730,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 </div>
 
                 <!-- MARCO LEGAL: acceso a la propiedad y custodia de llaves (obligatorio para pagar) -->
-                <div id="liabilityBox" class="bg-white rounded-2xl border border-brandBeige p-3.5 space-y-2">
+                <div id="liabilityBox" class="bk-panel bg-white rounded-2xl border border-brandBeige p-3.5 space-y-2">
                     <details>
                         <summary id="lblLiabilityTitle" class="text-[12px] font-black text-brandDarkGreen cursor-pointer">🔑 Key Handling &amp; House Access Release of Liability</summary>
                         <div id="liabilityText" class="text-[11px] leading-relaxed text-brandTextDark/80 mt-2 space-y-1.5"></div>
@@ -1735,7 +1751,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 
                 <!-- TARJETA: el número/CVC NUNCA pasan por esta página. Stripe Elements (iframe de Stripe)
                      los convierte en un token "pm_…"; en Supabase solo se guarda ese token + last4. -->
-                <div id="formCardDetails" class="bg-white p-3.5 rounded-2xl border border-brandBeige space-y-2.5 shadow-sm">
+                <div id="formCardDetails" class="bk-panel bg-white p-3.5 rounded-2xl border border-brandBeige space-y-2.5 shadow-sm">
                     <span id="lblCardSectionHeader" class="text-xs font-bold text-brandDarkGreen block border-b border-brandBeige pb-1">💳 Credit / Debit Card</span>
                     <div id="savedCardsList" class="space-y-1.5"></div>
                     <div id="newCardWrap" class="space-y-2">
@@ -4348,7 +4364,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="/content-filter.js?v=20261126" defer></script>
 <script src="/bw-safety.js?v=20261126" defer></script>
 <!-- Reserva por pasos animada (pasos, resumen en vivo, revisión final y Cancelar amable) -->
-<script src="/booking-flow.js?v=20261128" defer></script>
+<script src="/booking-flow.js?v=20261129" defer></script>
 
 <!-- Script en tiempo real definitivo -->
 <script>
