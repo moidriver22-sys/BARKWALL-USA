@@ -18,6 +18,9 @@ const { runFinanceAudit } = require('./_lib/finance-agent');
 // ?action=finance_audit[&dry=1] → Agente de Cobros y Finanzas (ver _lib/finance-agent.js)
 const { runGrowth } = require('./_lib/growth-agent');
 const { backfillEarnings } = require('./_lib/earnings');
+const { stripeHealth } = require('./_lib/stripe-health');
+const { getStripe, siteUrl } = require('./_lib/connect');
+// ?action=stripe_health → diagnóstico de SOLO LECTURA de Stripe: cuenta, webhook, Apple/Google Pay, Connect (ver _lib/stripe-health.js)
 // ?action=backfill_earnings → rellena la ganancia neta del paseador en días ya creados (ver _lib/earnings.js)
 // ?action=growth[&dry=1] → Agente de Fidelización y Crecimiento (ver _lib/growth-agent.js)
 // ?action=test_refund_email&to=<correo>[&lang=en] → correo de reembolso [TEST] (ver _lib/test-email.js)
@@ -38,6 +41,10 @@ async function handler(req, res) {
   if (!secretOk(bearerToken(req))) return send(res, 401, { error: 'unauthorized' });
 
   const url = new URL(req.url || '/', 'http://localhost');
+  if (url.searchParams.get('action') === 'stripe_health') {
+    try { return send(res, 200, await stripeHealth(getStripe(), { siteUrl: siteUrl() })); }
+    catch (e) { console.error('dispatch stripe_health:', e.type || '', e.message); return send(res, 500, { error: 'stripe_health_failed', type: e.type || null }); }
+  }
   // Acción de soporte: correo de reembolso de PRUEBA con la configuración real de Resend (solo a OPS o a perfiles registrados)
   if (url.searchParams.get('action') === 'test_refund_email') {
     try {
