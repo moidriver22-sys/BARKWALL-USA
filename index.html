@@ -173,6 +173,19 @@
                         url('./hero-bg.jpeg') center/cover no-repeat;
         }
 
+        /* ===== Registro: pestañas Cliente / Paseador y pasos ===== */
+        .reg-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; border-radius: 16px; background: var(--bw-card); border: 1px solid var(--bw-line); }
+        .reg-tabs button { min-height: 44px; border-radius: 12px; font-size: 13px; font-weight: 900; color: var(--bw-text); background: transparent; cursor: pointer; }
+        .reg-tabs button.is-on { background: #1B4D3E; color: #FFFFFF; box-shadow: 0 8px 16px -10px rgba(15, 122, 79, .9); }
+        .reg-tabs button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0, 168, 89, .4); }
+        .reg-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+        .reg-steps li { display: flex; gap: 10px; align-items: flex-start; font-size: 11.5px; color: rgb(var(--bw-text-rgb) / .7); }
+        .reg-steps li b { flex: none; width: 20px; height: 20px; border-radius: 999px; display: grid; place-items: center; font-size: 10.5px; background: var(--bw-line); color: var(--bw-ink); }
+        .reg-steps li.is-now b { background: #00A859; color: #FFFFFF; }
+        .reg-steps li span { display: flex; flex-direction: column; }
+        .reg-steps li strong { color: var(--bw-text); font-size: 12px; }
+        .reg-steps.hidden, .reg-tabs.hidden { display: none; }
+
         /* ===== App instalada (iPhone "Agregar a inicio" / Android) =====
            Con viewport-fit=cover y la barra de estado "black-translucent", la página se dibuja DEBAJO de la hora,
            la batería y el notch. Sin este margen, EN/ES y el modo oscuro de la portada quedaban tapados (no se podían tocar).
@@ -1533,6 +1546,12 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
+            <!-- Registro: el rol se elige aquí (pestañas) y los pasos/campos se adaptan (renderRegRoleUI) -->
+            <div id="regRoleTabs" class="reg-tabs" role="tablist" aria-label="Tipo de cuenta / Account type">
+                <button type="button" role="tab" id="regTabClient" data-reg-role="client" onclick="selectRegRole('client')">🐶 <span>Cliente</span></button>
+                <button type="button" role="tab" id="regTabWalker" data-reg-role="shopper" onclick="selectRegRole('shopper')">🦮 <span>Paseador</span></button>
+            </div>
+            <ol id="regSteps" class="reg-steps" aria-label="Pasos / Steps"></ol>
             <form onsubmit="handleRegistration(event)" class="space-y-3">
                 <!-- Campo trampa anti-bots: una persona nunca lo ve ni lo rellena -->
                 <input type="text" id="hpSignup" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="bw-hp" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;opacity:0">
@@ -2368,6 +2387,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 <p id="lblProSub">Your account, payouts and Pro membership.</p>
             </header>
             <section id="walkerAccountStatus" class="w-card"></section>
+            <!-- Postulación de identidad: ID vigente + selfie (walker-application.js) -->
+            <section id="walkerApplicationCard" class="w-card" hidden></section>
                     <!-- GANANCIAS Y ESTADO -->
                     <section class="w-hero">
                         <div class="relative z-10 flex items-start justify-between gap-3">
@@ -2915,15 +2936,15 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         //   total          = precio por día × días seleccionados (cada día es un servicio)
         const MEMBER_DISCOUNT_PCT = 10; // igual que api/_lib/pricing.js
         // Términos y Condiciones: versión vigente (igual que api/create-subscription.js) y página según el rol
-        const TERMS_VERSION = '2026-11-24';
+        const TERMS_VERSION = '2026-11-24.2';
         function termsUrl(role) {
             const doc = role === 'shopper' || role === 'walker' ? 'paseadores' : 'clientes';
             return `/terminos-${doc}?lang=${currentLang === 'es' ? 'es' : 'en'}`;
         }
         // Registro con constancia legal (/api/signup). Cambiar junto con api/signup.js y la migración 20261117.
-        const PRIVACY_VERSION = '2026-11-16';
+        const PRIVACY_VERSION = '2026-11-24';
         const WAIVER_VERSION = '2026-11-16';
-        const CONTRACTOR_VERSION = '2026-11-24';   // Acuerdo para Paseadores (sección 2: contratista independiente)
+        const CONTRACTOR_VERSION = '2026-11-24.2';   // Acuerdo para Paseadores (sección 2: contratista independiente)
         const MIN_SIGNUP_AGE = 19;   // mayoría de edad en Alabama (Ala. Code § 26-1-1)
         function privacyUrl() { return `/privacidad?lang=${currentLang === 'es' ? 'es' : 'en'}`; }
         function contractorUrl() { const es = currentLang === 'es'; return `/terminos-paseadores?lang=${es ? 'es' : 'en'}#${es ? 'es' : 'en'}-2`; }
@@ -3649,8 +3670,43 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             set('lnkTermsWalkers', tr('Acuerdo para Paseadores', 'Walker Agreement'));
             ['lnkTermsClients', 'lnkTermsWalkers'].forEach((id, i) => { const a = document.getElementById(id); if (a) a.href = termsUrl(i ? 'walker' : 'client'); });
             set('lnkPrivacy', tr('Privacidad', 'Privacy'));
+            renderRegRoleUI(login);
             { const a = document.getElementById('lnkPrivacy'); if (a) a.href = privacyUrl(); }
         }
+        // Pestañas Cliente / Paseador y pasos del registro según el rol (los campos legales ya se adaptan arriba)
+        function selectRegRole(role) {
+            currentUserRole = role === 'shopper' ? 'shopper' : 'client';
+            document.getElementById('regErrorMsg').classList.add('hidden');
+            applyAuthModeUI();
+        }
+        window.selectRegRole = selectRegRole;
+        function renderRegRoleUI(login) {
+            const tabs = document.getElementById('regRoleTabs'), pasos = document.getElementById('regSteps');
+            if (!tabs || !pasos) return;
+            tabs.classList.toggle('hidden', login); pasos.classList.toggle('hidden', login);
+            if (login) return;
+            if (currentUserRole !== 'shopper') currentUserRole = 'client';
+            const walker = currentUserRole === 'shopper';
+            [['regTabClient', !walker, tr('Cliente', 'Pet owner')], ['regTabWalker', walker, tr('Paseador', 'Walker')]].forEach(([id, on, txt]) => {
+                const b = document.getElementById(id); if (!b) return;
+                b.setAttribute('aria-selected', String(on)); b.classList.toggle('is-on', on); b.querySelector('span').textContent = txt;
+            });
+            const items = walker ? [
+                [tr('Cuenta', 'Account'), tr('Nombre, correo y contraseña', 'Name, email and password'), true],
+                [tr('Legal', 'Legal'), tr('19+ · Términos, Privacidad y Acuerdo de Contratista', '19+ · Terms, Privacy and Contractor Agreement'), true],
+                [tr('Confirma tu correo', 'Confirm your email'), tr('Te enviamos un enlace', 'We email you a link'), false],
+                [tr('Identidad', 'Identity'), tr('Foto de tu ID vigente + selfie (privadas)', 'Photo of your current ID + selfie (private)'), false],
+                [tr('Revisión', 'Review'), tr('Una persona del equipo decide', 'A team member decides'), false],
+                [tr('Cobros', 'Payouts'), tr('Conecta tu banco con Stripe', 'Link your bank with Stripe'), false],
+            ] : [
+                [tr('Cuenta', 'Account'), tr('Nombre, correo y contraseña', 'Name, email and password'), true],
+                [tr('Legal', 'Legal'), tr('19+ · Términos y Privacidad', '19+ · Terms and Privacy'), true],
+                [tr('Confirma tu correo', 'Confirm your email'), tr('Te enviamos un enlace', 'We email you a link'), false],
+                [tr('Tu mascota', 'Your pet'), tr('Agrégala y reserva tu primer paseo', 'Add it and book your first walk'), false],
+            ];
+            pasos.innerHTML = items.map(([t, d, ahora], i) => `<li class="${ahora ? 'is-now' : ''}"><b>${i + 1}</b><span><strong>${t}</strong><small>${d}</small></span></li>`).join('');
+        }
+
         function closeRegistrationModal() {
             document.getElementById('registerModal').classList.add('hidden');
             document.getElementById('regErrorMsg').classList.add('hidden');
@@ -4115,6 +4171,10 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             showDashboardWithSkeleton();
             // Términos y Condiciones vigentes: si falta aceptarlos, bloqueo a pantalla completa (terms-gate.js)
             if (window.BWTermsGate) BWTermsGate.check();
+            if (currentUserRole === 'shopper' && window.BWWalkerApp) BWWalkerApp.render('walkerApplicationCard').then(() => {
+                const m = window.currentUser && window.currentUser.walker_app_mode;
+                if (m === 'form' && typeof showToast === 'function') showToast(tr('🪪 Completa tu postulación: sube tu ID vigente y una selfie en Walker Pro.', '🪪 Complete your application: upload your current ID and a selfie in Walker Pro.'), 'warn', 7000);
+            }).catch(() => {});
             // "¡Correo verificado con éxito!" la primera vez que entra tras confirmar
             maybeWelcomeVerified(user, opts.justVerified === true);
         }
@@ -4340,6 +4400,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             }
             if ((tab === 'club' || tab === 'pro') && typeof renderMembershipCard === 'function') renderMembershipCard();
             if (tab === 'pro' && typeof renderWalkerAccountStatus === 'function') renderWalkerAccountStatus();
+            if (tab === 'pro' && window.BWWalkerApp) BWWalkerApp.render('walkerApplicationCard').then(() => { if (typeof renderWalkerAccountStatus === 'function') renderWalkerAccountStatus(); });
             if (tab === 'profile') {
                 if (typeof renderProfileTools === 'function') renderProfileTools(); // pasaporte + acceso al hogar (cliente)
                 if (typeof renderProfileSettings === 'function') renderProfileSettings();
@@ -4404,7 +4465,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="/content-filter.js?v=20261126" defer></script>
 <script src="/bw-safety.js?v=20261126" defer></script>
 <!-- Reserva por pasos animada (pasos, resumen en vivo, revisión final y Cancelar amable) -->
-<script src="/terms-gate.js?v=20261201" defer></script>
+<script src="/terms-gate.js?v=20261202" defer></script>
+<script src="/walker-application.js?v=20261202" defer></script>
 <script src="/membership-value.js?v=20261130" defer></script>
 <script src="/booking-flow.js?v=20261130" defer></script>
 
@@ -9686,7 +9748,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       const acciones = st === 'pending'
         ? boton('verified', '✅ ' + tr('Aprobar', 'Approve'), 'bg-brandDarkGreen text-white') + boton('rejected', '✖️ ' + tr('No aprobar', 'Reject'), 'bg-white border border-red-300 text-red-700')
         : st === 'verified'
-          ? boton('suspended', '⛔ ' + tr('Suspender', 'Suspend'), 'bg-red-600 text-white') + boton('pending', '⏳ ' + tr('A revisión', 'To review'), 'bg-white border border-brandBeige text-brandTextDark')
+          ? boton('verified', '🪪 ' + tr('Aprobar ID renovado', 'Approve renewed ID'), 'bg-white border border-brandBeige text-brandTextDark') + boton('suspended', '⛔ ' + tr('Suspender', 'Suspend'), 'bg-red-600 text-white') + boton('pending', '⏳ ' + tr('A revisión', 'To review'), 'bg-white border border-brandBeige text-brandTextDark')
           : boton('verified', '♻️ ' + tr('Reactivar', 'Reactivate'), 'bg-brandDarkGreen text-white') + boton('pending', '⏳ ' + tr('A revisión', 'To review'), 'bg-white border border-brandBeige text-brandTextDark');
       return `
         <div class="bg-white border border-brandBeige rounded-2xl p-3 space-y-2">
@@ -9701,7 +9763,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
           <p class="text-[10.5px] font-bold ${w.terms_version === TERMS_VERSION && w.contractor_agreement_accepted_at ? 'text-emerald-700' : 'text-amber-800'}">${w.terms_version === TERMS_VERSION && w.contractor_agreement_accepted_at
             ? '📜 ' + tr('Términos y Acuerdo vigentes aceptados', 'Current Terms & Agreement accepted')
             : '📜 ' + tr('Falta aceptar Términos/Acuerdo vigentes (no podrá recibir paseos hasta hacerlo)', 'Current Terms/Agreement not accepted yet (cannot receive walks until then)')}</p>
-          <div class="flex flex-wrap gap-1.5" data-walker-actions="${id}">${acciones}</div>
+          <div class="flex flex-wrap gap-1.5" data-walker-actions="${id}">${acciones}
+            <button type="button" class="w-mini-btn bg-white border border-brandBeige text-brandTextDark" onclick="toggleAppReview('${id}', this)">📋 ${tr('Postulación', 'Application')}</button></div>
+          <div data-app-review="${id}" hidden></div>
         </div>`;
     }).join('') : `<p class="text-[12px] text-center text-brandTextDark/60 py-3">${tr('No hay paseadores en este filtro.', 'No walkers in this filter.')}</p>`;
     const actividad = D.actividad.length ? D.actividad.map(a => {
@@ -9736,6 +9800,21 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   }
 
   // Cambia el estado de la cuenta de un paseador.
+  // Reporte del agente auditor + ID y selfie (URLs firmadas de 2 min). El agente nunca aprueba: decide el admin.
+  function toggleAppReview(id, btn) {
+    const box = document.querySelector(`[data-app-review="${CSS.escape(String(id))}"]`);
+    if (!box) return;
+    box.hidden = !box.hidden;
+    if (!box.hidden && window.BWWalkerApp) BWWalkerApp.renderAdminReview(id, box);
+  }
+  window.toggleAppReview = toggleAppReview;
+  const WALKER_STATUS_ERRORS = {
+    'application required': ['No se puede aprobar: aún no envió su postulación con ID vigente y selfie.', 'Cannot approve: no application with a current ID and selfie yet.'],
+    'id expired': ['No se puede aprobar: su identificación está vencida.', 'Cannot approve: the ID is expired.'],
+    'terms required': ['No se puede aprobar: aún no aceptó los Términos y el Acuerdo vigentes.', 'Cannot approve: current Terms and Agreement not accepted yet.'],
+    'reason required': ['Escribe un motivo para no aprobar.', 'Enter a reason to reject.']
+  };
+
   // 1º la función segura admin_set_walker_status (verifica is_admin en el servidor); si no existe, UPDATE directo.
   async function setWalkerStatus(id, status) {
     if (!isAdmin() || !WALKER_STATES[status]) return;
@@ -9761,7 +9840,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     }
     if (error) {
       console.error('Error cambiando estado del paseador:', error);
-      showToast(tr('No se pudo cambiar el estado: ', 'Could not change status: ') + error.message, 'error', 5000);
+      const m = WALKER_STATUS_ERRORS[String(error.message || '').trim()];
+      showToast(m ? tr(m[0], m[1]) : tr('No se pudo cambiar el estado: ', 'Could not change status: ') + error.message, 'error', 6000);
       renderAdminPanel();
       return;
     }
@@ -10725,11 +10805,12 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     return `<details class="mt-3" ${aprobado && terminos ? '' : 'open'}>
       <summary class="text-[12px] font-black text-brandDarkGreen cursor-pointer">${tr('Cómo funciona tu postulación', 'How your application works')}</summary>
       <ol class="mt-2.5 space-y-2.5">
-        ${paso(true, false, tr('1. Registro', '1. Sign up'), tr('Nombre, correo y fecha de nacimiento (19 años o más). No pedimos documentos dentro de la app.', 'Name, email and date of birth (19 or older). We do not ask for documents inside the app.'))}
+        ${paso(true, false, tr('1. Registro', '1. Sign up'), tr('Nombre, correo y fecha de nacimiento (19 años o más).', 'Name, email and date of birth (19 or older).'))}
         ${paso(terminos, !terminos, tr('2. Términos y Acuerdo para Paseadores', '2. Terms and Walker Agreement'), terminos ? tr('Aceptados (versión vigente).', 'Accepted (current version).') : tr('Pendiente: acéptalos para poder recibir paseos.', 'Pending: accept them to be able to receive walks.'))}
-        ${paso(aprobado, st === 'pending', tr('3. Revisión del equipo de Barkwalk', '3. Barkwalk team review'), tr('Revisamos tu postulación de forma manual y podemos escribirte por correo para pedirte más información. Hoy no hacemos verificación de antecedentes con proveedores externos.', 'We review your application manually and may email you for more information. We do not currently run background checks through outside providers.'))}
-        ${paso(aprobado, false, tr('4. Decisión', '4. Decision'), rechazado ? tr('No aprobada o suspendida: te enviamos el motivo por correo.', 'Not approved or suspended: we emailed you the reason.') : tr('Si se aprueba, te avisamos por correo y notificación y ya puedes ponerte en línea. Si no se aprueba, te enviamos el motivo.', 'If approved, we notify you by email and push and you can go online. If not, we send you the reason.'))}
-        ${paso(!!u.stripe_payouts_enabled, aprobado && !u.stripe_payouts_enabled, tr('5. Cobros con Stripe', '5. Stripe payouts'), tr('Stripe te pide tus datos de identidad y bancarios para poder pagarte cada paseo.', 'Stripe asks for your identity and bank details so it can pay you for each walk.'))}
+        ${paso(['submitted', 'approved'].includes(u.walker_app_mode), u.walker_app_mode === 'form', tr('3. Identidad: ID vigente + selfie', '3. Identity: current ID + selfie'), tr('Sube una foto de tu licencia o State ID vigente y una selfie (privadas: solo tú y el administrador). Abajo, en "Tu postulación".', 'Upload a photo of your current license or State ID and a selfie (private: only you and the administrator). Below, in "Your application".'))}
+        ${paso(aprobado, st === 'pending' && u.walker_app_mode === 'submitted', tr('4. Revisión del equipo de Barkwalk', '4. Barkwalk team review'), tr('Una persona del equipo compara tu ID con tu selfie y revisa tus datos. Un asistente automático la ayuda con una lista de verificación, pero nunca aprueba por sí solo. Hoy no hacemos verificación de antecedentes con proveedores externos.', 'A team member compares your ID with your selfie and reviews your details. An automated assistant helps with a checklist but never approves on its own. We do not currently run background checks through outside providers.'))}
+        ${paso(aprobado, false, tr('5. Decisión', '5. Decision'), rechazado ? tr('No aprobada o suspendida: te enviamos el motivo por correo. Puedes corregir y reenviar tus documentos.', 'Not approved or suspended: we emailed you the reason. You can fix and resubmit your documents.') : tr('Si se aprueba, te avisamos por correo y notificación y ya puedes ponerte en línea. Si no, te enviamos el motivo.', 'If approved, we notify you by email and push and you can go online. If not, we send you the reason.'))}
+        ${paso(!!u.stripe_payouts_enabled, aprobado && !u.stripe_payouts_enabled, tr('6. Cobros con Stripe', '6. Stripe payouts'), tr('Stripe te pide tus datos de identidad y bancarios para poder pagarte cada paseo.', 'Stripe asks for your identity and bank details so it can pay you for each walk.'))}
       </ol></details>`;
   }
 

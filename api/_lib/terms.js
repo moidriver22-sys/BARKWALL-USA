@@ -11,10 +11,10 @@
 const { sb, sbOrThrow, enc } = require('./supabase');
 
 const CURRENT = Object.freeze({
-  terms: '2026-11-24',       // terminos-clientes.html / terminos-paseadores.html
-  privacy: '2026-11-16',     // privacidad.html
+  terms: '2026-11-24.2',       // terminos-clientes.html / terminos-paseadores.html
+  privacy: '2026-11-24',     // privacidad.html
   waiver: '2026-11-16',      // Exención de Acceso al Hogar y Custodia de Llaves
-  contractor: '2026-11-24',  // Acuerdo para Paseadores (contratista independiente)
+  contractor: '2026-11-24.2',  // Acuerdo para Paseadores (contratista independiente)
 });
 const MIN_AGE = 19; // mayoría de edad en Alabama (Ala. Code § 26-1-1)
 const WALKER_ROLES = new Set(['walker', 'shopper']);

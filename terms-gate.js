@@ -14,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const CURRENT = Object.freeze({ terms: '2026-11-24', privacy: '2026-11-16', waiver: '2026-11-16', contractor: '2026-11-24' });
+  const CURRENT = Object.freeze({ terms: '2026-11-24.2', privacy: '2026-11-24', waiver: '2026-11-16', contractor: '2026-11-24.2' });
   const MIN_AGE = 19;
   const isWalker = (role) => ['walker', 'shopper'].includes(String(role || ''));
 

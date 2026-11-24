@@ -85,6 +85,24 @@ async function acceptTerms(req, res, b, ip) {
   }
 }
 
+// POST /api/signup { action: 'walker_application', legalName, phone, city, zip, idType, idExpiry, idPhotoPath, selfiePath }
+// Authorization: Bearer <token>. Valida todo en el servidor (api/_lib/walker-identity.js) y ejecuta el agente
+// auditor (api/_lib/application-agent.js), que NUNCA aprueba: la decisión es del administrador.
+async function walkerApplication(req, res, b, ip) {
+  const user = await getUserFromToken(bearerToken(req)).catch(() => null);
+  if (!user) return send(res, 401, { error: 'unauthorized' });
+  if (!(await rateLimit('stripe_user', user.id))) return send(res, 429, { error: 'rate_limited' });
+  try {
+    const { submitApplication } = require('./_lib/walker-identity');
+    const { runApplicationAudit } = require('./_lib/application-agent');
+    const r = await submitApplication({ user, body: b, ip, userAgent: req.headers && req.headers['user-agent'], runAgent: (id) => runApplicationAudit(id) });
+    return send(res, r.status, r.body);
+  } catch (e) {
+    console.error('walker_application:', e.message);
+    return send(res, 500, { error: 'internal_error' });
+  }
+}
+
 async function handler(req, res) {
   if (req.method === 'GET') return send(res, 200, publicBotConfig()); // configuración pública anti-bots
   if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return send(res, 405, { error: 'method_not_allowed' }); }
@@ -98,6 +116,8 @@ async function handler(req, res) {
   try { b = await readJsonBody(req); } catch (e) { return send(res, 400, { error: e.message }); }
   // Usuario YA registrado que acepta la versión vigente de los Términos (bloqueo de la app). Exige sesión.
   if (b && b.action === 'accept_terms') return acceptTerms(req, res, b, ip);
+  // Paseador con sesión que envía (o reenvía) su postulación: ID vigente + selfie ya subidos al bucket privado
+  if (b && b.action === 'walker_application') return walkerApplication(req, res, b, ip);
 
   const human = await verifyHuman(b, ip, 'signup');
   if (!human.ok) return send(res, human.error === 'bot_detected' ? 400 : 403, { error: human.error });

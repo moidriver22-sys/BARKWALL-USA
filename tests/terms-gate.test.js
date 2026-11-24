@@ -18,6 +18,7 @@ const RL = require(path.join(ROOT, 'api/_lib/rate-limit.js'));
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const HTML = read('index.html');
 const SQL = read('supabase/migrations/20261201_terms_gate_walker_review.sql');
+const SQL_LAST = read('supabase/migrations/20261202_walker_identity.sql'); // la migración más reciente fija las versiones vigentes
 
 const UID = '11111111-2222-3333-4444-555555555555';
 let DB, RESEND, FETCH;
@@ -65,7 +66,7 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
     assert.match(HTML, new RegExp(`const TERMS_VERSION = '${T.CURRENT.terms}'`));
     assert.match(HTML, new RegExp(`const CONTRACTOR_VERSION = '${T.CURRENT.contractor}'`));
     assert.match(HTML, new RegExp(`const PRIVACY_VERSION = '${T.CURRENT.privacy}'`));
-    const last = (k) => { const m = SQL.match(new RegExp(`'${k}', jsonb_build_array\\(([^)]*)\\)`)); return m[1].split(',').map((x) => x.trim().replace(/'/g, '')).pop(); };
+    const last = (k) => { const m = SQL_LAST.match(new RegExp(`'${k}', jsonb_build_array\\(([^)]*)\\)`)); return m[1].split(',').map((x) => x.trim().replace(/'/g, '')).pop(); };
     assert.equal(last('terms'), T.CURRENT.terms); assert.equal(last('contractor'), T.CURRENT.contractor); assert.equal(last('privacy'), T.CURRENT.privacy);
     for (const f of ['terminos-clientes.html', 'terminos-paseadores.html']) assert.match(read(f), new RegExp(`Versión ${T.CURRENT.terms}`), f);
   });
