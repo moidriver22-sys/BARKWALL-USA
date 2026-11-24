@@ -169,8 +169,33 @@
             overscroll-behavior-y: none;
         }
         .hero-background {
-            background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.85) 100%), 
+            background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.85) 100%),
                         url('./hero-bg.jpeg') center/cover no-repeat;
+        }
+
+        /* ===== App instalada (iPhone "Agregar a inicio" / Android) =====
+           Con viewport-fit=cover y la barra de estado "black-translucent", la página se dibuja DEBAJO de la hora,
+           la batería y el notch. Sin este margen, EN/ES y el modo oscuro de la portada quedaban tapados (no se podían tocar).
+           Alto con dvh: el alto real visible (100vh en la app incluye zonas que no se ven y estiraba la portada). */
+        #welcomeView {
+            padding-top: calc(1.25rem + env(safe-area-inset-top, 0px));
+            padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+            padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+            padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+            min-height: 100vh; min-height: 100dvh;
+        }
+        body { min-height: 100vh; min-height: 100dvh; }
+        /* Ventanas emergentes (reserva, pasaporte, etc.): la ✕ de arriba nunca queda bajo la barra de estado */
+        [id$="Modal"].fixed.inset-0 {
+            padding-top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+            padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
+        }
+        [id$="Modal"].fixed.inset-0 > [class*="max-h-["] {
+            max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem);
+        }
+        /* Sin el "rebote" que estira la pantalla al arrastrar, solo en la app instalada */
+        @media (display-mode: standalone) {
+            html, body { overscroll-behavior-y: none; }
         }
 
         .dashboard-puppy-bg {
