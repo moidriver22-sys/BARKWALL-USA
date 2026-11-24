@@ -11,7 +11,8 @@ const { send, bearerToken, readJsonBody } = require('./_lib/http');
 const { rateLimit } = require('./_lib/rate-limit');
 
 // Versión vigente de los Términos (terminos-clientes.html / terminos-paseadores.html). Cámbiala junto con index.html.
-const TERMS_VERSION = '2026-11-14';
+const { CURRENT, requireCurrentConsent } = require('./_lib/terms');
+const TERMS_VERSION = CURRENT.terms;
 const { isConfigured, sbOrThrow, getUserFromToken, enc } = require('./_lib/supabase');
 const { stripeKeyValid, getStripe, siteUrl } = require('./_lib/connect');
 const { ACTIVE_STATUSES, priceIdValid, prices, tierForRole, getMembership } = require('./_lib/membership');
@@ -33,6 +34,9 @@ async function handler(req, res) {
   try { b = await readJsonBody(req); } catch (e) { return send(res, 400, { error: e.message }); }
   if (b.termsAccepted !== true || b.termsVersion !== TERMS_VERSION) return send(res, 400, { error: 'terms_not_accepted' });
   const aceptacion = { terms_version: TERMS_VERSION, terms_accepted_at: new Date().toISOString() };
+  // Además de la casilla de la tarjeta: aceptación vigente guardada en la base (constancia legal)
+  const sinTerminos = await requireCurrentConsent(user.id).catch(() => ({ error: 'terms_required' }));
+  if (sinTerminos) return send(res, 403, sinTerminos);
 
   try {
     const profile = await getMembership(user.id);

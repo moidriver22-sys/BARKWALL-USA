@@ -32,6 +32,7 @@ const { verifyHuman } = require('./_lib/bot-guard');
 const { rateLimit } = require('./_lib/rate-limit');
 const contentFilter = require('./_lib/content-filter');
 const { sanitizePickupCoords } = require('./_lib/location-privacy');
+const { requireCurrentConsent } = require('./_lib/terms');
 
 const MAX_TOTAL_CENTS = 500000; // tope de seguridad: $5,000 por reserva
 const LIABILITY_VERSION = '2026-11-11';
@@ -90,6 +91,10 @@ async function handler(req, res) {
   if (!petIds.length || petIds.length > MAX_PETS || !petIds.every((id) => PET_ID.test(id))) return send(res, 400, { error: 'invalid_pets' });
 
   try {
+    // Términos y Condiciones vigentes aceptados (constancia en legal_consents): sin eso no se crea ninguna reserva
+    const sinTerminos = await requireCurrentConsent(user.id);
+    if (sinTerminos) return send(res, 403, sinTerminos);
+
     const pets = await loadOwnPets(user.id, petIds);
     if (pets.length !== petIds.length) return send(res, 403, { error: 'pets_not_owned' });
 

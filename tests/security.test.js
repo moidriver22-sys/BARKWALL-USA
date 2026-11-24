@@ -43,7 +43,7 @@ const call = async (handler, { method = 'POST', url = '/', headers = {}, body } 
 };
 const SIGNUP_OK = {
   email: 'nuevo@example.com', password: 'secreto123', fullName: 'Ana López', role: 'client', birthDate: '1990-05-01',
-  termsAccepted: true, termsVersion: '2026-11-14', privacyAccepted: true, privacyVersion: '2026-11-16',
+  termsAccepted: true, termsVersion: '2026-11-24', privacyAccepted: true, privacyVersion: '2026-11-16',
   waiverAccepted: true, waiverVersion: '2026-11-16',
 };
 

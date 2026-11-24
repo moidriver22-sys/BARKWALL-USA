@@ -23,12 +23,16 @@ const { verifyHuman, publicBotConfig } = require('./_lib/bot-guard');
 const { rateLimit } = require('./_lib/rate-limit');
 const contentFilter = require('./_lib/content-filter');
 
-// Cambia estas versiones junto con index.html y private.bw_consent_rules() (migración 20261117)
-const TERMS_VERSION = '2026-11-14';
-const PRIVACY_VERSION = '2026-11-16';
-const WAIVER_VERSION = '2026-11-16';
-const CONTRACTOR_VERSION = '2026-11-14';
-const MIN_AGE = 19; // mayoría de edad en Alabama (Ala. Code § 26-1-1)
+// Versiones vigentes: una sola fuente para todo el servidor (api/_lib/terms.js). Cámbialas allí,
+// en index.html y en private.bw_consent_rules().
+const TERMS = require('./_lib/terms');
+const { getUserFromToken } = require('./_lib/supabase');
+const { bearerToken } = require('./_lib/http');
+const TERMS_VERSION = TERMS.CURRENT.terms;
+const PRIVACY_VERSION = TERMS.CURRENT.privacy;
+const WAIVER_VERSION = TERMS.CURRENT.waiver;
+const CONTRACTOR_VERSION = TERMS.CURRENT.contractor;
+const MIN_AGE = TERMS.MIN_AGE;
 // Destino del enlace de confirmación: PUBLIC_SITE_URL (la misma que usan Stripe Checkout / Connect) o el dominio raíz
 const SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://barkwalkusa.com').trim().replace(/\/+$/, '');
 // Clave pública (anon): la misma que ya está en index.html. Solo se usa para la API pública de registro.
@@ -59,6 +63,28 @@ function todayInAlabama() { // America/Chicago (Birmingham, AL)
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
 
+// POST /api/signup  { action: 'accept_terms', termsAccepted, termsVersion, privacyAccepted, privacyVersion,
+//                     contractorAccepted?, contractorVersion? (paseadores), birthDate? (si el perfil no la tiene) }
+// Authorization: Bearer <token de Supabase>. Guarda la constancia en public.legal_consents (fecha y hora del
+// servidor, IP, navegador y versiones) y actualiza el perfil. El rol sale de la base, nunca del navegador.
+async function acceptTerms(req, res, b, ip) {
+  const user = await getUserFromToken(bearerToken(req)).catch(() => null);
+  if (!user) return send(res, 401, { error: 'unauthorized' });
+  if (!(await rateLimit('stripe_user', user.id))) return send(res, 429, { error: 'rate_limited' });
+  try {
+    const s = await TERMS.consentStatus(user.id);
+    if (!s.profile) return send(res, 404, { error: 'profile_not_found' });
+    const v = TERMS.validateAcceptance(b, s.role, s.profile.birth_date);
+    if (!v.ok) return send(res, 400, v);
+    const r = await TERMS.recordConsent({ userId: user.id, email: s.profile.email || user.email, role: s.role,
+      birthDate: v.birthDate, ip, userAgent: req.headers && req.headers['user-agent'] });
+    return send(res, 200, { status: 'accepted', ...r, role: s.role });
+  } catch (e) {
+    console.error('accept_terms:', e.message);
+    return send(res, 500, { error: 'internal_error' });
+  }
+}
+
 async function handler(req, res) {
   if (req.method === 'GET') return send(res, 200, publicBotConfig()); // configuración pública anti-bots
   if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return send(res, 405, { error: 'method_not_allowed' }); }
@@ -70,6 +96,8 @@ async function handler(req, res) {
 
   let b;
   try { b = await readJsonBody(req); } catch (e) { return send(res, 400, { error: e.message }); }
+  // Usuario YA registrado que acepta la versión vigente de los Términos (bloqueo de la app). Exige sesión.
+  if (b && b.action === 'accept_terms') return acceptTerms(req, res, b, ip);
 
   const human = await verifyHuman(b, ip, 'signup');
   if (!human.ok) return send(res, human.error === 'bot_detected' ? 400 : 403, { error: human.error });

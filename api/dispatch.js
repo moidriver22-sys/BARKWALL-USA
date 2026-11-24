@@ -20,6 +20,8 @@ const { runGrowth } = require('./_lib/growth-agent');
 const { backfillEarnings } = require('./_lib/earnings');
 const { stripeHealth } = require('./_lib/stripe-health');
 const { processCancellations } = require('./_lib/cancellations');
+const { processWalkerReviews } = require('./_lib/walker-reviews');
+// ?action=walker_reviews[&dry=1] → avisa al paseador (push + correo) la decisión sobre su postulación
 // ?action=cancellations[&dry=1] → reembolso automático (100 %) o aviso al equipo (50 % / casos especiales) por días cancelados
 const { getStripe, siteUrl } = require('./_lib/connect');
 // ?action=stripe_health → diagnóstico de SOLO LECTURA de Stripe: cuenta, webhook, Apple/Google Pay, Connect (ver _lib/stripe-health.js)
@@ -113,6 +115,16 @@ async function handler(req, res) {
     }
   }
   // Reembolsos por cancelación (al instante vía pg_net desde el trigger, y en cada ronda de 10 min como respaldo)
+  if (url.searchParams.get('action') === 'walker_reviews') {
+    try {
+      const r = await processWalkerReviews({ dryRun });
+      console.log('walker_reviews:', JSON.stringify(r));
+      return send(res, 200, r);
+    } catch (e) {
+      console.error('walker_reviews:', e.message);
+      return send(res, 500, { error: 'internal_error' });
+    }
+  }
   if (url.searchParams.get('action') === 'cancellations') {
     try {
       const r = await processCancellations({ stripe: getStripe(), dryRun });
@@ -128,6 +140,7 @@ async function handler(req, res) {
     const cancelaciones = await (async () => processCancellations({ stripe: getStripe(), dryRun }))().catch((e) => ({ error: e.message }));
     const r = await runDispatch({ dryRun });
     r.cancellations = { ...cancelaciones, items: undefined };
+    r.walkerReviews = await processWalkerReviews({ dryRun }).catch((e) => ({ error: e.message }));
     console.log('dispatch:', JSON.stringify({ ...r, alerts: undefined }));
     return send(res, 200, r);
   } catch (e) {

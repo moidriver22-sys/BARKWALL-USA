@@ -14,6 +14,7 @@
 const { send, bearerToken } = require('./_lib/http');
 const { rateLimit } = require('./_lib/rate-limit');
 const { isConfigured, sbOrThrow, getUserFromToken, enc } = require('./_lib/supabase');
+const { requireCurrentConsent } = require('./_lib/terms');
 const { classifyConnectError, WALKER_ROLES, stripeKeyValid, getStripe, siteUrl, getProfile, syncAccountStatus, payoutCompletedWalks } = require('./_lib/connect');
 
 async function handler(req, res) {
@@ -23,6 +24,9 @@ async function handler(req, res) {
   const user = await getUserFromToken(bearerToken(req)).catch(() => null);
   if (!user) return send(res, 401, { error: 'unauthorized' });
   if (!(await rateLimit('stripe_user', user.id))) return send(res, 429, { error: 'rate_limited' });
+  // Términos + Acuerdo para Paseadores vigentes aceptados antes de vincular la cuenta de cobro
+  const sinTerminos = await requireCurrentConsent(user.id).catch(() => ({ error: 'terms_required' }));
+  if (sinTerminos) return send(res, 403, sinTerminos);
 
   try {
     let profile = await getProfile(user.id);
