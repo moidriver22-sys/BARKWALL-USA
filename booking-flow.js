@@ -443,6 +443,10 @@
         ['📍', tr('Recogida', 'Pickup'), s.address || '—', 2],
       ];
       const total = sum.days ? sum.grandTotal : sum.perDay;
+      // Barkwalk Club: ahorro real (socio) o ahorro posible (no socio). Solo informativo: el servidor calcula el precio.
+      const MV = win.BWMembershipValue;
+      const nota = MV && typeof win.isClubMember === 'function' ? MV.bookingNote(sum, { member: !!win.isClubMember(), lang: lang() }) : null;
+      if (MV) MV.injectCss();
       box.innerHTML = `
         <div class="bk-rv-hero"><span class="bk-rv-paw" aria-hidden="true">🐶</span>
           <div><p class="bk-rv-kicker">${esc(tr('¡Casi listo!', 'Almost done!'))}</p>
@@ -455,7 +459,7 @@
           </li>`).join('')}
         </ul>
         <div class="bk-rv-total" style="animation-delay:${reduced() ? 0 : items.length * 60}ms"><span>${esc(tr('Total a pagar', 'Total to pay'))}</span><b>$${Number(total || 0).toFixed(2)}</b></div>
-        <p class="bk-rv-trust"><span>🔒 ${esc(tr('Pago seguro con Stripe', 'Secure payment with Stripe'))}</span><span>✓ ${esc(tr('Sin cargo hasta que pagues', 'No charge until you pay'))}</span></p>`;
+        ${nota ? `<p class="bk-club-note" data-kind="${nota.kind}">${nota.html}</p>` : ''}<p class="bk-rv-trust"><span>🔒 ${esc(tr('Pago seguro con Stripe', 'Secure payment with Stripe'))}</span><span>✓ ${esc(tr('Sin cargo hasta que pagues', 'No charge until you pay'))}</span></p>`;
     }
 
     // Despedida amable al cancelar y cierre

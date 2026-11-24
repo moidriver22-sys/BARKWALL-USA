@@ -4364,7 +4364,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="/content-filter.js?v=20261126" defer></script>
 <script src="/bw-safety.js?v=20261126" defer></script>
 <!-- Reserva por pasos animada (pasos, resumen en vivo, revisión final y Cancelar amable) -->
-<script src="/booking-flow.js?v=20261129" defer></script>
+<script src="/membership-value.js?v=20261130" defer></script>
+<script src="/booking-flow.js?v=20261130" defer></script>
 
 <!-- Script en tiempo real definitivo -->
 <script>
@@ -8576,6 +8577,42 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   function myPlanTier() { const r = window.currentUser && window.currentUser.role; return r === 'client' ? 'club' : (r === 'walker' || r === 'shopper') ? 'walker_pro' : null; }
   function isMemberActive(tier) { const u = window.currentUser; return !!u && u.membership_tier === tier && MEMBER_ACTIVE.includes(u.membership_status); }
   function isClubMember() { return isMemberActive('club'); }
+  window.isClubMember = isClubMember;
+
+  // Valor personalizado de la membresía (membership-value.js): ahorro del cliente / extra del paseador.
+  // Lee SOLO filas propias (RLS: bookings del dueño, walk_requests asignados al paseador). Se pide una vez por sesión.
+  const MV_CACHE = {};
+  async function loadMembershipValue(tier) {
+    const db = window.supabaseClient, u = window.currentUser, MV = window.BWMembershipValue;
+    if (!db || !u || !MV || MV_CACHE[tier] !== undefined) return;
+    MV_CACHE[tier] = null;
+    try {
+      if (tier === 'club') {
+        const { data, error } = await db.from('bookings').select('per_day_cents,per_day_list_cents,member_discount_pct,dates,payment_status,refunded_cents,total_cents,created_at')
+          .eq('client_id', u.id).eq('payment_status', 'paid').order('created_at', { ascending: false }).limit(300);
+        if (error) throw error;
+        MV_CACHE[tier] = MV.clubStats(data || []);
+      } else {
+        const d = new Date(); const inicioMes = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
+        const { data, error } = await db.from('walk_requests').select('status,completed_at,walker_is_pro,walker_earning_std_cents,walker_earning_pro_cents')
+          .eq('walker_id', u.id).eq('status', 'completed').gte('completed_at', inicioMes).limit(500);
+        if (error) throw error;
+        MV_CACHE[tier] = MV.proStats(data || []);
+      }
+    } catch (e) { console.warn('Valor de membresía:', e.message || e); MV_CACHE[tier] = undefined; return; }
+    // Solo cambia el recuadro de valor (no se redibuja la tarjeta: la casilla de Términos conserva su estado)
+    const caja = document.querySelector(`[data-mv="${tier === 'club' ? 'club' : 'pro'}"]`);
+    if (caja) caja.outerHTML = membershipValueHtml(tier, isMemberActive(tier));
+  }
+  function membershipValueHtml(tier, activo) {
+    const MV = window.BWMembershipValue;
+    if (!MV) return '';
+    MV.injectCss();
+    const stats = MV_CACHE[tier] || null;
+    if (MV_CACHE[tier] === undefined) loadMembershipValue(tier);
+    const opts = { member: activo, lang: currentLang === 'en' ? 'en' : 'es' };
+    return tier === 'club' ? MV.clubValueHtml(stats, opts) : MV.proValueHtml(stats, opts);
+  }
 
   // Tarjeta de membresía (diseño de referencia del dueño de Barkwalk: etiqueta, título, precio, beneficio y pie con estado)
   function renderMembershipCard() {
@@ -8620,7 +8657,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
           <span class="text-xs text-slate-400 block">/ ${tr('mes', 'month')}</span>
         </div>
       </div>
-      <p class="text-sm text-slate-300 mb-6">${texto}</p>
+      <p class="text-sm text-slate-300 mb-4">${texto}</p>
+      ${membershipValueHtml(tier, activo)}
       ${atencion ? `<p class="text-xs text-amber-300 font-semibold -mt-3 mb-5">${tr('Los beneficios se pausan hasta que se resuelva el pago.', 'Benefits are paused until the payment is resolved.')}</p>` : ''}
       ${activo || atencion ? '' : `<label for="mcTerms" class="flex items-start gap-2.5 text-xs text-slate-300 leading-snug mb-4 cursor-pointer">
           <input type="checkbox" id="mcTerms" class="w-5 h-5 mt-0.5 shrink-0 cursor-pointer ${club ? 'accent-indigo-500' : 'accent-amber-500'}">
