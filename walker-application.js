@@ -57,6 +57,14 @@
     return { mode: 'form', reason: 'first', latest };
   }
 
+  // ¿Puede usar la app? (función pura) SOLO si el admin lo aprobó (walker_status 'verified') y tiene una
+  // postulación aprobada con ID NO vencido — la misma regla que la base (public.bw_is_verified_walker).
+  // Durante una renovación (nuevo envío en revisión) sigue aprobado mientras su ID aprobado siga vigente.
+  function isApproved(walkerStatus, apps, today) {
+    if (walkerStatus !== 'verified') return false;
+    return (apps || []).some((a) => a.status === 'approved' && a.id_expiry >= today);
+  }
+
   const ERR = {
     invalid_legal_name: ['Escribe tu nombre legal completo, como aparece en tu ID.', 'Enter your full legal name as it appears on your ID.'],
     invalid_phone: ['Escribe un teléfono de EE. UU. de 10 dígitos.', 'Enter a 10-digit U.S. phone number.'],
@@ -96,6 +104,22 @@
   .wa-docs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .wa-docs img{width:100%;aspect-ratio:3/4;object-fit:contain;background:#111;border-radius:12px}
   .wa-risk{display:inline-block;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:900;text-transform:uppercase}
+  .onb-steps{list-style:none;margin:0 0 14px;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .onb-steps li{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;font-size:11px;font-weight:800;color:rgb(var(--bw-text-rgb,43 38 33)/.55)}
+  .onb-steps b{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;border:2px dashed var(--bw-line,#EBE3D5);background:var(--bw-surface,#fff)}
+  .onb-steps li.is-now{color:var(--bw-ink,#1B4D3E)}.onb-steps li.is-now b{border:0;background:#1B4D3E;color:#fff;box-shadow:0 0 0 4px rgba(0,168,89,.2)}
+  .onb-steps li.is-done b{border:0;background:#00A859;color:#fff}
+  .onb-card h2{margin:4px 0 8px;font-size:20px;font-weight:900;color:var(--bw-ink,#1B4D3E);letter-spacing:-.01em}
+  .onb-card p{font-size:13px;line-height:1.5;margin:0 0 12px}
+  .onb-kicker{font-size:10.5px!important;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:#00A859;margin:0!important}
+  .onb-ic{font-size:40px;line-height:1;margin:6px 0}
+  .onb-wait{text-align:center}.onb-wait details,.onb-wait .onb-status{text-align:left}
+  .onb-status{list-style:none;padding:12px 14px;margin:0 0 14px;border-radius:14px;background:var(--bw-soft,#FAF7F1);display:grid;gap:6px;font-size:12.5px;font-weight:700}
+  .onb-logout{display:block;margin:16px auto 0;background:none;border:0;color:rgb(var(--bw-text-rgb,43 38 33)/.65);font-size:12.5px;font-weight:800;text-decoration:underline;cursor:pointer;min-height:44px}
+  #bwWelcomeApproved{position:fixed;inset:0;z-index:9100;display:grid;place-items:center;padding:20px;background:rgba(10,20,16,.7);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .onb-welcome{width:100%;max-width:400px;text-align:center;background:var(--bw-surface,#fff);color:var(--bw-text,#2B2621);border-radius:26px;padding:26px 22px;box-shadow:0 30px 60px -24px rgba(0,0,0,.55)}
+  .onb-welcome h2{margin:6px 0 8px;font-size:22px;font-weight:900;color:var(--bw-ink,#1B4D3E)}
+  .onb-welcome p{font-size:13.5px;line-height:1.5;margin:0 0 16px}
   .wa-risk.low{background:#E7F6EE;color:#05603A}.wa-risk.medium{background:#FEF3C7;color:#78350F}.wa-risk.high{background:#FDECEA;color:#8A1C12}`;
 
   // ---------- Navegador ----------
@@ -158,7 +182,7 @@
         </form>`;
     }
 
-    function wireForm(box) {
+    function wireForm(box, after) {
       const $ = (id) => doc.getElementById(id);
       const preview = (inputId, imgId, boxId, key) => $(inputId).addEventListener('change', async (e) => {
         const f = await shrink(e.target.files && e.target.files[0]);
@@ -172,10 +196,10 @@
         $('waExpiryNote').innerHTML = !$('waExpiry').value ? '' : !r.ok ? `<span class="wa-err" style="display:block">${esc(msg(r.error))}</span>`
           : r.warning ? `<span class="wa-warn" style="display:block">⚠️ ${esc(tr(`Tu ID vence en ${r.days} días. Puedes enviarlo, pero tendrás que renovarlo pronto.`, `Your ID expires in ${r.days} days. You can submit it, but you will need to renew it soon.`))}</span>` : '';
       });
-      $('waForm').addEventListener('submit', async (e) => { e.preventDefault(); await submit(box); });
+      $('waForm').addEventListener('submit', async (e) => { e.preventDefault(); await submit(box, after); });
     }
 
-    async function submit(box) {
+    async function submit(box, after) {
       const $ = (id) => doc.getElementById(id);
       const err = (code) => { const el = $('waErr'); el.textContent = msg(code); el.hidden = false; };
       $('waErr').hidden = true;
@@ -204,7 +228,7 @@
         pick.id = pick.selfie = null;
         if (typeof win.showToast === 'function') win.showToast(tr('✅ Postulación enviada. El equipo de Barkwalk la revisará.', '✅ Application submitted. The Barkwalk team will review it.'), 'ok', 5000);
         if (win.currentUser.walker_status === 'rejected') win.currentUser.walker_status = 'pending';
-        await render(box.id);
+        await (typeof after === 'function' ? after() : render(box.id));
         if (typeof win.renderWalkerAccountStatus === 'function') win.renderWalkerAccountStatus();
       } catch (e2) {
         err('upload_failed');
@@ -276,13 +300,135 @@
       }));
     }
 
-    return { render, renderAdminReview };
+    // ================= ONBOARDING (fuera de la app interna) =================
+    // Etapa 1: datos + ID vigente + selfie. Etapa 2: "Postulación en revisión" (estado, motivo si se rechazó,
+    // reenviar documentos, cerrar sesión). Solo al aprobar: bienvenida y se desbloquea la app (win.bwUnlockApp).
+    const ONB = { rootId: null, timer: null, visHook: false };
+    const POLL_MS = 30000;
+
+    async function gate() {
+      const db = win.supabaseClient, u = win.currentUser;
+      const { data: p } = await db.from('profiles').select('walker_status').eq('id', u.id).maybeSingle();
+      const { apps, reviews } = await loadOwn();
+      const status = (p && p.walker_status) || u.walker_status || 'pending';
+      u.walker_status = status;
+      return { approved: isApproved(status, apps, today()), status, apps, reviews };
+    }
+
+    function stop() { if (ONB.timer) { win.clearInterval(ONB.timer); ONB.timer = null; } }
+    function poll() {
+      if (ONB.timer) return;
+      ONB.timer = win.setInterval(checkNow, POLL_MS);
+      if (!ONB.visHook) { ONB.visHook = true; doc.addEventListener('visibilitychange', () => { if (!doc.hidden && ONB.timer) checkNow(); }); }
+    }
+    let ultimo = null;
+    async function checkNow() {
+      if (!win.currentUser || !ONB.rootId) return stop();
+      try {
+        const g = await gate();
+        if (g.approved) { stop(); return showWelcome(true); }
+        const firma = g.status + '|' + ((g.apps[0] && g.apps[0].status) || '');
+        if (ultimo && firma !== ultimo) await renderOnboarding(ONB.rootId); // p. ej. lo rechazaron: mostrar el motivo
+        ultimo = firma;
+      } catch (e) { /* sin conexión: se reintenta en la próxima vuelta */ }
+    }
+
+    const etapas = (n) => `<ol class="onb-steps" aria-label="${esc(tr('Pasos', 'Steps'))}">
+        <li class="${n === 1 ? 'is-now' : 'is-done'}"><b>${n === 1 ? '1' : '✓'}</b><span>${esc(tr('Documentos y verificación', 'Documents & verification'))}</span></li>
+        <li class="${n === 2 ? 'is-now' : ''}"><b>2</b><span>${esc(tr('Revisión del equipo', 'Team review'))}</span></li>
+        <li><b>3</b><span>${esc(tr('Acceso a la app', 'App access'))}</span></li></ol>`;
+
+    async function renderOnboarding(rootId) {
+      ONB.rootId = rootId || ONB.rootId || 'onbRoot';
+      const root = doc.getElementById(ONB.rootId); if (!root || !win.currentUser) return;
+      css();
+      root.innerHTML = `<p class="wa-note" style="text-align:center;padding:30px 0">${esc(tr('Cargando tu postulación…', 'Loading your application…'))}</p>`;
+      let g;
+      try { g = await gate(); } catch (e) {
+        root.innerHTML = `<div class="w-card"><p class="wa-err">${esc(tr('No pudimos cargar tu postulación. Revisa tu conexión.', 'We could not load your application. Check your connection.'))}</p>
+          <button type="button" class="w-btn w-btn-primary w-full mt-3" data-onb="retry">${esc(tr('Reintentar', 'Retry'))}</button></div>`;
+        root.querySelector('[data-onb="retry"]').onclick = () => renderOnboarding(ONB.rootId);
+        return;
+      }
+      if (g.approved) { stop(); return showWelcome(true); }
+      const st = viewState(g.status, g.apps, today());
+      win.currentUser.walker_app_mode = st.mode;
+      const nombre = (win.currentUser.full_name || '').split(' ')[0];
+      const salir = `<button type="button" class="onb-logout" data-onb="logout">${esc(tr('Cerrar sesión', 'Log out'))}</button>`;
+      const after = () => renderOnboarding(ONB.rootId);
+
+      if (st.mode === 'suspended') {
+        stop();
+        root.innerHTML = `${etapas(2)}<section class="w-card onb-card"><div class="onb-ic">⛔</div><h2>${esc(tr('Cuenta suspendida', 'Account suspended'))}</h2>
+          <p>${esc(tr('Tu cuenta de paseador está suspendida. Escríbenos a soporte@barkwalkusa.com para revisarla.', 'Your walker account is suspended. Email soporte@barkwalkusa.com so we can review it.'))}</p></section>${salir}`;
+      } else if (st.mode === 'form') {
+        stop();
+        root.innerHTML = `${etapas(1)}<section class="w-card onb-card">
+            <p class="onb-kicker">${esc(tr('Etapa 1 de 2', 'Step 1 of 2'))}</p>
+            <h2>${esc(tr(`Hola${nombre ? ', ' + nombre : ''}: completa tu postulación`, `Hi${nombre ? ' ' + nombre : ''}: complete your application`))}</h2>
+            <p>${esc(tr('Antes de entrar a la app necesitamos verificar tu identidad. Completa tus datos y sube una foto de tu identificación vigente y una selfie.', 'Before you can enter the app we need to verify your identity. Complete your details and upload a photo of your current ID and a selfie.'))}</p>
+            <div id="onbForm"></div></section>${salir}`;
+        doc.getElementById('onbForm').innerHTML = formHtml(st, g.reviews);
+        wireForm(root, after);
+      } else {
+        // Etapa 2: en revisión (también si su estado cambió y aún no está aprobado)
+        const enviada = st.latest && st.latest.submitted_at ? String(st.latest.submitted_at).slice(0, 10) : '';
+        root.innerHTML = `${etapas(2)}<section class="w-card onb-card onb-wait">
+            <p class="onb-kicker">${esc(tr('Etapa 2 de 2', 'Step 2 of 2'))}</p>
+            <div class="onb-ic" aria-hidden="true">⏳</div>
+            <h2>${esc(tr('Postulación en revisión', 'Application under review'))}</h2>
+            <p>${esc(tr('Recibimos tus documentos', 'We received your documents'))}${enviada ? ' (' + esc(enviada) + ')' : ''}. ${esc(tr('Una persona del equipo de Barkwalk está revisando tu identificación, tu selfie y tus datos. Te avisaremos por correo y notificación en cuanto haya una decisión. Puedes cerrar la app: esta pantalla se actualiza sola.', 'A person on the Barkwalk team is reviewing your ID, your selfie and your details. We will email and notify you as soon as there is a decision. You can close the app: this screen updates on its own.'))}</p>
+            <ul class="onb-status">
+              <li>✅ ${esc(tr('Términos y Acuerdo para Paseadores', 'Terms and Walker Agreement'))}</li>
+              <li>✅ ${esc(tr('ID vigente y selfie enviados', 'Current ID and selfie submitted'))}</li>
+              <li>⏳ ${esc(tr('Revisión del equipo', 'Team review'))}</li>
+            </ul>
+            <button type="button" class="w-btn w-btn-primary w-full" data-onb="refresh">🔄 ${esc(tr('Actualizar estado', 'Refresh status'))}</button>
+            <details class="mt-3"><summary class="text-[12px] font-black text-brandDarkGreen cursor-pointer">${esc(tr('¿Te equivocaste? Envía tus documentos corregidos', 'Made a mistake? Submit corrected documents'))}</summary><div class="mt-2" id="onbForm"></div></details>
+          </section>${salir}`;
+        doc.getElementById('onbForm').innerHTML = formHtml({ reason: 'update' }, g.reviews);
+        wireForm(root, after);
+        root.querySelector('[data-onb="refresh"]').onclick = async (e) => { e.target.disabled = true; await checkNow(); if (e.target.isConnected) e.target.disabled = false; };
+        ultimo = g.status + '|' + ((g.apps[0] && g.apps[0].status) || '');
+        poll();
+      }
+      const out = root.querySelector('[data-onb="logout"]'); if (out) out.onclick = () => { stop(); if (typeof win.logoutUser === 'function') win.logoutUser(); };
+    }
+
+    // ---------- Bienvenida al ser aprobado (una vez por cuenta) ----------
+    const flagKey = () => `bw_walker_welcomed_${win.currentUser && win.currentUser.id}`;
+    function welcomed() { try { return win.localStorage.getItem(flagKey()) === '1'; } catch (e) { return false; } }
+    function markWelcomed() { try { win.localStorage.setItem(flagKey(), '1'); } catch (e) { /* sin almacenamiento */ } }
+    function showWelcome(unlock) {
+      css();
+      const prev = doc.getElementById('bwWelcomeApproved'); if (prev) prev.remove();
+      const el = doc.createElement('div');
+      el.id = 'bwWelcomeApproved'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'bwWelcomeTitle');
+      el.innerHTML = `<div class="onb-welcome"><div class="onb-ic" aria-hidden="true">🎉</div>
+          <h2 id="bwWelcomeTitle">${esc(tr('¡Bienvenido a Barkwalk USA!', 'Welcome to Barkwalk USA!'))}</h2>
+          <p>${esc(tr('Tu perfil ha sido aprobado. Ya tienes acceso a toda la app: conecta tus cobros con Stripe en Walker Pro y ponte en línea para empezar a recibir paseos.', 'Your profile has been approved. You now have full access to the app: connect your Stripe payouts in Walker Pro and go online to start receiving walks.'))}</p>
+          <button type="button" class="w-btn w-btn-primary w-full" data-onb="enter">${esc(tr('Entrar a la app', 'Enter the app'))}</button></div>`;
+      doc.body.appendChild(el);
+      markWelcomed();
+      el.querySelector('[data-onb="enter"]').onclick = () => {
+        el.remove();
+        if (unlock && typeof win.bwUnlockApp === 'function') win.bwUnlockApp();
+      };
+      setTimeout(() => { const b = el.querySelector('button'); if (b) b.focus(); }, 30);
+    }
+    // Aprobado mientras estaba fuera: la primera vez que entra a la app ve la bienvenida
+    function maybeWelcome() { if (!welcomed()) showWelcome(false); }
+
+    return { render, renderAdminReview, gate, renderOnboarding, stop, showWelcome, maybeWelcome };
   }
 
   let ui = null;
   const api = () => { if (!ui && typeof window !== 'undefined') ui = mount(window); return ui; };
   return {
     BUCKET, MAX_BYTES, TYPES, WARN_DAYS, SIGNED_URL_SECONDS, ERR, CSS, checkIdExpiry, checkFile, buildPath, viewState,
+    isApproved,
     render: (id) => api() && api().render(id), renderAdminReview: (w, c) => api() && api().renderAdminReview(w, c),
+    gate: () => api() && api().gate(), renderOnboarding: (id) => api() && api().renderOnboarding(id), stop: () => api() && api().stop(),
+    showWelcome: (u) => api() && api().showWelcome(u), maybeWelcome: () => api() && api().maybeWelcome(),
   };
 });

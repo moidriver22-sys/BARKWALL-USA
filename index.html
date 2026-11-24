@@ -1971,6 +1971,20 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     </div>
 
     <!-- DASHBOARD INTERNO -->
+    <!-- ONBOARDING DEL PASEADOR (walker-application.js): fuera de la app interna. Mientras el admin no lo apruebe,
+         el paseador solo ve esta pantalla: Etapa 1 (datos + ID vigente + selfie) y Etapa 2 (postulación en revisión).
+         Sin pestañas, menú, campana ni barra de navegación. Al aprobarse: bienvenida y bwUnlockApp(). -->
+    <div id="walkerOnboardingView" class="hidden min-h-screen dashboard-puppy-bg text-brandTextDark">
+        <header class="bw-topbar" style="grid-template-columns:1fr auto 1fr">
+            <span></span>
+            <span class="bw-logo" aria-label="Barkwalk USA">🐾 BARKWALK</span>
+            <span class="bw-topbar-side bw-topbar-side--end">
+                <button type="button" class="bw-icon-btn" onclick="bwToggleTheme()" aria-label="Dark mode / Modo oscuro"><i data-lucide="moon" class="w-5 h-5"></i></button>
+                <button type="button" class="bw-icon-btn" onclick="setLanguage(currentLang === 'es' ? 'en' : 'es')" aria-label="Language / Idioma"><i data-lucide="languages" class="w-5 h-5"></i></button>
+            </span>
+        </header>
+        <main id="onbRoot" class="px-4 py-5 max-w-md mx-auto w-full" aria-live="polite"></main>
+    </div>
     <div id="appDashboard" class="hidden min-h-screen flex flex-col justify-between pb-8 dashboard-puppy-bg text-brandTextDark animate-fade">
         <header class="bw-topbar">
             <div class="bw-topbar-side">
@@ -4167,17 +4181,52 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             document.getElementById('profileName').innerText = window.currentUser.full_name || user.email;
             closeRegistrationModal();
             document.getElementById('welcomeView').classList.add('hidden');
+            // Paseador sin aprobación del admin: onboarding dedicado, SIN acceso a la app interna
+            if (await walkerMustOnboard()) {
+                showWalkerOnboarding();
+                if (window.BWTermsGate) BWTermsGate.check(); // la postulación exige Términos vigentes
+                maybeWelcomeVerified(user, opts.justVerified === true);
+                return;
+            }
+            document.getElementById('walkerOnboardingView').classList.add('hidden');
             document.getElementById('appDashboard').classList.remove('hidden');
             showDashboardWithSkeleton();
+            // Aprobado mientras no estaba: bienvenida (una vez)
+            if (currentUserRole === 'shopper' && !window.currentUser.is_admin && window.BWWalkerApp) BWWalkerApp.maybeWelcome();
             // Términos y Condiciones vigentes: si falta aceptarlos, bloqueo a pantalla completa (terms-gate.js)
             if (window.BWTermsGate) BWTermsGate.check();
-            if (currentUserRole === 'shopper' && window.BWWalkerApp) BWWalkerApp.render('walkerApplicationCard').then(() => {
-                const m = window.currentUser && window.currentUser.walker_app_mode;
-                if (m === 'form' && typeof showToast === 'function') showToast(tr('🪪 Completa tu postulación: sube tu ID vigente y una selfie en Walker Pro.', '🪪 Complete your application: upload your current ID and a selfie in Walker Pro.'), 'warn', 7000);
-            }).catch(() => {});
             // "¡Correo verificado con éxito!" la primera vez que entra tras confirmar
             maybeWelcomeVerified(user, opts.justVerified === true);
         }
+
+        // ¿Este paseador debe quedarse en el onboarding? Solo pasa a la app con aprobación del admin
+        // (walker_status 'verified' + postulación aprobada con ID vigente; misma regla que la base).
+        // Si el módulo no carga, se BLOQUEA por seguridad (nunca se abre la app por error).
+        async function walkerMustOnboard() {
+            const u = window.currentUser;
+            if (currentUserRole !== 'shopper' || !u || u.is_admin) return false;
+            for (let i = 0; i < 25 && !window.BWWalkerApp; i++) await new Promise(r => setTimeout(r, 200));
+            if (!window.BWWalkerApp) return true;
+            try { const g = await BWWalkerApp.gate(); return !g.approved; } catch (e) { console.warn('Estado del paseador:', e); return true; }
+        }
+        window.walkerMustOnboard = walkerMustOnboard;
+        function showWalkerOnboarding() {
+            document.getElementById('appDashboard').classList.add('hidden');
+            document.getElementById('walkerOnboardingView').classList.remove('hidden');
+            if (window.BWWalkerApp) BWWalkerApp.renderOnboarding('onbRoot');
+            else document.getElementById('onbRoot').innerHTML = '<p class="text-center text-sm font-bold py-10">' + tr('No se pudo cargar tu postulación. Recarga la página.', 'Could not load your application. Reload the page.') + '</p>';
+            if (window.lucide) lucide.createIcons();
+        }
+        // Lo llama la bienvenida cuando el admin aprueba: se desbloquea TODA la app
+        window.bwUnlockApp = function () {
+            if (window.BWWalkerApp) BWWalkerApp.stop();
+            if (window.currentUser) window.currentUser.walker_status = 'verified';
+            document.getElementById('walkerOnboardingView').classList.add('hidden');
+            document.getElementById('appDashboard').classList.remove('hidden');
+            showDashboardWithSkeleton();
+            if (window.BWTermsGate) BWTermsGate.check();
+            if (typeof switchTab === 'function') switchTab('pro'); // conectar cobros con Stripe
+        };
 
         // Botón "Admin" en la barra inferior solo para profiles.is_admin = true
         function applyAdminUI() {
@@ -4196,6 +4245,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             const paso = (fn) => { try { fn(); } catch (e) { console.warn('logout cleanup:', e); } };
             window.currentUser = null;
             paso(() => { if (window.BWTermsGate) BWTermsGate.hide(); });
+            paso(() => { if (window.BWWalkerApp) BWWalkerApp.stop(); document.getElementById('walkerOnboardingView').classList.add('hidden'); document.getElementById('bwWelcomeApproved')?.remove(); });
             paso(() => applyAdminUI()); // ocultar y vaciar el panel de admin
             paso(() => { if (typeof stopLocationSharing === 'function') stopLocationSharing(); }); // GPS del paseador
             paso(() => { if (typeof closeChat === 'function') closeChat(); });                     // canal realtime del chat
@@ -9852,6 +9902,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 
   // ---------- Idioma e inicialización ----------
   function onLanguageChanged() {
+    if (window.BWWalkerApp && !document.getElementById('walkerOnboardingView')?.classList.contains('hidden')) BWWalkerApp.renderOnboarding('onbRoot');
     if (window.BWSafety) BWSafety.refresh(); // avisos de IA, antifuga y privacidad en el idioma activo
     if (window.BWBookingFlow) BWBookingFlow.refresh(); // textos de los pasos de la reserva
     if (typeof applyAuthModeUI === 'function') applyAuthModeUI(); // setLanguage reescribe título/botón del modal
