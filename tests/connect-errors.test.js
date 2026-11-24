@@ -36,6 +36,13 @@ t('la app muestra un mensaje claro por cada código (y la pista técnica solo a 
   assert.match(HTML, /const hint = isAdmin\(\) && CONNECT_ADMIN_HINT\[j\.error\]/);
   assert.match(HTML, /if \(j\.setup && m\) \{ showToast\('⏳ '/, 'configuración pendiente = aviso, no banner rojo');
 });
+t('accounts.create no usa una clave de idempotencia fija (Stripe repetiría 24 h un error ya resuelto)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'api/create-connect-account.js'), 'utf8');
+  assert.ok(!/idempotencyKey: `bw-connect-\$\{user\.id\}`/.test(src), 'clave fija eliminada');
+  assert.match(src, /idempotencyKey: `bw-connect-\$\{user\.id\}-\$\{Math\.floor\(Date\.now\(\) \/ 600000\)\}`/);
+  for (const k of ['requestId', 'idempotentReplayed', 'param', 'statusCode', 'platformAccount']) assert.ok(src.includes(k), 'log: ' + k);
+  assert.ok(!/STRIPE_SECRET_KEY[^\n]*console|console[^\n]*STRIPE_SECRET_KEY/.test(src), 'nunca se registra la clave');
+});
 t('sigue el límite de 12 funciones en api/', () => {
   assert.equal(fs.readdirSync(path.join(ROOT, 'api')).filter((f) => f.endsWith('.js')).length, 12);
 });

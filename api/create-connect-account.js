@@ -45,7 +45,11 @@ async function handler(req, res) {
           url: siteUrl(),
         },
         metadata: { supabase_user_id: String(user.id) },
-      }, { idempotencyKey: `bw-connect-${user.id}` });
+      // Idempotencia por VENTANA de 10 min (no fija por usuario): Stripe guarda 24 h la respuesta de cada clave,
+      // INCLUSO los errores. Con una clave fija, un primer intento fallido (p. ej. Connect aún sin configurar)
+      // se repetía tal cual durante un día aunque ya se hubiera arreglado. El doble clic lo siguen cubriendo
+      // esta ventana y el guardado condicional de abajo (si ya hay cuenta guardada, la nueva se borra).
+      }, { idempotencyKey: `bw-connect-${user.id}-${Math.floor(Date.now() / 600000)}` });
 
       // Guardar solo si sigue vacío (dos clics simultáneos no crean dos cuentas enlazadas)
       const rows = await sbOrThrow(`/rest/v1/profiles?id=eq.${enc(user.id)}&stripe_account_id=is.null`, {
@@ -83,7 +87,15 @@ async function handler(req, res) {
       // Código claro para la app. Si falta configurar Connect en Stripe (lo hace el dueño, no el paseador),
       // el log lo marca como ACCIÓN REQUERIDA para encontrarlo rápido en los logs de Vercel.
       const c = classifyConnectError(e);
-      console.error(`Stripe Connect${c.setup ? ' [ACCIÓN REQUERIDA en Stripe]' : ''}: ${c.error} ·`, e.type, e.code || '', e.message);
+      // Respuesta EXACTA de Stripe (nunca la clave): tipo, código, parámetro, HTTP, request id (búscalo en
+      // dashboard.stripe.com/logs), si fue una respuesta REPETIDA por idempotencia y la cuenta de plataforma.
+      const plataforma = await getStripe().accounts.retrieve().then((a) => a.id).catch(() => null);
+      const h = (e.headers && (e.headers['idempotent-replayed'] || e.headers['Idempotent-Replayed'])) || null;
+      console.error(`Stripe Connect${c.setup ? ' [ACCIÓN REQUERIDA en Stripe]' : ''}: ${c.error} ` + JSON.stringify({
+        type: e.type, code: e.code || null, param: e.param || null, statusCode: e.statusCode || null,
+        requestId: e.requestId || null, idempotentReplayed: h, docUrl: e.doc_url || (e.raw && e.raw.doc_url) || null,
+        message: e.message, platformAccount: plataforma,
+      }));
       return send(res, c.status, { error: c.error, setup: c.setup });
     }
     console.error('create-connect-account:', e.message);
