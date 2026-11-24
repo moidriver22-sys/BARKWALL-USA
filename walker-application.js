@@ -261,8 +261,10 @@
           <ul class="wa-rep">${chk}</ul>
           <p class="text-[12px] font-black">${esc(tr('Alertas para revisar con atención', 'Alerts to review carefully'))}</p>
           <ul class="wa-rep">${al}</ul>
-          <div class="wa-docs" data-docs><button type="button" class="w-mini-btn bg-white border border-brandBeige" data-doc="${esc(a.id_photo_path)}">🪪 ${esc(tr('Ver ID', 'View ID'))}</button>
-            <button type="button" class="w-mini-btn bg-white border border-brandBeige" data-doc="${esc(a.selfie_path)}">🤳 ${esc(tr('Ver selfie', 'View selfie'))}</button></div>
+          ${a.docs_deleted_at
+            ? `<p class="wa-note">🗑️ ${esc(tr('Fotos borradas el', 'Photos deleted on'))} ${esc(String(a.docs_deleted_at).slice(0, 10))} ${esc(tr('(política de 90 días: rechazada sin operar).', '(90-day policy: rejected without working).'))}</p>`
+            : `<div class="wa-docs" data-docs><button type="button" class="w-mini-btn bg-white border border-brandBeige" data-doc="${esc(a.id_photo_path)}">🪪 ${esc(tr('Ver ID', 'View ID'))}</button>
+            <button type="button" class="w-mini-btn bg-white border border-brandBeige" data-doc="${esc(a.selfie_path)}">🤳 ${esc(tr('Ver selfie', 'View selfie'))}</button></div>`}
           ${hist ? `<p class="wa-note">${esc(tr('Envíos anteriores', 'Previous submissions'))}: ${hist}</p>` : ''}
           ${decis ? `<p class="wa-note">${esc(tr('Decisiones', 'Decisions'))}:<br>${decis}</p>` : ''}
         </div>`;

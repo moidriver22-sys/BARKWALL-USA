@@ -22,6 +22,8 @@ const { stripeHealth } = require('./_lib/stripe-health');
 const { processCancellations } = require('./_lib/cancellations');
 const { processWalkerReviews } = require('./_lib/walker-reviews');
 const { runPendingAudits } = require('./_lib/application-agent');
+const { runDocRetention } = require('./_lib/doc-retention');
+// ?action=doc_retention[&dry=1] → borra fotos de ID/selfie de postulaciones rechazadas sin operar tras 90 días
 // ?action=application_audit[&dry=1] → agente auditor de postulaciones (solo reporta: NUNCA aprueba)
 // ?action=walker_reviews[&dry=1] → avisa al paseador (push + correo) la decisión sobre su postulación
 // ?action=cancellations[&dry=1] → reembolso automático (100 %) o aviso al equipo (50 % / casos especiales) por días cancelados
@@ -117,6 +119,16 @@ async function handler(req, res) {
     }
   }
   // Reembolsos por cancelación (al instante vía pg_net desde el trigger, y en cada ronda de 10 min como respaldo)
+  if (url.searchParams.get('action') === 'doc_retention') {
+    try {
+      const r = await runDocRetention({ dryRun });
+      console.log('doc_retention:', JSON.stringify(r));
+      return send(res, 200, r);
+    } catch (e) {
+      console.error('doc_retention:', e.message);
+      return send(res, 500, { error: 'internal_error' });
+    }
+  }
   if (url.searchParams.get('action') === 'application_audit') {
     try {
       const r = await runPendingAudits({ dryRun });
@@ -154,6 +166,7 @@ async function handler(req, res) {
     r.cancellations = { ...cancelaciones, items: undefined };
     r.walkerReviews = await processWalkerReviews({ dryRun }).catch((e) => ({ error: e.message }));
     r.applicationAudits = await runPendingAudits({ dryRun }).catch((e) => ({ error: e.message }));
+    r.docRetention = await runDocRetention({ dryRun }).catch((e) => ({ error: e.message }));
     console.log('dispatch:', JSON.stringify({ ...r, alerts: undefined }));
     return send(res, 200, r);
   } catch (e) {
