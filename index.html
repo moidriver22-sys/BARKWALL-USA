@@ -8500,7 +8500,23 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     not_walker: ['Solo los paseadores pueden vincular una cuenta de cobro.', 'Only walkers can link a payout account.'],
     walker_suspended: ['Tu cuenta de paseador está suspendida.', 'Your walker account is suspended.'],
     unauthorized: ['Tu sesión expiró. Inicia sesión de nuevo.', 'Your session expired. Please log in again.'],
-    not_configured: ['Los pagos a paseadores aún no están disponibles.', 'Walker payouts are not available yet.']
+    not_configured: ['Los pagos a paseadores aún no están disponibles.', 'Walker payouts are not available yet.'],
+    // Configuración de Stripe Connect pendiente del lado de Barkwalk (no del paseador): reintentar no sirve
+    connect_platform_incomplete: ['Barkwalk está terminando de activar los cobros a paseadores en Stripe. No tienes que hacer nada: avísanos y vuelve a intentarlo en unas horas. Tus paseos completados se te pagarán igual.',
+                                  'Barkwalk is finishing the setup of walker payouts in Stripe. You don\'t need to do anything: let us know and try again in a few hours. Your completed walks will still be paid.'],
+    connect_not_enabled: ['Los cobros a paseadores aún no están activados en Stripe por parte de Barkwalk. Vuelve a intentarlo más tarde; tus paseos completados se te pagarán igual.',
+                          'Walker payouts are not enabled in Stripe yet on Barkwalk\'s side. Please try again later; your completed walks will still be paid.'],
+    connect_capability_unavailable: ['Stripe aún no permite recibir transferencias en esta cuenta. Escríbenos a soporte@barkwalkusa.com.',
+                                     'Stripe does not allow transfers on this account yet. Email us at soporte@barkwalkusa.com.'],
+    connect_account_invalid: ['Tu cuenta de cobro anterior ya no es válida en Stripe. Escríbenos a soporte@barkwalkusa.com para vincular una nueva.',
+                              'Your previous payout account is no longer valid in Stripe. Email us at soporte@barkwalkusa.com to link a new one.'],
+    rate_limited: ['Demasiados intentos seguidos. Espera un minuto y vuelve a intentarlo.', 'Too many attempts. Wait a minute and try again.']
+  };
+  // Solo para administradores: qué arreglar en Stripe cuando el problema es de configuración
+  const CONNECT_ADMIN_HINT = {
+    connect_platform_incomplete: 'Admin: completa el "platform profile" de Connect en dashboard.stripe.com/connect/accounts/overview (cuestionario de Stripe).',
+    connect_not_enabled: 'Admin: activa Stripe Connect en dashboard.stripe.com/connect.',
+    connect_capability_unavailable: 'Admin: revisa en Stripe → Connect → Settings que la capacidad "transfers" esté disponible para cuentas de EE. UU.'
   };
 
   async function callWalkerApi(path, body) {
@@ -8536,9 +8552,11 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         return;
       }
       const m = CONNECT_ERRORS[j.error];
-      throw new Error(m ? tr(m[0], m[1]) : (j.message || tr('No se pudo conectar con Stripe. Intenta de nuevo.', 'Could not connect to Stripe. Please try again.')));
+      const hint = isAdmin() && CONNECT_ADMIN_HINT[j.error] ? '\n\n' + CONNECT_ADMIN_HINT[j.error] : '';
+      if (j.setup && m) { showToast('⏳ ' + tr(m[0], m[1]) + hint, 'warn', 12000); return; } // configuración pendiente: aviso, no error rojo
+      throw new Error((m ? tr(m[0], m[1]) : (j.message || tr('No se pudo conectar con Stripe. Intenta de nuevo.', 'Could not connect to Stripe. Please try again.'))) + hint);
     } catch (e) {
-      showToast('❌ ' + (e.message || e), 'error', 6000);
+      showToast('❌ ' + (e.message || e), 'error', 8000);
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = original; if (window.lucide) lucide.createIcons(); }
       isProcessingAction = false;

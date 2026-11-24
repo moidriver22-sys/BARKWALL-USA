@@ -30,6 +30,23 @@ function getStripe() {
 }
 
 
+// Errores de Stripe Connect → código claro para la app (sin exponer detalles internos de Stripe)
+//   · connect_platform_incomplete   → falta el cuestionario "platform profile" de Connect en el Dashboard de Stripe
+//   · connect_not_enabled           → la cuenta de Stripe no tiene Connect activado
+//   · connect_capability_unavailable → Stripe no permite la capacidad 'transfers' para esta cuenta/país
+//   · connect_account_invalid       → la cuenta conectada guardada ya no existe o no pertenece a esta plataforma
+//   · stripe_rejected               → cualquier otro rechazo de Stripe
+// setup=true: lo arregla el dueño de Barkwalk en Stripe (no el paseador): reintentar no sirve.
+function classifyConnectError(e) {
+  const msg = String((e && e.message) || '');
+  const code = String((e && e.code) || '');
+  if (/platform profile/i.test(msg)) return { error: 'connect_platform_incomplete', status: 503, setup: true };
+  if (/signed up for Connect|Connect (?:is )?not (?:enabled|activated)|isn't enabled for Connect/i.test(msg)) return { error: 'connect_not_enabled', status: 503, setup: true };
+  if (/capabilit/i.test(msg) && /transfers/i.test(msg)) return { error: 'connect_capability_unavailable', status: 503, setup: true };
+  if (code === 'account_invalid' || (code === 'resource_missing' && /account/i.test(msg))) return { error: 'connect_account_invalid', status: 409, setup: false };
+  return { error: 'stripe_rejected', status: 402, setup: false };
+}
+
 function siteUrl() {
   return (process.env.PUBLIC_SITE_URL || 'https://www.barkwalkusa.com').replace(/\/+$/, '');
 }
@@ -145,4 +162,4 @@ async function walkersWithDuePayouts(limit = 200) {
   return [...new Set(rows.map((r) => String(r.walker_id)))].slice(0, limit);
 }
 
-module.exports = { ELIGIBLE_FILTER, listPriceCents, walkersWithDuePayouts, WALKER_ROLES, stripeKeyValid, getStripe, payoutPercent, siteUrl, getProfile, syncAccountStatus, payoutCompletedWalks };
+module.exports = { classifyConnectError, ELIGIBLE_FILTER, listPriceCents, walkersWithDuePayouts, WALKER_ROLES, stripeKeyValid, getStripe, payoutPercent, siteUrl, getProfile, syncAccountStatus, payoutCompletedWalks };

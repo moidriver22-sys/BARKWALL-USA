@@ -14,7 +14,7 @@
 const { send, bearerToken } = require('./_lib/http');
 const { rateLimit } = require('./_lib/rate-limit');
 const { isConfigured, sbOrThrow, getUserFromToken, enc } = require('./_lib/supabase');
-const { WALKER_ROLES, stripeKeyValid, getStripe, siteUrl, getProfile, syncAccountStatus, payoutCompletedWalks } = require('./_lib/connect');
+const { classifyConnectError, WALKER_ROLES, stripeKeyValid, getStripe, siteUrl, getProfile, syncAccountStatus, payoutCompletedWalks } = require('./_lib/connect');
 
 async function handler(req, res) {
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return send(res, 405, { error: 'method_not_allowed' }); }
@@ -80,8 +80,11 @@ async function handler(req, res) {
     return send(res, 200, { status: 'onboarding', url: link.url });
   } catch (e) {
     if (e && e.type && String(e.type).startsWith('Stripe')) {
-      console.error('Stripe Connect:', e.type, e.message);
-      return send(res, 402, { error: 'stripe_rejected', message: e.type === 'StripeCardError' ? e.message : undefined }); // solo rechazos de tarjeta: sin detalles de configuración
+      // Código claro para la app. Si falta configurar Connect en Stripe (lo hace el dueño, no el paseador),
+      // el log lo marca como ACCIÓN REQUERIDA para encontrarlo rápido en los logs de Vercel.
+      const c = classifyConnectError(e);
+      console.error(`Stripe Connect${c.setup ? ' [ACCIÓN REQUERIDA en Stripe]' : ''}: ${c.error} ·`, e.type, e.code || '', e.message);
+      return send(res, c.status, { error: c.error, setup: c.setup });
     }
     console.error('create-connect-account:', e.message);
     return send(res, 500, { error: 'internal_error' });
