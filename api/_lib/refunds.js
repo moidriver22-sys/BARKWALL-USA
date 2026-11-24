@@ -12,6 +12,7 @@
 // usa idempotencyKey por día. La migración 20261120_refunds_disputes.sql añade las columnas.
 // ---------------------------------------------------------------------------
 const { sb, sbOrThrow, enc } = require('./supabase');
+const { explainPartialRefund } = require('./cancellations');
 
 const NOT_STARTED = new Set(['pending', 'accepted', 'en_camino']);  // el perro aún no salió con el paseador
 const REASON = {
@@ -123,6 +124,19 @@ async function handleChargeRefunded(eventCharge, stripe, canCallApi) {
     activeDays: walks.filter((w) => w.status !== 'cancelled' && !cancelledIds.includes(w.id)).map(dia),
   });
   if (!full) {
+    // ¿Se explica por días cancelados (reembolso automático o el 50 % que el admin hizo a mano por el monto sugerido)?
+    // Entonces los demás días de la reserva siguen normales: el paseador cobra los que sí hizo.
+    const rc = await sb(`/rest/v1/walk_cancellations?booking_id=eq.${enc(booking.id)}&select=walk_id,status,refund_cents,suggested_cents`);
+    const exp = rc.ok && Array.isArray(rc.data) ? explainPartialRefund(refunded, rc.data) : { explained: false, manualIds: [] };
+    if (exp.explained) {
+      for (const id of exp.manualIds) {
+        const fila = rc.data.find((c) => c.walk_id === id);
+        await sb(`/rest/v1/walk_cancellations?walk_id=eq.${enc(id)}&status=eq.needs_review`, { method: 'PATCH', prefer: 'return=minimal',
+          body: { status: 'refunded_manual', refund_cents: fila.suggested_cents, processed_at: now } });
+      }
+      console.log(`Reserva ${booking.id}: reembolso PARCIAL ${refunded}/${charge.amount} por día(s) cancelado(s); los demás días siguen normales.`);
+      return { booking: booking.id, refund: 'partial', refundedCents: refunded, held: 0, explainedByCancellations: true, notify: notify([]) };
+    }
     const held = await holdUnpaid(walks, REASON.partial);
     console.log(`Reserva ${booking.id}: reembolso PARCIAL ${refunded}/${charge.amount}; ${held.length} día(s) en revisión.`);
     return { booking: booking.id, refund: 'partial', refundedCents: refunded, held: held.length, notify: notify([]) };

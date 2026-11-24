@@ -5847,7 +5847,15 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     const id = clientActiveRequestId;
     const db = window.supabaseClient;
     if (!id || !db) return;
-    if (!confirm(tr('¿Seguro que quieres cancelar este paseo?', 'Are you sure you want to cancel this walk?'))) return;
+    // Reembolso según los Términos (sección 6). El servidor decide con la hora real de la base; esto solo informa.
+    const fila0 = clientLastRow || {};
+    const horas = fila0.scheduled_at ? (Date.parse(fila0.scheduled_at) - Date.now()) / 3600000 : null;
+    const completo = !fila0.walker_id || (horas != null && horas >= 24);
+    const aviso = completo
+      ? tr('Te reembolsaremos automáticamente el 100 % de este día a tu método de pago.', 'We will automatically refund 100% of this day to your payment method.')
+      : tr('Como faltan menos de 24 horas y ya hay un paseador asignado, corresponde un reembolso del 50 % de este día; nuestro equipo lo procesa.',
+           'Since it is less than 24 hours away and a walker is already assigned, 50% of this day is refunded; our team will process it.');
+    if (!confirm(tr('¿Seguro que quieres cancelar este paseo?', 'Are you sure you want to cancel this walk?') + '\n\n' + aviso)) return;
     const { data, error } = await db.from('walk_requests')
       .update({ status: 'cancelled' })
       .eq('id', id)
@@ -5865,6 +5873,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       return;
     }
     handleClientRequestUpdate({ ...(clientLastRow || {}), ...data[0] });
+    showToast(tr('Paseo cancelado. ', 'Walk cancelled. ') + aviso + tr(' Te avisaremos por correo cuando se procese.', ' We will email you once it is processed.'), 'info', 7000);
   }
 
   // Aplica en el mapa del cliente cada cambio de su solicitud
