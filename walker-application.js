@@ -237,27 +237,69 @@
       }
     }
 
-    // Tarjeta del paseador (Walker Pro): formulario, "en revisión", aprobada o renovación
+    // Tarjeta del paseador en la app (Walker Pro): SOLO un aviso breve, NUNCA el formulario incrustado.
+    // El formulario vive en el registro/onboarding (renderOnboarding) o en la pantalla de postulación que el
+    // paseador abre a propósito (openApplication), fuera de las pestañas de la app.
     async function render(containerId) {
       const box = doc.getElementById(containerId || 'walkerApplicationCard');
       const u = win.currentUser;
-      if (!box || !u || !win.supabaseClient || !['walker', 'shopper'].includes(u.role)) { if (box) box.hidden = true; return; }
-      css(); box.hidden = false;
-      const { apps, reviews } = await loadOwn();
+      if (!box) return;
+      box.hidden = true; box.innerHTML = '';
+      if (!u || u.is_admin || !win.supabaseClient || !['walker', 'shopper'].includes(u.role)) return;
+      css();
+      const { apps } = await loadOwn();
       const st = viewState(u.walker_status, apps, today());
       u.walker_app_mode = st.mode;
-      const head = `<div class="w-card-head"><p class="w-eyebrow">🪪 ${esc(tr('Tu postulación · identidad', 'Your application · identity'))}</p></div>`;
-      if (st.mode === 'suspended') { box.innerHTML = head + `<p class="wa-err">${esc(msg('walker_suspended'))}</p>`; return; }
-      if (st.mode === 'submitted') {
-        box.innerHTML = head + `<p class="wa-ok">⏳ ${esc(tr('Postulación enviada el', 'Application submitted on'))} ${esc(String(st.latest.submitted_at).slice(0, 10))}. ${esc(tr('El equipo de Barkwalk la está revisando; te avisaremos por correo y notificación.', 'The Barkwalk team is reviewing it; we will notify you by email and push.'))}</p>
-          <details class="mt-2"><summary class="text-[12px] font-black text-brandDarkGreen cursor-pointer">${esc(tr('¿Te equivocaste? Envía una versión corregida', 'Made a mistake? Submit a corrected version'))}</summary><div class="mt-2" id="waFormSlot"></div></details>`;
-        doc.getElementById('waFormSlot').innerHTML = formHtml({ reason: 'update' }, reviews); wireForm(box); return;
-      }
-      if (st.mode === 'approved' && !st.renew) {
-        box.innerHTML = head + `<p class="wa-ok">✅ ${esc(tr('Identidad aprobada. Tu ID vence el', 'Identity approved. Your ID expires on'))} ${esc(st.latest.id_expiry)}.</p>`; return;
-      }
-      box.innerHTML = head + formHtml(st, reviews);
-      wireForm(box);
+      const head = `<div class="w-card-head"><p class="w-eyebrow">🪪 ${esc(tr('Tu identidad', 'Your identity'))}</p></div>`;
+      const abrir = (txt) => `<button type="button" class="w-btn w-btn-primary w-full mt-3" data-wa-open>${esc(txt)}</button>`;
+      let html = '';
+      if (st.mode === 'suspended') html = `<p class="wa-err">${esc(msg('walker_suspended'))}</p>`;
+      else if (st.mode === 'submitted') html = `<p class="wa-ok">⏳ ${esc(tr('Documentos enviados el', 'Documents submitted on'))} ${esc(String(st.latest.submitted_at).slice(0, 10))}. ${esc(tr('El equipo de Barkwalk los está revisando.', 'The Barkwalk team is reviewing them.'))}</p>`;
+      else if (st.mode === 'approved' && st.renew) html = `<p class="wa-warn">⚠️ ${esc(tr(`Tu ID vence en ${st.days} días. Renuévala para seguir recibiendo paseos.`, `Your ID expires in ${st.days} days. Renew it to keep receiving walks.`))}</p>${abrir(tr('Renovar mi identificación', 'Renew my ID'))}`;
+      else if (st.mode === 'form') html = `<p class="wa-warn">⚠️ ${esc(tr('Necesitamos una identificación vigente.', 'We need a current ID.'))}</p>${abrir(tr('Abrir mi postulación', 'Open my application'))}`;
+      if (!html) return; // aprobada y vigente: nada que mostrar en la app
+      box.innerHTML = head + html;
+      box.hidden = false;
+      const b = box.querySelector('[data-wa-open]'); if (b) b.onclick = () => openApplication();
+    }
+
+    // ---------- Pantalla de postulación abierta a propósito desde la app (renovar / corregir ID) ----------
+    // Usa la vista de onboarding a pantalla completa (fuera de las pestañas) con "Volver a la app".
+    const APP = { open: false };
+    async function openApplication() {
+      const app = doc.getElementById('appDashboard'), view = doc.getElementById('walkerOnboardingView');
+      if (!view || !win.currentUser) return;
+      APP.open = true;
+      if (app) app.classList.add('hidden');
+      view.classList.remove('hidden');
+      try { win.scrollTo(0, 0); } catch (e) { /* sin scroll */ }
+      await renderApplicationScreen();
+    }
+    function closeApplication() {
+      APP.open = false;
+      const app = doc.getElementById('appDashboard'), view = doc.getElementById('walkerOnboardingView');
+      if (view) view.classList.add('hidden');
+      if (app) app.classList.remove('hidden');
+      const root = doc.getElementById('onbRoot'); if (root) root.innerHTML = '';
+      render('walkerApplicationCard');
+      if (typeof win.renderWalkerAccountStatus === 'function') win.renderWalkerAccountStatus();
+    }
+    async function renderApplicationScreen() {
+      const root = doc.getElementById('onbRoot'); if (!root) return;
+      css();
+      root.innerHTML = `<p class="wa-note" style="text-align:center;padding:30px 0">${esc(tr('Cargando tu postulación…', 'Loading your application…'))}</p>`;
+      let apps = [], reviews = [];
+      try { ({ apps, reviews } = await loadOwn()); } catch (e) { /* se muestra el formulario igual */ }
+      const st = viewState(win.currentUser.walker_status, apps, today());
+      const back = `<button type="button" class="onb-logout" data-wa-back>← ${esc(tr('Volver a la app', 'Back to the app'))}</button>`;
+      root.innerHTML = `<section class="w-card onb-card">
+          <p class="onb-kicker">${esc(tr('Tu identidad', 'Your identity'))}</p>
+          <h2>${esc(st.mode === 'submitted' ? tr('Corregir los documentos enviados', 'Correct the submitted documents') : tr('Renovar tu identificación', 'Renew your ID'))}</h2>
+          <p>${esc(tr('Sube una foto de tu identificación vigente y una selfie. El equipo de Barkwalk la revisará; mientras tanto puedes seguir usando la app.', 'Upload a photo of your current ID and a selfie. The Barkwalk team will review it; meanwhile you can keep using the app.'))}</p>
+          <div id="onbForm"></div></section>${back}`;
+      doc.getElementById('onbForm').innerHTML = formHtml(st.mode === 'form' || st.mode === 'approved' ? st : { reason: 'update' }, reviews);
+      wireForm(root, async () => closeApplication());
+      root.querySelector('[data-wa-back]').onclick = closeApplication;
     }
 
     // ---------- Admin: reporte del agente + documentos (URLs firmadas de 2 min) ----------
@@ -315,7 +357,7 @@
       return { approved: isApproved(status, apps, today()), status, apps, reviews };
     }
 
-    function stop() { if (ONB.timer) { win.clearInterval(ONB.timer); ONB.timer = null; } }
+    function stop() { APP.open = false; if (ONB.timer) { win.clearInterval(ONB.timer); ONB.timer = null; } }
     function poll() {
       if (ONB.timer) return;
       ONB.timer = win.setInterval(checkNow, POLL_MS);
@@ -339,6 +381,7 @@
         <li><b>3</b><span>${esc(tr('Acceso a la app', 'App access'))}</span></li></ol>`;
 
     async function renderOnboarding(rootId) {
+      if (APP.open) return renderApplicationScreen(); // p. ej. cambio de idioma con la pantalla de renovación abierta
       ONB.rootId = rootId || ONB.rootId || 'onbRoot';
       const root = doc.getElementById(ONB.rootId); if (!root || !win.currentUser) return;
       css();
@@ -419,7 +462,7 @@
     // Aprobado mientras estaba fuera: la primera vez que entra a la app ve la bienvenida
     function maybeWelcome() { if (!welcomed()) showWelcome(false); }
 
-    return { render, renderAdminReview, gate, renderOnboarding, stop, showWelcome, maybeWelcome };
+    return { render, renderAdminReview, gate, renderOnboarding, stop, showWelcome, maybeWelcome, openApplication, closeApplication };
   }
 
   let ui = null;
@@ -430,5 +473,6 @@
     render: (id) => api() && api().render(id), renderAdminReview: (w, c) => api() && api().renderAdminReview(w, c),
     gate: () => api() && api().gate(), renderOnboarding: (id) => api() && api().renderOnboarding(id), stop: () => api() && api().stop(),
     showWelcome: (u) => api() && api().showWelcome(u), maybeWelcome: () => api() && api().maybeWelcome(),
+    openApplication: () => api() && api().openApplication(), closeApplication: () => api() && api().closeApplication(),
   };
 });
