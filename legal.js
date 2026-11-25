@@ -19,7 +19,7 @@
       a.setAttribute('href', href.split('#')[0].split('?')[0] + '?lang=' + l + hash); // conserva #sección
     });
     var h1 = document.querySelector('[data-doc-lang="' + l + '"] h1');
-    if (h1) document.title = h1.textContent + ' · Barkwalk USA';
+    if (h1) document.title = h1.textContent + ' · Barkwalk USA LLC';
     guardar(l);
   }
   document.querySelectorAll('[data-set-lang]').forEach(function (b) {

@@ -113,7 +113,7 @@ const claves = () => DB.dispatch_alerts.map((a) => a.walk_id).sort();
     assert.match(ana.html, /BAJA/); assert.equal(anaCall.headers['Idempotency-Key'], 'grow:thanks:b-ana');
     const dani = RESEND.calls.find((c) => c.body.to[0] === 'dani@example.com').body;
     assert.match(dani.subject, /^Toby te extraña/); assert.match(dani.html, /16 días/);
-    assert.ok(dani.headers['List-Unsubscribe'].startsWith('<mailto:soporte@barkwalkusa.com'));
+    assert.ok(dani.headers['List-Unsubscribe'].startsWith('<mailto:barkwalkusallc@gmail.com'));
     assert.equal(PUSHES.length, 1); assert.equal(PUSHES[0].endpoint, 'https://push.example/ana-phone'); assert.match(PUSHES[0].payload.title, /Gracias/);
     const r2 = await G.runGrowth({ now: NOW + H });
     // Ana y Dani no se repiten; Caro (completado hace 20 min) ya pasó la espera de 60 min → recibe el suyo ahora

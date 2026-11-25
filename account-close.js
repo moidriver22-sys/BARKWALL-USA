@@ -65,7 +65,7 @@
         : `
           <p class="text-[12.5px] mt-2">${esc(tr('Por ahora no puedes cerrar tu cuenta:', 'You cannot close your account yet:'))}</p>
           <ul class="text-[12.5px] mt-2 space-y-2 leading-snug">${bloqueos}</ul>
-          <p class="text-[11.5px] mt-3 text-brandTextDark/65">${esc(tr('Cuando se resuelva, vuelve a intentarlo. Dudas: soporte@barkwalkusa.com', 'Once resolved, try again. Questions: soporte@barkwalkusa.com'))}</p>`}
+          <p class="text-[11.5px] mt-3 text-brandTextDark/65">${esc(tr('Cuando se resuelva, vuelve a intentarlo. Dudas: barkwalkusallc@gmail.com', 'Once resolved, try again. Questions: barkwalkusallc@gmail.com'))}</p>`}
         <button type="button" class="w-btn w-btn-ghost w-full mt-2" data-x>${esc(tr('Volver', 'Back'))}</button>`;
       card.querySelector('[data-x]').onclick = close;
       const inp = doc.getElementById('bwCloseConfirm'), go = doc.getElementById('bwCloseGo');

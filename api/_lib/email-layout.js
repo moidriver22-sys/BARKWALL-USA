@@ -9,7 +9,11 @@
 // ---------------------------------------------------------------------------
 const SITE = 'https://www.barkwalkusa.com';
 const LOGO_URL = `${SITE}/email-logo.png`;
-const SUPPORT = 'soporte@barkwalkusa.com';
+const SUPPORT = 'barkwalkusallc@gmail.com';
+// Datos legales (pie de todos los correos · CAN-SPAM: dirección postal física del remitente)
+const LEGAL_NAME = 'Barkwalk USA LLC';
+const LEGAL_ADDRESS = '900 Beacon Crest Circle 917, Birmingham, AL 35209';
+const COPYRIGHT = '© 2026 Barkwalk USA LLC. All rights reserved.';
 
 // Colores de marca (los mismos que index.html / tailwind.config.js)
 const C = {
@@ -79,7 +83,7 @@ function emailShell({ title, preheader = '', bodyHtml, lang = 'en', footerNote =
     <!-- Pie -->
     <tr><td align="center" style="padding:20px 16px 8px;font-family:${FONT};font-size:12px;line-height:18px;color:${C.muted}">
       ${footerNote ? `<p style="margin:0 0 10px">${footerNote}</p>` : ''}
-      <p style="margin:0 0 6px"><strong style="color:${C.ink}">Barkwalk USA</strong> · Birmingham, Alabama</p>
+      <p style="margin:0 0 6px"><strong style="color:${C.ink}">${LEGAL_NAME}</strong> · ${LEGAL_ADDRESS}</p>
       <p style="margin:0 0 6px">
         <a href="${SITE}" target="_blank" style="color:${C.ink};text-decoration:underline">barkwalkusa.com</a> ·
         <a href="mailto:${SUPPORT}" style="color:${C.ink};text-decoration:underline">${SUPPORT}</a>
@@ -88,6 +92,7 @@ function emailShell({ title, preheader = '', bodyHtml, lang = 'en', footerNote =
         <a href="${SITE}/terminos-clientes" target="_blank" style="color:${C.muted};text-decoration:underline">Terms / Términos</a> ·
         <a href="${SITE}/privacidad" target="_blank" style="color:${C.muted};text-decoration:underline">Privacy / Privacidad</a>
       </p>
+      <p style="margin:8px 0 0">${COPYRIGHT}</p>
     </td></tr>
   </table>
 </td></tr>
@@ -96,4 +101,4 @@ function emailShell({ title, preheader = '', bodyHtml, lang = 'en', footerNote =
 </html>`;
 }
 
-module.exports = { emailShell, button, fallbackLink, divider, esc, C, FONT, SITE, LOGO_URL, SUPPORT };
+module.exports = { emailShell, button, fallbackLink, divider, esc, C, FONT, SITE, LOGO_URL, SUPPORT, LEGAL_NAME, LEGAL_ADDRESS, COPYRIGHT };

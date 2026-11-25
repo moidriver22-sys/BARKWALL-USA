@@ -37,7 +37,7 @@ function reviewMessage(status, reason, lang) {
       lines: [
         t('Gracias por tu interés. Después de revisarla, por ahora no podemos aprobar tu postulación de paseador.', 'Thank you for your interest. After reviewing it, we cannot approve your walker application at this time.'),
         motivo ? t(`Motivo: ${motivo}`, `Reason: ${motivo}`) : t('Si quieres más detalles, responde a este correo.', 'If you would like more details, reply to this email.'),
-        t('Puedes escribirnos a soporte@barkwalkusa.com si crees que hubo un error o tu situación cambia.', 'You can write to soporte@barkwalkusa.com if you believe there was a mistake or your situation changes.'),
+        t('Puedes escribirnos a barkwalkusallc@gmail.com si crees que hubo un error o tu situación cambia.', 'You can write to barkwalkusallc@gmail.com if you believe there was a mistake or your situation changes.'),
       ],
       push: [t('Postulación revisada', 'Application reviewed'), t('Revisa el estado de tu cuenta en Walker Pro.', 'Check your account status in Walker Pro.')],
     },
@@ -47,7 +47,7 @@ function reviewMessage(status, reason, lang) {
       lines: [
         t('Tu cuenta de paseador está suspendida: no recibirás solicitudes nuevas mientras se revisa.', 'Your walker account is suspended: you will not receive new requests while it is reviewed.'),
         motivo ? t(`Motivo: ${motivo}`, `Reason: ${motivo}`) : '',
-        t('Escríbenos a soporte@barkwalkusa.com para revisarla.', 'Write to soporte@barkwalkusa.com so we can review it.'),
+        t('Escríbenos a barkwalkusallc@gmail.com para revisarla.', 'Write to barkwalkusallc@gmail.com so we can review it.'),
       ].filter(Boolean),
       push: [t('⛔ Cuenta suspendida', '⛔ Account suspended'), t('Revisa tu correo o escribe a soporte.', 'Check your email or contact support.')],
     },

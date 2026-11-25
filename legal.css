@@ -58,6 +58,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outlin
                   background: rgba(255, 255, 255, .05); border: 1px solid var(--line); font-size: 14px; color: var(--muted); }
 .lg-table b { flex: none; min-width: 60px; text-align: center; padding: 4px 10px; border-radius: 999px; font-size: 14px; color: #0A0C12; background: var(--accent); }
 .lg-foot { margin-top: 18px; text-align: center; font-size: 14px; font-weight: 700; }
+.lg-copy { margin: 14px 0 0; text-align: center; font-size: 12px; line-height: 1.5; opacity: .7; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 @media print {
   .lg-top, .lg-tabs, .lg-toc, .lg-foot, .lg-bg { display: none !important; }

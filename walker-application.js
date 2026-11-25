@@ -81,7 +81,7 @@
     terms_required: ['Antes debes aceptar los Términos y el Acuerdo para Paseadores vigentes.', 'You must first accept the current Terms and Walker Agreement.'],
     underage: ['Debes tener 19 años o más.', 'You must be 19 or older.'],
     already_approved: ['Tu identidad ya está aprobada y vigente.', 'Your identity is already approved and current.'],
-    walker_suspended: ['Tu cuenta está suspendida. Escribe a soporte@barkwalkusa.com.', 'Your account is suspended. Email soporte@barkwalkusa.com.'],
+    walker_suspended: ['Tu cuenta está suspendida. Escribe a barkwalkusallc@gmail.com.', 'Your account is suspended. Email barkwalkusallc@gmail.com.'],
     rate_limited: ['Demasiados intentos. Espera un minuto.', 'Too many attempts. Wait a minute.'],
     upload_failed: ['No se pudo subir la foto. Revisa tu conexión e intenta de nuevo.', 'Could not upload the photo. Check your connection and try again.'],
   };
@@ -360,7 +360,7 @@
       if (st.mode === 'suspended') {
         stop();
         root.innerHTML = `${etapas(2)}<section class="w-card onb-card"><div class="onb-ic">⛔</div><h2>${esc(tr('Cuenta suspendida', 'Account suspended'))}</h2>
-          <p>${esc(tr('Tu cuenta de paseador está suspendida. Escríbenos a soporte@barkwalkusa.com para revisarla.', 'Your walker account is suspended. Email soporte@barkwalkusa.com so we can review it.'))}</p></section>${salir}`;
+          <p>${esc(tr('Tu cuenta de paseador está suspendida. Escríbenos a barkwalkusallc@gmail.com para revisarla.', 'Your walker account is suspended. Email barkwalkusallc@gmail.com so we can review it.'))}</p></section>${salir}`;
       } else if (st.mode === 'form') {
         stop();
         root.innerHTML = `${etapas(1)}<section class="w-card onb-card">

@@ -11,7 +11,7 @@
 // si el envío falla, se libera el reclamo para reintentarlo en la siguiente ejecución.
 // Variables (opcionales): DISPATCH_PENDING_MINUTES (30), DISPATCH_NEAR_START_MINUTES (60),
 //   DISPATCH_UPCOMING_LEAD_MINUTES (60), DISPATCH_LATE_START_MINUTES (20), DISPATCH_OVERDUE_GRACE_MINUTES (45),
-//   DISPATCH_MAX_ALERTS_PER_RUN (40), OPS_ALERT_EMAIL (soporte@barkwalkusa.com),
+//   DISPATCH_MAX_ALERTS_PER_RUN (40), OPS_ALERT_EMAIL (barkwalkusallc@gmail.com),
 //   DISPATCH_EMAIL_FROM (o EMAIL_FROM), RESEND_API_KEY.
 // ---------------------------------------------------------------------------
 const { sb, sbOrThrow, enc, getAuthUserEmail } = require('./supabase');

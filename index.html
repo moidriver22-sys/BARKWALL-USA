@@ -1460,6 +1460,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 <span aria-hidden="true"> · </span>
                 <a href="/privacidad" id="lnkPrivacy" class="underline underline-offset-2 hover:text-brandDarkGreen">Privacy</a>
             </p>
+            <p class="text-center text-[10.5px] text-gray-400 leading-snug">© 2026 Barkwalk USA LLC. All rights reserved.<br>Barkwalk USA LLC · 900 Beacon Crest Circle 917, Birmingham, AL 35209</p>
         </div>
     </div>
 
@@ -1557,7 +1558,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 <input type="text" id="hpSignup" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="bw-hp" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;opacity:0">
                 <div id="regNameRow">
                     <label id="lblFullName" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Full Name</label>
-                    <input type="text" id="regName" required placeholder="Ex: Doucleiver Gonzalez" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                    <input type="text" id="regName" required placeholder="Ex: Jane Doe" class="w-full bg-white border border-brandBeige rounded-xl px-3 py-3 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
                 </div>
                 <div>
                     <label id="lblEmail" class="text-[11px] font-bold text-brandDarkGreen block mb-1">Email Address</label>
@@ -1801,7 +1802,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <div id="newCardWrap" class="space-y-2">
                         <div>
                             <label id="lblCardHolder" for="cardHolder" class="text-[10px] text-gray-500 font-bold block mb-0.5">Cardholder Name</label>
-                            <input type="text" id="cardHolder" autocomplete="cc-name" placeholder="Ex: Doucleiver Gonzalez" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
+                            <input type="text" id="cardHolder" autocomplete="cc-name" placeholder="Ex: Jane Doe" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-brandTextDark focus:outline-none focus:border-brandDarkGreen">
                         </div>
                         <div id="stripeCardElement" class="border border-gray-200 rounded-lg px-3 py-3 bg-white min-h-[44px]"></div>
                         <label class="flex items-center gap-2 text-[11px] font-semibold text-brandTextDark/80">
@@ -2435,7 +2436,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <i data-lucide="user" class="w-8 h-8 text-brandDarkGreen"></i>
                 </div>
                 <div>
-                    <h3 id="profileName" class="font-bold text-base text-brandTextDark">Doucleiver González</h3>
+                    <h3 id="profileName" class="font-bold text-base text-brandTextDark"></h3>
                     <p id="lblProfileSub" class="text-xs text-brandDarkGreen font-semibold">Pet Owner</p>
                 </div>
             </section>
@@ -2470,6 +2471,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <a id="drawerTermsLink" href="/terminos-clientes" class="bw-drawer-legal">
                         <i data-lucide="file-text" class="w-4 h-4"></i><span id="drawerTermsLabel">Terms &amp; Conditions</span>
                     </a>
+                    <p class="text-[10px] text-center opacity-60 mt-2 px-2 leading-snug">© 2026 Barkwalk USA LLC. All rights reserved.</p>
                     <!-- La usa enterDashboardForUser(); el rol se muestra en la cabecera del menú -->
                     <span id="userRoleBadge" class="hidden">Client</span>
                 </div>
@@ -2595,7 +2597,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 walkerIntroMsg: "Hi! I picked up Max, heading to the park 🐾.",
                 walkerChatInput: "Write to walker...",
                 lblAiHeader: "Barkwalk AI Advisor",
-                aiIntroMsg: "👋 Hi Doucleiver. Ask me about rates, services, or care for Max.",
+                aiIntroMsg: "👋 Hi! Ask me about rates, services, or care for your pet.",
                 aiChatInput: "Ask AI...",
                 lblWalkerStatusHeader: "Walker Status",
                 lblWalkerStatusOnline: "Online • Receiving walks",
@@ -2709,7 +2711,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 walkerIntroMsg: "¡Hola! Ya recogí a Max, vamos camino al parque 🐾.",
                 walkerChatInput: "Escribe al paseador...",
                 lblAiHeader: "Barkwalk AI Advisor",
-                aiIntroMsg: "👋 Hola Doucleiver. Pregúntame sobre tarifas, servicios o cuidados de Max.",
+                aiIntroMsg: "👋 ¡Hola! Pregúntame sobre tarifas, servicios o cuidados de tu mascota.",
                 aiChatInput: "Pregunta a la IA...",
                 lblWalkerStatusHeader: "Estado del Paseador",
                 lblWalkerStatusOnline: "En línea • Recibiendo paseos",
@@ -3143,16 +3145,16 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         // ---------- Exención de responsabilidad: acceso a la propiedad y custodia de llaves ----------
         const LIABILITY_TEXT = {
             es: [
-                'Al reservar, autorizo a Barkwalk USA y al paseador independiente asignado a mi reserva a entrar a mi vivienda únicamente para prestar los servicios contratados, usando el método de entrada y los códigos que yo proporcione.',
+                'Al reservar, autorizo a Barkwalk USA LLC y al paseador independiente asignado a mi reserva a entrar a mi vivienda únicamente para prestar los servicios contratados, usando el método de entrada y los códigos que yo proporcione.',
                 'Soy responsable de dar instrucciones de acceso correctas, resguardar objetos de valor e informar de alarmas, otros animales o peligros en la propiedad.',
                 'Barkwalk guarda los códigos cifrados y solo los revela al paseador asignado a partir de 1 hora antes de cada cita. Puedo revocar el acceso en cualquier momento actualizando o borrando mis instrucciones en la app.',
-                'En la medida máxima permitida por la ley de Alabama, libero a Barkwalk USA de responsabilidad por pérdidas, daños o lesiones derivados del acceso a la vivienda, de llaves perdidas o duplicadas o de quedarse fuera, salvo cuando se deban a negligencia grave o conducta dolosa de Barkwalk o del paseador.'
+                'En la medida máxima permitida por la ley de Alabama, libero a Barkwalk USA LLC de responsabilidad por pérdidas, daños o lesiones derivados del acceso a la vivienda, de llaves perdidas o duplicadas o de quedarse fuera, salvo cuando se deban a negligencia grave o conducta dolosa de Barkwalk o del paseador.'
             ],
             en: [
-                'By booking, I authorize Barkwalk USA and the independent walker assigned to my booking to enter my home solely to perform the services booked, using the entry method and codes I provide.',
+                'By booking, I authorize Barkwalk USA LLC and the independent walker assigned to my booking to enter my home solely to perform the services booked, using the entry method and codes I provide.',
                 'I am responsible for providing accurate access instructions, securing valuables, and disclosing alarms, other animals, or hazards on the property.',
                 'Barkwalk stores codes encrypted and reveals them only to the assigned walker starting 1 hour before each visit. I can revoke access at any time by updating or deleting my instructions in the app.',
-                "To the fullest extent permitted by Alabama law, I release Barkwalk USA from liability for loss, damage, or injury arising from home access, lost or duplicated keys, or lockouts, except where caused by Barkwalk's or the walker's gross negligence or willful misconduct."
+                "To the fullest extent permitted by Alabama law, I release Barkwalk USA LLC from liability for loss, damage, or injury arising from home access, lost or duplicated keys, or lockouts, except where caused by Barkwalk's or the walker's gross negligence or willful misconduct."
             ]
         };
         function renderLiabilityText() {
@@ -3626,13 +3628,13 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 set('regWaiverTitle', tr('Asunción de riesgos y exención de responsabilidad (Alabama)', 'Assumption of Risk and Release of Liability (Alabama)'));
                 document.getElementById('regWaiverText').innerHTML = (currentLang === 'es' ? [
                     'Pasear, cuidar y manejar animales implica <strong>riesgos inherentes</strong> que no se pueden eliminar por completo, como mordidas, arañazos, caídas, lesiones, enfermedades, escapes, peleas con otros animales, tráfico y clima. Aceptas estos riesgos de forma voluntaria.',
-                    'Barkwalk USA es una plataforma tecnológica operada a título personal por Doucleiver Moisés González Moreno. Los paseadores son <strong>contratistas independientes</strong>, no empleados de Barkwalk.',
-                    'En la <strong>máxima medida permitida por las leyes del estado de Alabama</strong>, liberas a Barkwalk USA y a su propietario de reclamaciones por lesiones, pérdidas o daños derivados de los servicios reservados en la plataforma, salvo los causados por negligencia grave o conducta intencional o temeraria (<em>wanton</em>) de Barkwalk, o cualquier responsabilidad que la ley no permita excluir.',
+                    'Barkwalk USA LLC, una sociedad de responsabilidad limitada constituida conforme a las leyes del Estado de Alabama (Entity ID 001-288-229), es una plataforma tecnológica. Los paseadores son <strong>contratistas independientes</strong>, no empleados de Barkwalk.',
+                    'En la <strong>máxima medida permitida por las leyes del estado de Alabama</strong>, liberas a Barkwalk USA LLC y a sus miembros y gerentes de reclamaciones por lesiones, pérdidas o daños derivados de los servicios reservados en la plataforma, salvo los causados por negligencia grave o conducta intencional o temeraria (<em>wanton</em>) de Barkwalk, o cualquier responsabilidad que la ley no permita excluir.',
                     'Esta exención se rige por las leyes de Alabama (condado de Jefferson) y complementa los Términos de Servicio.'
                 ] : [
                     'Walking, caring for and handling animals involves <strong>inherent risks</strong> that cannot be fully eliminated, including bites, scratches, falls, injuries, illness, escapes, fights with other animals, traffic and weather. You voluntarily assume these risks.',
-                    'Barkwalk USA is a technology platform operated in a personal capacity by Doucleiver Moisés González Moreno. Walkers are <strong>independent contractors</strong>, not employees of Barkwalk.',
-                    'To the <strong>fullest extent permitted by the laws of the State of Alabama</strong>, you release Barkwalk USA and its owner from claims for injury, loss or damage arising from services booked through the platform, except those caused by Barkwalk’s gross negligence or intentional or wanton misconduct, or any liability that cannot be waived by law.',
+                    'Barkwalk USA LLC, a limited liability company organized under the laws of the State of Alabama (Entity ID 001-288-229), is a technology platform. Walkers are <strong>independent contractors</strong>, not employees of Barkwalk.',
+                    'To the <strong>fullest extent permitted by the laws of the State of Alabama</strong>, you release Barkwalk USA LLC and its members and managers from claims for injury, loss or damage arising from services booked through the platform, except those caused by Barkwalk’s gross negligence or intentional or wanton misconduct, or any liability that cannot be waived by law.',
                     'This release is governed by Alabama law (Jefferson County) and supplements the Terms of Service.'
                 ]).map(p => `<p>${p}</p>`).join('');
 
@@ -4118,7 +4120,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             } catch (err) {
                 console.error('auth:', err);
                 // Cuenta cerrada desde Perfil: Supabase Auth la tiene bloqueada ("User is banned")
-                if (/banned/i.test(err?.message || '')) showRegError(tr('Esta cuenta fue cerrada. Si quieres reactivarla, escríbenos a soporte@barkwalkusa.com.', 'This account was closed. To reactivate it, email soporte@barkwalkusa.com.'));
+                if (/banned/i.test(err?.message || '')) showRegError(tr('Esta cuenta fue cerrada. Si quieres reactivarla, escríbenos a barkwalkusallc@gmail.com.', 'This account was closed. To reactivate it, email barkwalkusallc@gmail.com.'));
                 else showRegError(err?.message || String(err));
             } finally {
                 btn.disabled = false;
@@ -8712,10 +8714,10 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                                   'Barkwalk is finishing the setup of walker payouts in Stripe. You don\'t need to do anything: let us know and try again in a few hours. Your completed walks will still be paid.'],
     connect_not_enabled: ['Los cobros a paseadores aún no están activados en Stripe por parte de Barkwalk. Vuelve a intentarlo más tarde; tus paseos completados se te pagarán igual.',
                           'Walker payouts are not enabled in Stripe yet on Barkwalk\'s side. Please try again later; your completed walks will still be paid.'],
-    connect_capability_unavailable: ['Stripe aún no permite recibir transferencias en esta cuenta. Escríbenos a soporte@barkwalkusa.com.',
-                                     'Stripe does not allow transfers on this account yet. Email us at soporte@barkwalkusa.com.'],
-    connect_account_invalid: ['Tu cuenta de cobro anterior ya no es válida en Stripe. Escríbenos a soporte@barkwalkusa.com para vincular una nueva.',
-                              'Your previous payout account is no longer valid in Stripe. Email us at soporte@barkwalkusa.com to link a new one.'],
+    connect_capability_unavailable: ['Stripe aún no permite recibir transferencias en esta cuenta. Escríbenos a barkwalkusallc@gmail.com.',
+                                     'Stripe does not allow transfers on this account yet. Email us at barkwalkusallc@gmail.com.'],
+    connect_account_invalid: ['Tu cuenta de cobro anterior ya no es válida en Stripe. Escríbenos a barkwalkusallc@gmail.com para vincular una nueva.',
+                              'Your previous payout account is no longer valid in Stripe. Email us at barkwalkusallc@gmail.com to link a new one.'],
     rate_limited: ['Demasiados intentos seguidos. Espera un minuto y vuelve a intentarlo.', 'Too many attempts. Wait a minute and try again.'],
     terms_required: ['Antes de vincular tu cuenta de cobro debes aceptar los Términos y el Acuerdo para Paseadores vigentes.', 'Before linking your payout account you must accept the current Terms and Walker Agreement.']
   };
@@ -10902,8 +10904,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     const st = u.walker_status || 'pending';
     const [titulo, texto, cls] = {
       verified:  [tr('✅ Cuenta verificada', '✅ Verified account'), tr('Ya puedes recibir y aceptar paseos.', 'You can receive and accept walks.'), 'w-badge--info'],
-      suspended: [tr('⛔ Cuenta suspendida', '⛔ Account suspended'), tr('Escríbenos a soporte@barkwalkusa.com para revisarla.', 'Email soporte@barkwalkusa.com so we can review it.'), 'w-badge--danger'],
-      rejected:  [tr('✖️ Postulación no aprobada', '✖️ Application not approved'), tr('Te enviamos el motivo por correo. Si crees que hubo un error o tu situación cambió, escríbenos a soporte@barkwalkusa.com.', 'We emailed you the reason. If you think there was a mistake or your situation changed, email soporte@barkwalkusa.com.'), 'w-badge--muted'],
+      suspended: [tr('⛔ Cuenta suspendida', '⛔ Account suspended'), tr('Escríbenos a barkwalkusallc@gmail.com para revisarla.', 'Email barkwalkusallc@gmail.com so we can review it.'), 'w-badge--danger'],
+      rejected:  [tr('✖️ Postulación no aprobada', '✖️ Application not approved'), tr('Te enviamos el motivo por correo. Si crees que hubo un error o tu situación cambió, escríbenos a barkwalkusallc@gmail.com.', 'We emailed you the reason. If you think there was a mistake or your situation changed, email barkwalkusallc@gmail.com.'), 'w-badge--muted'],
       pending:   [tr('⏳ Postulación en revisión', '⏳ Application under review'), tr('Revisamos tu perfil de paseador. Te avisaremos cuando esté verificado.', 'We are reviewing your walker profile. We will let you know once it is verified.'), 'w-badge--amber'],
     }[st] || [st, '', 'w-badge--muted'];
     box.innerHTML = `
@@ -10960,7 +10962,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       ${btn('languages', tr('Idioma', 'Language'), `<span class="bw-set-value">${es ? 'Español' : 'English'}</span>`,
             `setLanguage('${es ? 'en' : 'es'}'); renderProfileSettings()`)}
       <p class="bw-set-cat">${tr('Ayuda', 'Help')}</p>
-      ${link('life-buoy', tr('Soporte · soporte@barkwalkusa.com', 'Support · soporte@barkwalkusa.com'), 'mailto:soporte@barkwalkusa.com', false)}
+      ${link('life-buoy', tr('Soporte · barkwalkusallc@gmail.com', 'Support · barkwalkusallc@gmail.com'), 'mailto:barkwalkusallc@gmail.com', false)}
       <p class="bw-set-cat">Legal</p>
       ${link('file-text', tr('Términos para Clientes', 'Client Terms'), termsUrl('client'), true)}
       ${link('file-text', tr('Acuerdo para Paseadores', 'Walker Agreement'), termsUrl('walker'), true)}

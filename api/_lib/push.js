@@ -1,6 +1,6 @@
 // Notificaciones push al teléfono (Web Push con VAPID) · usado por el Agente de Despacho
 // ---------------------------------------------------------------------------
-// Variables: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:soporte@barkwalkusa.com).
+// Variables: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:barkwalkusallc@gmail.com).
 // La clave pública también está en index.html (PUSH_VAPID_PUBLIC_KEY): deben ser el mismo par.
 // Sin claves → no se envía push (el correo de Resend sigue como respaldo).
 // Suscripciones caducadas (404/410) se borran; otros fallos suman fail_count y a las 5 se borran.
@@ -15,7 +15,7 @@ function pushConfigured() {
 }
 function defaultSender() {
   const webpush = require('web-push');
-  webpush.setVapidDetails((process.env.VAPID_SUBJECT || 'mailto:soporte@barkwalkusa.com').trim(),
+  webpush.setVapidDetails((process.env.VAPID_SUBJECT || 'mailto:barkwalkusallc@gmail.com').trim(),
     process.env.VAPID_PUBLIC_KEY.trim(), process.env.VAPID_PRIVATE_KEY.trim());
   return (sub, payload, opts) => webpush.sendNotification(sub, payload, opts);
 }

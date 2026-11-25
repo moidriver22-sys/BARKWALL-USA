@@ -256,7 +256,7 @@ async function callWebhook(type, object) {
     assert.equal(RESEND.calls.length, 1);
     const { body, headers } = RESEND.calls[0];
     assert.equal(body.from, 'Barkwalk USA <soporte@barkwalkusa.com>'); assert.deepEqual(body.to, ['ana@cliente.com']);
-    assert.equal(body.reply_to, 'soporte@barkwalkusa.com'); assert.equal(headers['Idempotency-Key'], 'refund-ch_1-5000');
+    assert.equal(body.reply_to, 'barkwalkusallc@gmail.com'); assert.equal(headers['Idempotency-Key'], 'refund-ch_1-5000');
     assert.match(body.subject, /Reembolso confirmado \(\$50\.00\) · #b1/);
     assert.match(body.html, /email-logo\.png/); assert.match(body.html, /\$50\.00/); assert.match(body.html, /#b1/);
     assert.match(body.html, /quedaron <strong>cancelados<\/strong>/);
