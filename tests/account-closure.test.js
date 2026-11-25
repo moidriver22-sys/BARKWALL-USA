@@ -15,14 +15,15 @@ const RL = require(path.join(ROOT, 'api/_lib/rate-limit.js'));
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 const UID = '11111111-2222-3333-4444-555555555555';
-let DB, CALLS, FILES;
+let DB, CALLS, FILES, PETFILES, BAN_FAIL;
 function reset(role = 'client', extra = {}) {
   DB = {
     profiles: [{ id: UID, role, membership_status: 'inactive', stripe_subscription_id: null, walker_status: role === 'walker' ? 'verified' : 'pending', growth_opt_out_at: null, ...extra }],
     account_closures: [], walk_requests: [], walk_cancellations: [], bookings: [], walker_applications: [],
     push_subscriptions: [{ user_id: UID }], payment_methods: [{ client_id: UID }], home_access: [{ client_id: UID }], legal_consents: [{ user_id: UID }],
+    pets: [], pet_passports: [],
   };
-  CALLS = []; FILES = {};
+  CALLS = []; FILES = {}; PETFILES = {}; BAN_FAIL = false;
 }
 const resp = (status, data) => { const s = data == null ? '' : JSON.stringify(data); return { ok: status < 300, status, text: async () => s, json: async () => data }; };
 function match(row, k, e) {
@@ -30,13 +31,15 @@ function match(row, k, e) {
   if (op === 'eq') return String(row[k]) === v;
   if (op === 'is') return v === 'null' ? row[k] == null : String(row[k]) === v;
   if (op === 'not' && v === 'is.null') return row[k] != null;
-  if (op === 'in') return v.slice(1, -1).split(',').includes(String(row[k]));
+  if (op === 'in') return v.slice(1, -1).split(',').map(decodeURIComponent).includes(String(row[k]));
   throw new Error('filtro ' + k + '=' + e);
 }
 global.fetch = async (url, opts = {}) => {
   const u = String(url); const m = opts.method || 'GET'; CALLS.push({ url: u, method: m, body: opts.body });
   if (u.includes('/auth/v1/user')) return /token-ok/.test((opts.headers && opts.headers.Authorization) || '') ? resp(200, { id: UID, email: 'a@example.com' }) : resp(401, {});
-  if (u.includes('/auth/v1/admin/users/')) return resp(200, { id: UID });
+  if (u.includes('/auth/v1/admin/users/')) return BAN_FAIL ? resp(500, {}) : resp(200, { id: UID });
+  if (u.includes('/storage/v1/object/list/pet-photos')) { const uid = JSON.parse(opts.body).prefix.replace(/\/$/, ''); return resp(200, (PETFILES[uid] || []).map((n) => ({ name: n }))); }
+  if (u.endsWith('/storage/v1/object/pet-photos') && m === 'DELETE') { const pre = JSON.parse(opts.body).prefixes; Object.keys(PETFILES).forEach((k) => { PETFILES[k] = PETFILES[k].filter((n) => !pre.includes(k + '/' + n)); }); return resp(200, []); }
   if (u.includes('/storage/v1/object/list/walker-docs')) { const uid = JSON.parse(opts.body).prefix.replace(/\/$/, ''); return resp(200, (FILES[uid] || []).map((n) => ({ name: n, metadata: { size: 1, mimetype: 'image/jpeg' } }))); }
   if (u.endsWith('/storage/v1/object/walker-docs') && m === 'DELETE') return resp(200, []);
   const p = new URL(u); const t = p.pathname.replace('/rest/v1/', ''); const rows = DB[t]; if (!rows) return resp(404, {});
@@ -105,6 +108,43 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
     assert.deepEqual(await T.requireCurrentConsent(UID), { error: 'account_closed' });
   });
 
+  await t('eliminar: acepta DELETE / ELIMINAR o el correo de la cuenta; rechaza otro correo', async () => {
+    assert.equal(AC.isConfirmed('delete'), true); assert.equal(AC.isConfirmed(' Eliminar '), true); assert.equal(AC.isConfirmed('borrar'), false);
+    assert.equal(AC.isConfirmed('A@Example.com', 'a@example.com'), true); assert.equal(AC.isConfirmed('b@example.com', 'a@example.com'), false);
+    reset('client');
+    assert.equal((await call({ action: 'close_account', confirm: 'otro@example.com' })).body.error, 'confirmation_required');
+    const r = await call({ action: 'close_account', confirm: 'A@EXAMPLE.COM' });
+    assert.equal(r.status, 200); assert.equal(r.body.status, 'closed');
+  });
+  await t('eliminar: borra pasaportes, fotos y mascotas sin paseos; las que figuran en un paseo quedan sin foto ni notas', async () => {
+    reset('client');
+    DB.pets.push({ id: 'p1', owner_id: UID, name: 'Max', notes: 'x', photo_url: 'u', dog_photo_url: 'u' }, { id: 'p2', owner_id: UID, name: 'Luna', notes: 'y', dog_photo_url: 'u' }, { id: 'p9', owner_id: 'otro' });
+    DB.pet_passports.push({ id: 'pp', client_id: UID }, { id: 'pq', client_id: 'otro' });
+    DB.walk_requests.push({ id: 'w', client_id: UID, pet_id: 'p1', payment_status: 'paid', status: 'completed' });
+    PETFILES[UID] = ['a.jpg', 'b.jpg']; PETFILES.otro = ['c.jpg'];
+    const r = await call({ action: 'close_account', confirm: 'DELETE' });
+    assert.equal(r.status, 200); assert.equal(r.body.cleanupPending, undefined);
+    assert.deepEqual(DB.pets.map((p) => p.id).sort(), ['p1', 'p9'], 'p2 borrada; p1 se queda por la FK del paseo');
+    const p1 = DB.pets.find((p) => p.id === 'p1'); assert.equal(p1.photo_url, null); assert.equal(p1.dog_photo_url, null); assert.equal(p1.notes, null);
+    assert.deepEqual(DB.pet_passports.map((p) => p.id), ['pq']);
+    assert.deepEqual(PETFILES[UID], []); assert.deepEqual(PETFILES.otro, ['c.jpg']);
+    assert.equal(DB.walk_requests.length, 1, 'el paseo se conserva');
+  });
+  await t('eliminar: si falla la desactivación en Auth se deshace la constancia y se puede reintentar', async () => {
+    reset('client'); BAN_FAIL = true;
+    const r = await call({ action: 'close_account', confirm: 'DELETE' });
+    assert.equal(r.status, 502); assert.equal(r.body.error, 'deactivate_failed');
+    assert.equal(DB.account_closures.length, 0); assert.equal(DB.payment_methods.length, 1, 'no se borró nada');
+    BAN_FAIL = false;
+    assert.equal((await call({ action: 'close_account', confirm: 'DELETE' })).status, 200);
+  });
+  await t('eliminar: un fallo en la limpieza posterior no deja la cuenta a medias ni devuelve error', async () => {
+    reset('client'); delete DB.pet_passports; // la tabla "falla" (404)
+    const r = await call({ action: 'close_account', confirm: 'DELETE' });
+    assert.equal(r.status, 200); assert.deepEqual(r.body.cleanupPending, ['pets']);
+    assert.equal(DB.account_closures.length, 1); assert.equal(DB.home_access.length, 0);
+  });
+
   // ---------- Retención de fotos tras el cierre ----------
   const NOW = Date.parse('2030-01-10T12:00:00Z');
   const hace = (d) => new Date(NOW - d * 864e5).toISOString();
@@ -135,9 +175,15 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
   });
 
   // ---------- App, base y despliegue ----------
-  await t('app: "Cerrar mi cuenta" en Perfil con confirmación CERRAR, motivos claros y aviso si una cuenta cerrada intenta entrar', async () => {
+  await t('app: Zona de peligro en Perfil, confirmación DELETE / correo, errores claros y aviso si una cuenta cerrada intenta entrar', async () => {
     const H = read('index.html');
-    assert.match(H, /tr\('Cerrar mi cuenta', 'Close my account'\)[^\n]*BWAccountClose\.open\(\)/);
+    assert.match(H, /<section id="bwDangerZone"/);
+    assert.match(H, /BWAccountClose\.renderCard\(document\.getElementById\('bwDangerZone'\)\)/);
+    assert.equal(C.isConfirm('delete'), true); assert.equal(C.isConfirm('me@x.com', 'ME@x.com'), true); assert.equal(C.isConfirm('me@x.com', 'you@x.com'), false);
+    for (const e of ['unauthorized', 'network', 'timeout', 'deactivate_failed', 'rate_limited', 'otro']) assert.ok(C.errorText(e, 'en') !== C.errorText(e, 'es') && C.errorText(e, 'en').length > 20, e);
+    const JS = read('account-close.js');
+    assert.match(JS, /res\.j\.error === 'already_closed'\) return finish\(\)/, 'cuenta ya cerrada = éxito');
+    assert.match(JS, /AbortError' \? 'timeout' : 'network'/, 'errores de red no dejan el modal colgado');
     assert.match(H, /<script src="\/account-close\.js\?v=\d+" defer><\/script>/);
     assert.match(H, /if \(\/banned\/i\.test\(err\?\.message \|\| ''\)\) showRegError\(tr\('Esta cuenta fue cerrada/);
     assert.equal(C.isConfirm('cerrar'), true); assert.equal(C.isConfirm('CLOSE '), true); assert.equal(C.isConfirm('sí'), false); assert.equal(C.isConfirm(''), false);

@@ -103,7 +103,7 @@ async function walkerApplication(req, res, b, ip) {
   }
 }
 
-// POST /api/signup { action: 'close_account_check' } | { action: 'close_account', confirm: 'CERRAR', reason? }
+// POST /api/signup { action: 'close_account_check' } | { action: 'close_account', confirm: 'DELETE' | email, reason? }
 // Authorization: Bearer <token>. Lógica y bloqueos en api/_lib/account-closure.js.
 async function accountClosure(req, res, b, ip) {
   const user = await getUserFromToken(bearerToken(req)).catch(() => null);
