@@ -33,4 +33,22 @@ t('navbar: Iniciar sesión y Registrarse siempre visibles; modo claro/oscuro en 
   assert.match(HTML, /class="lp-btn lp-btn-primary" onclick="openRegistrationModal\('client'\)"/);
   assert.match(HTML, /class="bw-theme-pill bw-theme-btn lp-theme"/);
 });
+t('widget del hero: pestañas Reservar / En vivo, desglose con las tarifas del servidor y Club', () => {
+  assert.match(HTML, /role="tab" id="lpTabBook"[^>]*aria-selected="true"/);
+  assert.match(HTML, /role="tab" id="lpTabLive"[^>]*aria-selected="false"/);
+  assert.match(HTML, /const FEE_LARGE = typeof LARGE_DOG_FEE !== 'undefined' \? LARGE_DOG_FEE : 4;/);
+  assert.match(HTML, /const FEE_PET = typeof EXTRA_PET_FEE !== 'undefined' \? EXTRA_PET_FEE : 8;/);
+  assert.match(HTML, /const club = Math\.round\(list \* \(100 - CLUB\) \/ 100\);/, 'mismo redondeo en centavos que api\/_lib\/pricing.js');
+  assert.match(HTML, /if \(reduced\(\)\) return drawLive\(0\.96\);/, 'respeta prefers-reduced-motion');
+});
+t('cómo funciona (3 pasos clicables), comparador de servicios y CTA final con postulación de paseador', () => {
+  assert.equal((HTML.match(/class="lp-how-tab" data-how="\d"/g) || []).length, 3);
+  assert.match(HTML, /<div id="lpCards" class="lp-cards"/);
+  assert.match(HTML, /onclick="openRegistrationModal\('shopper'\)" data-es="Quiero ser paseador"/);
+  assert.match(HTML, /mailto:barkwalkusallc@gmail\.com/);
+});
+t('Barky en la portada móvil no flota sobre el contenido; se abre desde "Pregúntale a Barky"', () => {
+  assert.match(HTML, /@media \(max-width: 959px\) \{ body:has\(#welcomeView:not\(\.hidden\)\) \.bw-chat-fab:not\(\[aria-expanded="true"\]\) \{ opacity: 0; pointer-events: none; \} \}/);
+  assert.match(HTML, /class="lp-ask" onclick="togglePublicAiWidget\(\)"/);
+});
 console.log(`\n${n} pruebas OK`);

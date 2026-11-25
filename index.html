@@ -1354,119 +1354,229 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         <span id="lblOfflineText">Sin conexión a internet. Verifique su red.</span>
     </div>
 
-    <!-- PORTADA DE BIENVENIDA (PÚBLICA) · compacta: navbar con Iniciar sesión / Registrarse siempre visibles, hero con
-         reserva rápida, una sola sección de Servicios y tarifas y el pie legal. Textos ES/EN con data-es / data-en
-         (lpApplyLang) y los IDs de siempre (translations). Precios: SERVICE_CATALOG / GROOMING_ADDONS (= api/_lib/pricing.js). -->
+    <!-- PORTADA DE BIENVENIDA (PÚBLICA, solo sin sesión) · navbar fija + hero con widget interactivo (reservar / en vivo) +
+         cómo funciona (3 pasos clicables) + servicios y tarifas (comparador) + CTA final + pie legal.
+         Textos ES/EN con data-es / data-en (lpApplyLang) y los IDs de siempre (translations).
+         Precios: SERVICE_CATALOG / GROOMING_ADDONS / LARGE_DOG_FEE / EXTRA_PET_FEE / MEMBER_DISCOUNT_PCT (= api/_lib/pricing.js). -->
     <style>
         #welcomeView { background: var(--bw-bg); color: var(--bw-text); overflow-x: clip; display: flex; flex-direction: column; }
         /* Con sesión iniciada la portada desaparece por completo: el id (#welcomeView) pesa más que .hidden de Tailwind */
         #welcomeView.hidden { display: none !important; }
-        .lp-wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+        .lp-wrap { width: 100%; max-width: 1160px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
         @media (min-width: 768px) { .lp-wrap { padding-left: 32px; padding-right: 32px; } }
+        .lp-anim { transition: opacity .25s ease, transform .25s ease; }
+        @media (prefers-reduced-motion: reduce) { #welcomeView *, #welcomeView *::before, #welcomeView *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
 
-        /* Navbar */
+        /* ---------- Navbar ---------- */
         .lp-nav { position: sticky; top: 0; z-index: 40; padding-top: env(safe-area-inset-top, 0px); transition: background .2s ease, box-shadow .2s ease; }
-        .lp-nav.is-solid { background: rgba(9, 22, 17, .88); backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px); box-shadow: 0 1px 0 rgba(255,255,255,.07), 0 10px 30px -18px rgba(0,0,0,.6); }
-        .lp-nav-in { display: flex; align-items: center; gap: 8px; min-height: 60px; }
+        .lp-nav.is-solid { background: rgba(8, 20, 15, .86); backdrop-filter: saturate(160%) blur(16px); -webkit-backdrop-filter: saturate(160%) blur(16px); box-shadow: 0 1px 0 rgba(255,255,255,.07), 0 12px 30px -20px rgba(0,0,0,.7); }
+        .lp-nav-in { display: flex; align-items: center; gap: 8px; min-height: 62px; }
         .lp-logo { display: inline-flex; align-items: center; gap: 9px; color: #fff; font-weight: 900; letter-spacing: .02em; font-size: 16px; text-decoration: none; flex: none; }
-        .lp-logo-mark { width: 34px; height: 34px; border-radius: 11px; background: #00A859; display: grid; place-items: center; box-shadow: 0 8px 18px -8px rgba(0,168,89,.9); }
+        .lp-logo-mark { width: 34px; height: 34px; border-radius: 11px; background: linear-gradient(135deg, #00C26A, #00894A); display: grid; place-items: center; box-shadow: 0 8px 18px -8px rgba(0,168,89,.9); }
         .lp-logo-mark svg { width: 20px; height: 20px; color: #fff; }
         .lp-logo small { font-size: 10px; font-weight: 900; letter-spacing: .18em; color: #C5A059; margin-left: 2px; }
         .lp-logo-word { display: none; }
         @media (min-width: 560px) { .lp-logo-word { display: inline; } }
-        .lp-link { display: none; color: rgba(255,255,255,.82); font-size: 13.5px; font-weight: 700; padding: 8px 12px; border-radius: 10px; margin-left: 12px; text-decoration: none; }
-        .lp-link:hover { color: #fff; background: rgba(255,255,255,.08); }
-        @media (min-width: 900px) { .lp-link { display: inline-flex; } }
+        .lp-links { display: none; gap: 2px; margin-left: 14px; }
+        .lp-links a { color: rgba(255,255,255,.8); font-size: 13.5px; font-weight: 700; padding: 8px 12px; border-radius: 10px; text-decoration: none; transition: background .15s ease, color .15s ease; }
+        .lp-links a:hover { color: #fff; background: rgba(255,255,255,.09); }
+        @media (min-width: 940px) { .lp-links { display: flex; } }
         .lp-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
         @media (min-width: 640px) { .lp-right { gap: 8px; } }
-        /* Modo claro/oscuro: SIEMPRE visible en la barra (también en móvil) */
-        @media (max-width: 419px) { .lp-nav-in { gap: 6px; } .lp-right { gap: 5px; } .lp-nav .lp-theme { width: 32px; height: 32px; flex: none; } .lp-lang { font-size: 11px; } .lp-lang button { padding-left: 7px !important; padding-right: 7px !important; } .lp-nav .lp-btn { padding: 0 10px; font-size: 12.5px; } }
         .lp-lang { background: rgba(0,0,0,.45); padding: 3px; border-radius: 999px; display: flex; gap: 2px; border: 1px solid rgba(255,255,255,.2); font-size: 11.5px; }
         .lp-lang button { min-height: 28px; }
-        .lp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 900; cursor: pointer; white-space: nowrap; border: 1px solid transparent; text-decoration: none; }
+        .lp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 900; cursor: pointer; white-space: nowrap; border: 1px solid transparent; text-decoration: none; transition: transform .12s ease, background .15s ease, box-shadow .15s ease, border-color .15s ease; }
+        .lp-btn:active { transform: scale(.97); }
         .lp-btn svg { width: 18px; height: 18px; flex: none; }
-        .lp-btn-lg { min-height: 50px; padding: 0 22px; font-size: 15px; border-radius: 14px; }
+        .lp-btn-lg { min-height: 52px; padding: 0 22px; font-size: 15px; border-radius: 15px; }
         .lp-btn-primary { background: #00A859; color: #fff; box-shadow: 0 12px 26px -14px rgba(0,168,89,.95); }
-        .lp-btn-primary:hover { background: #00954F; }
+        .lp-btn-primary:hover { background: #00954F; box-shadow: 0 16px 30px -14px rgba(0,168,89,1); }
         .lp-btn-ghost { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.3); }
         .lp-btn-ghost:hover { background: rgba(255,255,255,.18); }
-        .lp-btn:focus-visible, .lp-link:focus-visible, .lp-chip:focus-visible, .lp-textlink:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0,168,89,.55); }
+        .lp-btn-soft { background: var(--bw-surface); color: var(--bw-ink); border-color: var(--bw-line); }
+        .lp-btn-soft:hover { border-color: #00A859; }
+        #welcomeView :is(button, a, [tabindex]):focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0,168,89,.55); }
+        @media (max-width: 419px) { .lp-nav-in { gap: 6px; } .lp-right { gap: 5px; } .lp-nav .lp-theme { width: 32px; height: 32px; flex: none; } .lp-lang { font-size: 11px; } .lp-lang button { padding-left: 7px !important; padding-right: 7px !important; } .lp-nav .lp-btn { padding: 0 10px; font-size: 12.5px; } }
         @media (max-width: 379px) { .lp-nav .lp-btn { padding: 0 8px; font-size: 12px; } .lp-logo-mark { width: 30px; height: 30px; } }
         @media (max-width: 359px) { .lp-logo { display: none; } .lp-right { margin-left: 0; width: 100%; justify-content: space-between; } }
 
-        /* Hero */
-        .lp-hero { position: relative; color: #fff; margin-top: calc(-60px - env(safe-area-inset-top, 0px)); padding-top: calc(60px + env(safe-area-inset-top, 0px));
-            background: linear-gradient(100deg, rgba(5,18,13,.93) 0%, rgba(5,18,13,.8) 45%, rgba(5,18,13,.4) 100%), linear-gradient(0deg, rgba(5,18,13,.9) 0%, rgba(5,18,13,0) 45%), url('./hero-bg.jpeg') center/cover no-repeat; }
-        .lp-hero-grid { display: grid; gap: 22px; padding-top: 22px; padding-bottom: 28px; align-items: center; }
-        @media (min-width: 960px) { .lp-hero-grid { grid-template-columns: 1fr 400px; gap: 56px; padding-top: 48px; padding-bottom: 64px; min-height: min(640px, calc(100dvh - 60px)); } }
-        .lp-h1 { font-size: clamp(32px, 8vw, 58px); line-height: 1.02; font-weight: 900; letter-spacing: -.025em; text-wrap: balance; }
-        .lp-h1 em { font-style: normal; color: #5BE3A1; }
-        .lp-lead { font-size: clamp(15px, 2.1vw, 18px); line-height: 1.45; color: rgba(255,255,255,.82); margin-top: 12px; }
-        .lp-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+        /* ---------- Hero ---------- */
+        .lp-hero { position: relative; color: #fff; margin-top: calc(-62px - env(safe-area-inset-top, 0px)); padding-top: calc(62px + env(safe-area-inset-top, 0px)); isolation: isolate;
+            background: linear-gradient(100deg, rgba(4,16,11,.95) 0%, rgba(4,16,11,.82) 46%, rgba(4,16,11,.45) 100%), linear-gradient(0deg, rgba(4,16,11,.92) 0%, rgba(4,16,11,0) 45%), url('./hero-bg.jpeg') center/cover no-repeat; }
+        .lp-hero::after { content: ""; position: absolute; inset: auto -10% -40% auto; width: 60vw; height: 60vw; max-width: 720px; max-height: 720px; background: radial-gradient(closest-side, rgba(0,168,89,.28), transparent 70%); z-index: -1; pointer-events: none; }
+        .lp-hero-grid { display: grid; gap: 26px; padding-top: 24px; padding-bottom: 36px; align-items: center; }
+        @media (min-width: 980px) { .lp-hero-grid { grid-template-columns: 1fr 440px; gap: 56px; padding-top: 52px; padding-bottom: 72px; min-height: min(720px, calc(100dvh - 62px)); } }
+        .lp-eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 9px; border-radius: 999px; background: rgba(0,168,89,.16); border: 1px solid rgba(0,168,89,.45); font-size: 12px; font-weight: 800; color: #D7F5E6; max-width: 100%; }
+        .lp-eyebrow i { width: 8px; height: 8px; border-radius: 999px; background: #00E07A; flex: none; box-shadow: 0 0 0 0 rgba(0,224,122,.7); animation: lpPing 2s infinite; }
+        @keyframes lpPing { 70% { box-shadow: 0 0 0 9px rgba(0,224,122,0); } 100% { box-shadow: 0 0 0 0 rgba(0,224,122,0); } }
+        .lp-h1 { font-size: clamp(34px, 8.2vw, 62px); line-height: 1.02; font-weight: 900; letter-spacing: -.03em; margin-top: 16px; text-wrap: balance; }
+        .lp-h1 em { font-style: normal; background: linear-gradient(90deg, #5BE3A1, #C5F27A); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .lp-lead { font-size: clamp(15px, 2.1vw, 18px); line-height: 1.5; color: rgba(255,255,255,.8); margin-top: 14px; max-width: 34em; }
+        .lp-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
         @media (max-width: 479px) { .lp-ctas .lp-btn { flex: 1 1 0; padding: 0 12px; } }
-        .lp-trust { list-style: none; margin: 20px 0 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12.5px; font-weight: 700; color: rgba(255,255,255,.72); }
-        .lp-trust li { display: inline-flex; align-items: center; gap: 6px; }
-        .lp-trust svg { width: 15px; height: 15px; color: #5BE3A1; flex: none; }
+        .lp-badges { list-style: none; margin: 22px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+        .lp-badges li { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 999px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); font-size: 12px; font-weight: 800; color: rgba(255,255,255,.9); }
+        .lp-badges svg { width: 15px; height: 15px; color: #5BE3A1; flex: none; }
+        .lp-areas { margin-top: 14px; font-size: 12.5px; font-weight: 700; color: rgba(255,255,255,.66); display: flex; align-items: flex-start; gap: 6px; }
+        .lp-areas svg { width: 14px; height: 14px; color: #C5A059; flex: none; margin-top: 2px; }
 
-        /* Reserva rápida */
-        .lp-quick { background: var(--bw-surface); color: var(--bw-text); border-radius: 24px; padding: 18px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.7); border: 1px solid var(--bw-line); }
-        .lp-quick-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .lp-quick-title { font-size: 16px; font-weight: 900; color: var(--bw-ink); }
-        .lp-tag { font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; background: rgba(0,168,89,.12); color: #00824A; }
-        html.dark .lp-tag { color: #7EDDB0; }
-        .lp-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-        .lp-chip { text-align: left; padding: 9px 11px; border-radius: 13px; border: 1.5px solid var(--bw-line); background: var(--bw-soft); cursor: pointer; color: var(--bw-text); min-height: 44px; }
+        /* ---------- Widget (reservar / en vivo) ---------- */
+        .lp-widget { background: var(--bw-surface); color: var(--bw-text); border-radius: 26px; padding: 8px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.75); border: 1px solid var(--bw-line); }
+        .lp-tabs { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 18px; background: var(--bw-soft); border: 1px solid var(--bw-line); }
+        .lp-tabs button { position: relative; z-index: 1; min-height: 42px; border-radius: 14px; font-size: 13px; font-weight: 900; color: rgb(var(--bw-text-rgb) / .62); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: none; transition: color .2s ease; }
+        .lp-tabs button[aria-selected="true"] { color: var(--bw-ink); }
+        .lp-tabs button svg { width: 16px; height: 16px; }
+        .lp-tabs .lp-tab-pill { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 14px; background: var(--bw-surface); box-shadow: 0 6px 16px -10px rgba(0,0,0,.45); transition: transform .28s cubic-bezier(.2,.8,.2,1); }
+        .lp-tabs[data-active="1"] .lp-tab-pill { transform: translateX(100%); }
+        .lp-live-dot { width: 7px; height: 7px; border-radius: 999px; background: #E11D48; animation: lpBlink 1.4s infinite; }
+        @keyframes lpBlink { 50% { opacity: .25; } }
+        .lp-panel { padding: 14px 10px 10px; animation: lpIn .28s ease both; }
+        .lp-panel[hidden] { display: none; }
+        @keyframes lpIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .lp-label { font-size: 10.5px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; color: rgb(var(--bw-text-rgb) / .55); margin: 0 0 7px; }
+        .lp-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+        .lp-chip { text-align: left; padding: 9px 11px; border-radius: 13px; border: 1.5px solid var(--bw-line); background: var(--bw-soft); cursor: pointer; color: var(--bw-text); min-height: 44px; transition: border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease; }
+        .lp-chip:hover { border-color: rgba(0,168,89,.55); }
+        .lp-chip:active { transform: scale(.98); }
         .lp-chip b { display: block; font-size: 12.5px; font-weight: 900; line-height: 1.2; }
-        .lp-chip span { font-size: 11px; opacity: .65; font-weight: 700; }
+        .lp-chip span { font-size: 11px; color: rgb(var(--bw-text-rgb) / .62); font-weight: 700; }
         .lp-chip[aria-pressed="true"] { border-color: #00A859; background: var(--bw-selected); box-shadow: 0 0 0 3px rgba(0,168,89,.14); }
-        .lp-dur { display: flex; gap: 8px; margin-top: 8px; }
-        .lp-dur .lp-chip { flex: 1 1 0; text-align: center; font-size: 12.5px; font-weight: 900; padding: 8px 6px; min-height: 40px; }
-        .lp-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
-        .lp-price { font-size: 30px; font-weight: 900; letter-spacing: -.02em; color: var(--bw-ink); line-height: 1; white-space: nowrap; }
-        .lp-price small { font-size: 12px; font-weight: 800; opacity: .6; letter-spacing: 0; }
-        .lp-total .lp-btn { flex: 1 1 auto; max-width: 220px; min-height: 46px; }
-        .lp-quick-foot { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--bw-dash); display: flex; justify-content: center; gap: 6px; font-size: 12.5px; font-weight: 700; opacity: .9; flex-wrap: wrap; }
+        .lp-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; margin-top: 12px; }
+        @media (max-width: 479px) { .lp-row { grid-template-columns: 1fr; } .lp-row > div:last-child { display: flex; align-items: center; justify-content: space-between; } .lp-row > div:last-child .lp-label { margin: 0; } }
+        .lp-dur { display: flex; gap: 6px; flex-wrap: wrap; }
+        .lp-dur .lp-chip { flex: 1 1 0; min-width: 62px; text-align: center; font-size: 12.5px; font-weight: 900; padding: 8px 6px; min-height: 40px; }
+        .lp-step { display: inline-flex; align-items: center; border: 1.5px solid var(--bw-line); border-radius: 13px; background: var(--bw-soft); }
+        .lp-step button { width: 38px; height: 38px; display: grid; place-items: center; font-size: 18px; font-weight: 900; color: var(--bw-ink); cursor: pointer; border-radius: 11px; background: none; }
+        .lp-step button:disabled { opacity: .3; cursor: not-allowed; }
+        .lp-step output { min-width: 26px; text-align: center; font-size: 14px; font-weight: 900; }
+        .lp-toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 9px 12px; border-radius: 13px; background: var(--bw-soft); border: 1.5px solid var(--bw-line); cursor: pointer; font-size: 12.5px; font-weight: 800; width: 100%; color: var(--bw-text); text-align: left; }
+        .lp-toggle small { display: block; font-size: 11px; font-weight: 700; color: rgb(var(--bw-text-rgb) / .58); }
+        .lp-switch { flex: none; width: 40px; height: 24px; border-radius: 999px; background: var(--bw-track); position: relative; transition: background .2s ease; }
+        .lp-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s ease; }
+        .lp-toggle[aria-pressed="true"] { border-color: #00A859; }
+        .lp-toggle[aria-pressed="true"] .lp-switch { background: #00A859; }
+        .lp-toggle[aria-pressed="true"] .lp-switch::after { transform: translateX(16px); }
+        .lp-break { list-style: none; margin: 12px 0 0; padding: 10px 12px; border-radius: 14px; background: var(--bw-card); display: grid; gap: 5px; font-size: 12.5px; font-weight: 700; }
+        .lp-break li { display: flex; justify-content: space-between; gap: 10px; }
+        .lp-break li span:last-child { font-variant-numeric: tabular-nums; }
+        .lp-break .is-club { color: #00824A; font-weight: 900; padding-top: 5px; border-top: 1px dashed var(--bw-dash); }
+        html.dark .lp-break .is-club { color: #7EDDB0; }
+        .lp-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+        .lp-price { line-height: 1; }
+        .lp-price b { display: block; font-size: 32px; font-weight: 900; letter-spacing: -.02em; color: var(--bw-ink); font-variant-numeric: tabular-nums; transition: transform .2s ease; }
+        .lp-price b.is-bump { transform: scale(1.06); }
+        .lp-price small { font-size: 11.5px; font-weight: 800; color: rgb(var(--bw-text-rgb) / .58); }
+        .lp-total .lp-btn { flex: 1 1 auto; max-width: 230px; min-height: 48px; }
+        .lp-foot-link { margin-top: 10px; text-align: center; font-size: 12.5px; font-weight: 700; color: rgb(var(--bw-text-rgb) / .8); }
         .lp-textlink { color: var(--bw-ink); font-weight: 900; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; background: none; border-radius: 6px; }
+        /* En vivo */
+        .lp-map { position: relative; border-radius: 18px; overflow: hidden; background: linear-gradient(135deg, #E3F1E8, #F3EEE2); border: 1px solid var(--bw-line); aspect-ratio: 16 / 10; }
+        html.dark .lp-map { background: linear-gradient(135deg, #12291F, #1F2A24); }
+        .lp-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .lp-map .st { stroke: rgba(27,77,62,.13); stroke-width: 7; fill: none; stroke-linecap: round; }
+        html.dark .lp-map .st { stroke: rgba(255,255,255,.07); }
+        .lp-map .park { fill: rgba(0,168,89,.16); }
+        .lp-map .route-bg { stroke: rgba(0,168,89,.25); stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .lp-map .route { stroke: #00A859; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .lp-map-tag { position: absolute; left: 10px; top: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,.92); color: #1B4D3E; font-size: 11px; font-weight: 900; box-shadow: 0 4px 12px -6px rgba(0,0,0,.4); }
+        html.dark .lp-map-tag { background: rgba(14,21,18,.9); color: #7EDDB0; }
+        .lp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; }
+        .lp-stat { padding: 9px 10px; border-radius: 13px; background: var(--bw-soft); border: 1px solid var(--bw-line); }
+        .lp-stat b { display: block; font-size: 16px; font-weight: 900; color: var(--bw-ink); font-variant-numeric: tabular-nums; }
+        .lp-stat span { font-size: 10.5px; font-weight: 800; color: rgb(var(--bw-text-rgb) / .58); text-transform: uppercase; letter-spacing: .06em; }
+        .lp-feed { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+        .lp-feed li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 13px; background: var(--bw-soft); border: 1px solid var(--bw-line); font-size: 12.5px; font-weight: 700; opacity: .35; transition: opacity .3s ease, border-color .3s ease; }
+        .lp-feed li.is-on { opacity: 1; border-color: rgba(0,168,89,.4); }
+        .lp-feed li span:first-child { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: var(--bw-card); flex: none; }
+        .lp-feed time { margin-left: auto; font-size: 11px; font-weight: 800; color: rgb(var(--bw-text-rgb) / .55); }
+        .lp-demo { margin-top: 8px; text-align: center; font-size: 10.5px; font-weight: 700; color: rgb(var(--bw-text-rgb) / .5); }
 
+        /* ---------- Secciones ---------- */
+        .lp-sec { padding: 52px 0; }
+        @media (min-width: 768px) { .lp-sec { padding: 80px 0; } }
+        .lp-sec.is-alt { background: var(--bw-card); }
+        .lp-kicker { font-size: 11.5px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #00A859; }
+        .lp-h2 { font-size: clamp(25px, 4vw, 38px); font-weight: 900; letter-spacing: -.025em; line-height: 1.08; margin-top: 6px; color: var(--bw-ink); text-wrap: balance; }
+        .lp-sub { font-size: 14.5px; line-height: 1.55; color: rgb(var(--bw-text-rgb) / .7); margin-top: 8px; max-width: 38em; }
+        /* Cómo funciona */
+        .lp-how { display: grid; gap: 14px; margin-top: 26px; }
+        @media (min-width: 900px) { .lp-how { grid-template-columns: 380px 1fr; gap: 28px; align-items: stretch; } }
+        .lp-how-tabs { display: grid; gap: 8px; }
+        .lp-how-tab { display: flex; align-items: center; gap: 12px; text-align: left; padding: 14px; border-radius: 18px; border: 1.5px solid var(--bw-line); background: var(--bw-surface); cursor: pointer; color: var(--bw-text); transition: border-color .2s ease, box-shadow .2s ease, transform .12s ease; }
+        .lp-how-tab:hover { border-color: rgba(0,168,89,.5); }
+        .lp-how-tab b { flex: none; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: var(--bw-card); color: var(--bw-ink); font-weight: 900; transition: background .2s ease, color .2s ease; }
+        .lp-how-tab strong { font-size: 15px; font-weight: 900; }
+        .lp-how-tab[aria-selected="true"] { border-color: #00A859; box-shadow: 0 14px 28px -20px rgba(0,168,89,.9); }
+        .lp-how-tab[aria-selected="true"] b { background: #00A859; color: #fff; }
+        .lp-how-view { position: relative; border-radius: 24px; padding: 22px; background: var(--bw-surface); border: 1px solid var(--bw-line); display: grid; gap: 16px; align-content: center; min-height: 240px; overflow: hidden; }
+        @media (min-width: 640px) { .lp-how-view { grid-template-columns: 170px 1fr; align-items: center; } }
+        .lp-how-art { font-size: 64px; line-height: 1; width: 132px; height: 132px; border-radius: 34px; display: grid; place-items: center; background: radial-gradient(circle at 30% 25%, rgba(0,168,89,.25), rgba(0,168,89,.06)); margin: 0 auto; }
+        .lp-how-view h3 { font-size: 20px; font-weight: 900; color: var(--bw-ink); letter-spacing: -.01em; }
+        .lp-how-view p { font-size: 14px; line-height: 1.55; color: rgb(var(--bw-text-rgb) / .75); margin-top: 6px; }
+        .lp-how-view ul { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+        .lp-how-view li { font-size: 12px; font-weight: 800; padding: 5px 10px; border-radius: 999px; background: var(--bw-soft); border: 1px solid var(--bw-line); }
         /* Servicios y tarifas */
-        .lp-sec { padding: 40px 0 44px; }
-        @media (min-width: 768px) { .lp-sec { padding: 64px 0; } }
-        .lp-sec-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; }
-        .lp-h2 { font-size: clamp(22px, 3.6vw, 32px); font-weight: 900; letter-spacing: -.02em; line-height: 1.1; color: var(--bw-ink); }
-        .lp-sub { font-size: 13.5px; opacity: .7; font-weight: 600; }
-        .lp-grid { display: grid; gap: 10px; margin-top: 20px; }
-        @media (min-width: 600px) { .lp-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (min-width: 1000px) { .lp-grid { grid-template-columns: repeat(3, 1fr); } }
-        .lp-card { background: var(--bw-surface); border: 1px solid var(--bw-line); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-        .lp-card-top { display: flex; align-items: center; gap: 10px; }
-        .lp-card-ico { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--bw-card); font-size: 19px; flex: none; }
-        .lp-card h3 { font-size: 15px; font-weight: 900; color: var(--bw-ink); line-height: 1.2; }
-        .lp-pop { margin-left: auto; font-size: 9.5px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; background: #C5A059; color: #2B2621; flex: none; }
-        .lp-prices { display: flex; flex-wrap: wrap; gap: 6px; }
-        .lp-prices span { font-size: 12.5px; font-weight: 700; padding: 5px 9px; border-radius: 9px; background: var(--bw-soft); border: 1px solid var(--bw-line); }
-        .lp-prices b { font-weight: 900; color: var(--bw-ink); margin-left: 4px; }
-        .lp-fine { font-size: 12.5px; line-height: 1.55; opacity: .7; margin-top: 14px; }
-
+        .lp-cmp { display: grid; gap: 14px; margin-top: 26px; }
+        @media (min-width: 960px) { .lp-cmp { grid-template-columns: 1fr 380px; gap: 24px; align-items: start; } }
+        .lp-cards { display: grid; gap: 9px; grid-template-columns: 1fr 1fr; }
+        @media (min-width: 640px) { .lp-cards { grid-template-columns: repeat(3, 1fr); } }
+        .lp-card { text-align: left; padding: 14px; border-radius: 18px; border: 1.5px solid var(--bw-line); background: var(--bw-surface); cursor: pointer; color: var(--bw-text); display: flex; flex-direction: column; gap: 6px; transition: border-color .2s ease, box-shadow .2s ease, transform .15s ease; }
+        .lp-card:hover { transform: translateY(-2px); border-color: rgba(0,168,89,.5); }
+        .lp-card[aria-pressed="true"] { border-color: #00A859; box-shadow: 0 16px 32px -22px rgba(0,168,89,1); }
+        .lp-card-ico { font-size: 24px; line-height: 1; }
+        .lp-card strong { font-size: 14px; font-weight: 900; color: var(--bw-ink); line-height: 1.2; }
+        .lp-card span { font-size: 12px; font-weight: 800; color: rgb(var(--bw-text-rgb) / .62); }
+        .lp-detail { border-radius: 22px; padding: 18px; background: var(--bw-surface); border: 1px solid var(--bw-line); }
+        @media (min-width: 960px) { .lp-detail { position: sticky; top: 84px; } }
+        .lp-detail h3 { font-size: 18px; font-weight: 900; color: var(--bw-ink); display: flex; align-items: center; gap: 8px; }
+        .lp-detail p { font-size: 13.5px; line-height: 1.5; color: rgb(var(--bw-text-rgb) / .75); margin-top: 6px; }
+        .lp-incl { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; font-size: 12.5px; font-weight: 700; }
+        .lp-incl li { display: flex; gap: 8px; align-items: flex-start; }
+        .lp-incl li::before { content: "✓"; flex: none; width: 18px; height: 18px; border-radius: 999px; display: grid; place-items: center; font-size: 11px; font-weight: 900; background: rgba(0,168,89,.14); color: #00A859; }
+        .lp-detail .lp-dur { margin-top: 14px; }
+        .lp-detail-price { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--bw-dash); }
+        .lp-detail-price b { font-size: 28px; font-weight: 900; color: var(--bw-ink); }
+        .lp-detail-price span { font-size: 12px; font-weight: 800; color: #00824A; }
+        html.dark .lp-detail-price span { color: #7EDDB0; }
+        .lp-detail .lp-btn { width: 100%; margin-top: 12px; }
+        .lp-fine { font-size: 12px; line-height: 1.55; color: rgb(var(--bw-text-rgb) / .65); margin-top: 12px; }
+        /* CTA final */
+        .lp-final { border-radius: 28px; padding: 28px 22px; background: linear-gradient(135deg, #0F3D2E, #1B4D3E 55%, #00824A); color: #fff; display: grid; gap: 18px; position: relative; overflow: hidden; }
+        .lp-final::after { content: "🐾"; position: absolute; right: -10px; bottom: -26px; font-size: 140px; opacity: .08; pointer-events: none; }
+        @media (min-width: 860px) { .lp-final { grid-template-columns: 1fr auto; align-items: center; padding: 40px; } }
+        .lp-final h2 { font-size: clamp(24px, 3.6vw, 34px); font-weight: 900; letter-spacing: -.02em; line-height: 1.1; }
+        .lp-final p { font-size: 14.5px; color: rgba(255,255,255,.78); margin-top: 6px; }
+        .lp-final-ctas { display: flex; flex-wrap: wrap; gap: 10px; }
+        @media (max-width: 479px) { .lp-final-ctas .lp-btn { flex: 1 1 100%; } }
+        .lp-btn-white { background: #fff; color: #1B4D3E; }
+        .lp-btn-white:hover { background: #EEF6F1; }
         /* Pie legal */
-        .lp-foot { margin-top: auto; padding: 22px 0 calc(96px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--bw-line); font-size: 12px; }
-        @media (min-width: 960px) { .lp-foot { padding-bottom: 28px; } }
+        .lp-foot { margin-top: auto; padding: 22px 0 calc(28px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--bw-line); font-size: 12px; }
         .lp-foot-row { display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between; align-items: center; }
         .lp-foot nav { display: flex; flex-wrap: wrap; gap: 6px 14px; font-weight: 700; }
-        .lp-foot a, .lp-foot nav button { text-decoration: underline; text-underline-offset: 2px; opacity: .85; cursor: pointer; background: none; }
+        .lp-foot a, .lp-foot nav button { text-decoration: underline; text-underline-offset: 2px; opacity: .85; cursor: pointer; background: none; color: inherit; }
         .lp-foot p { opacity: .65; line-height: 1.5; }
         .lp-fab { position: fixed; right: 16px; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 30; }
         @media (max-width: 959px) { .lp-fab { display: none; } }
         @media (min-width: 960px) { .lp-mobile-only { display: none !important; } }
+        /* Portada en móvil: la burbuja de Barky no flota sobre el contenido interactivo (tarjetas, pasos, botones);
+           se abre desde "Pregúntale a Barky" (CTA final) o "FAQ (IA)" (pie). Abierta, vuelve a verse para cerrarla. */
+        @media (max-width: 959px) { body:has(#welcomeView:not(.hidden)) .bw-chat-fab:not([aria-expanded="true"]) { opacity: 0; pointer-events: none; } }
+        .lp-ask { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; color: #fff; font-size: 13.5px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; background: none; }
     </style>
     <div id="welcomeView" class="min-h-screen relative animate-fade">
-        <!-- Navbar: Iniciar sesión y Registrarse SIEMPRE visibles (móvil y escritorio) -->
+        <!-- Navbar fija: marca, enlaces, tema, idioma, Iniciar sesión y Registrarse SIEMPRE visibles -->
         <header id="lpNav" class="lp-nav">
             <div class="lp-wrap lp-nav-in">
                 <a href="/" class="lp-logo" aria-label="Barkwalk USA" onclick="event.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' })">
                     <span class="lp-logo-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15.4" rx="4.2" ry="3.4"/><circle cx="6.6" cy="10" r="1.9"/><circle cx="10" cy="6.6" r="1.9"/><circle cx="14" cy="6.6" r="1.9"/><circle cx="17.4" cy="10" r="1.9"/></svg></span>
                     <span class="lp-logo-word">BARKWALK<small>USA</small></span>
                 </a>
-                <a href="#lpServices" class="lp-link" data-lp-go="lpServices" data-es="Servicios y tarifas" data-en="Services &amp; pricing">Services &amp; pricing</a>
+                <nav class="lp-links" aria-label="Main">
+                    <a href="#lpServices" data-lp-go="lpServices" data-es="Servicios" data-en="Services">Services</a>
+                    <a href="#lpHow" data-lp-go="lpHow" data-es="Cómo funciona" data-en="How it works">How it works</a>
+                    <a href="#lpServices" data-lp-go="lpServices" data-es="Tarifas" data-en="Pricing">Pricing</a>
+                </nav>
                 <div class="lp-right">
                     <button type="button" class="bw-theme-pill bw-theme-btn lp-theme" data-bw-theme-btn onclick="bwToggleTheme()" aria-pressed="false" aria-label="Dark mode / Modo oscuro" title="Dark mode / Modo oscuro">
                         <svg class="bw-i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
@@ -1482,49 +1592,120 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             </div>
         </header>
 
-        <!-- Hero: título, una línea, CTA, confianza en una fila y reserva rápida al lado (escritorio) o debajo (móvil) -->
+        <!-- Hero + widget interactivo -->
         <section class="lp-hero" aria-labelledby="txtHeroTitle">
             <div class="lp-wrap lp-hero-grid">
                 <div>
-                    <h1 id="txtHeroTitle" class="lp-h1">Trusted dog walks, <em>tracked live.</em></h1>
-                    <p id="txtHeroSub" class="lp-lead">Vetted local walkers. Book in under a minute.</p>
+                    <span class="lp-eyebrow"><i aria-hidden="true"></i><span data-es="Paseadores verificados disponibles hoy" data-en="Verified walkers available today">Verified walkers available today</span></span>
+                    <h1 id="txtHeroTitle" class="lp-h1">Dog walks you can <em>watch live.</em></h1>
+                    <p id="txtHeroSub" class="lp-lead">Vetted local walkers, real-time GPS and a photo the moment your dog is home. Book in under a minute.</p>
                     <div class="lp-ctas" data-fab-avoid>
-                        <button type="button" class="lp-btn lp-btn-primary lp-btn-lg" onclick="lpBook()"><span data-es="Reservar paseo" data-en="Book a walk">Book a walk</span></button>
-                        <a href="#lpServices" data-lp-go="lpServices" class="lp-btn lp-btn-ghost lp-btn-lg"><span data-es="Ver tarifas" data-en="See pricing">See pricing</span></a>
+                        <button type="button" class="lp-btn lp-btn-primary lp-btn-lg" onclick="lpBook()"><span data-es="Reservar paseo" data-en="Book a walk">Book a walk</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+                        <a href="#lpHow" data-lp-go="lpHow" class="lp-btn lp-btn-ghost lp-btn-lg"><span data-es="Cómo funciona" data-en="How it works">How it works</span></a>
                     </div>
-                    <ul class="lp-trust" aria-label="Barkwalk">
+                    <ul class="lp-badges" aria-label="Barkwalk">
                         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.79a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg><span data-es="GPS en vivo" data-en="Live GPS">Live GPS</span></li>
                         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg><span data-es="Foto al finalizar" data-en="Photo at drop-off">Photo at drop-off</span></li>
-                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span data-es="Pago seguro con Stripe" data-en="Secure Stripe payments">Secure Stripe payments</span></li>
-                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 19-9-9 19-2-8-8-2z"/></svg><span id="txtHeroTagline">Birmingham &amp; Homewood, AL</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span data-es="Pagos con Stripe" data-en="Stripe payments">Stripe payments</span></li>
                     </ul>
+                    <p class="lp-areas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.79a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg><span id="txtHeroTagline">Birmingham · Homewood · Vestavia Hills · Mountain Brook, AL</span></p>
                 </div>
 
-                <div class="lp-quick" aria-labelledby="lpQuickTitle">
-                    <div class="lp-quick-head">
-                        <h2 id="lpQuickTitle" class="lp-quick-title" data-es="Reserva rápida" data-en="Quick booking">Quick booking</h2>
-                        <span class="lp-tag" data-es="Precio real" data-en="Real price">Real price</span>
+                <div class="lp-widget">
+                    <div class="lp-tabs" role="tablist" aria-label="Barkwalk" data-active="0">
+                        <span class="lp-tab-pill" aria-hidden="true"></span>
+                        <button type="button" role="tab" id="lpTabBook" aria-controls="lpPanelBook" aria-selected="true" data-lp-tab="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span data-es="Reservar paseo" data-en="Book a walk">Book a walk</span></button>
+                        <button type="button" role="tab" id="lpTabLive" aria-controls="lpPanelLive" aria-selected="false" tabindex="-1" data-lp-tab="1"><span class="lp-live-dot" aria-hidden="true"></span><span data-es="En vivo" data-en="Live view">Live view</span></button>
                     </div>
-                    <div id="lpSvc" class="lp-svc" role="group" aria-label="Service / Servicio"></div>
-                    <div id="lpDur" class="lp-dur" role="group" aria-label="Duration / Duración"></div>
-                    <div class="lp-total" data-fab-avoid>
-                        <p class="lp-price" aria-live="polite"><span id="lpPrice">$22</span> <small data-es="/ paseo" data-en="/ walk">/ walk</small></p>
-                        <button type="button" class="lp-btn lp-btn-primary" onclick="lpBook()"><span data-es="Continuar" data-en="Continue">Continue</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+
+                    <div id="lpPanelBook" class="lp-panel" role="tabpanel" aria-labelledby="lpTabBook">
+                        <p class="lp-label" data-es="Servicio" data-en="Service">Service</p>
+                        <div id="lpSvc" class="lp-svc" role="group" aria-label="Service / Servicio"></div>
+                        <div class="lp-row">
+                            <div><p class="lp-label" data-es="Duración" data-en="Duration">Duration</p><div id="lpDur" class="lp-dur" role="group" aria-label="Duration / Duración"></div></div>
+                            <div><p class="lp-label" data-es="Perros" data-en="Dogs">Dogs</p>
+                                <div class="lp-step"><button type="button" id="lpPetsMinus" aria-label="−">−</button><output id="lpPets" aria-live="polite">1</output><button type="button" id="lpPetsPlus" aria-label="+">+</button></div></div>
+                        </div>
+                        <button type="button" id="lpLarge" class="lp-toggle" aria-pressed="false"><span><span data-es="Perro grande o de alta energía" data-en="Large or high-energy dog">Large or high-energy dog</span><small data-es="+$4 por día" data-en="+$4 per day">+$4 per day</small></span><span class="lp-switch" aria-hidden="true"></span></button>
+                        <ul id="lpBreak" class="lp-break" aria-live="polite"></ul>
+                        <div class="lp-total" data-fab-avoid>
+                            <p class="lp-price"><b id="lpPrice">$22</b><small id="lpPriceNote">per walk</small></p>
+                            <button type="button" class="lp-btn lp-btn-primary" onclick="lpBook()"><span data-es="Continuar" data-en="Continue">Continue</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+                        </div>
+                        <p class="lp-foot-link"><span data-es="¿Ya tienes cuenta?" data-en="Have an account?">Have an account?</span> <button type="button" class="lp-textlink" onclick="openRegistrationModal(null, 'login')" data-es="Iniciar sesión" data-en="Log in">Log in</button></p>
                     </div>
-                    <p class="lp-quick-foot"><span data-es="¿Ya tienes cuenta?" data-en="Have an account?">Have an account?</span><button type="button" class="lp-textlink" onclick="openRegistrationModal(null, 'login')" data-es="Iniciar sesión" data-en="Log in">Log in</button></p>
+
+                    <div id="lpPanelLive" class="lp-panel" role="tabpanel" aria-labelledby="lpTabLive" hidden>
+                        <div class="lp-map">
+                            <svg viewBox="0 0 320 200" aria-hidden="true">
+                                <path class="st" d="M0 40 H320 M0 120 H320 M0 175 H320 M60 0 V200 M150 0 V200 M245 0 V200"/>
+                                <rect class="park" x="160" y="50" width="78" height="62" rx="14"/>
+                                <path class="route-bg" d="M60 175 V120 H150 V60 C150 50 160 45 175 50 L230 70 C245 76 245 100 245 120 V175"/>
+                                <path id="lpRoute" class="route" d="M60 175 V120 H150 V60 C150 50 160 45 175 50 L230 70 C245 76 245 100 245 120 V175"/>
+                                <circle cx="60" cy="175" r="7" fill="#1B4D3E" stroke="#fff" stroke-width="2.5"/>
+                                <g id="lpWalker"><circle r="13" fill="rgba(0,168,89,.25)"/><circle r="7.5" fill="#00A859" stroke="#fff" stroke-width="2.5"/></g>
+                            </svg>
+                            <span class="lp-map-tag"><span class="lp-live-dot" aria-hidden="true"></span><span data-es="Max · paseando ahora" data-en="Max · walking now">Max · walking now</span></span>
+                        </div>
+                        <div class="lp-stats">
+                            <div class="lp-stat"><b id="lpLiveMin">0:00</b><span data-es="Tiempo" data-en="Time">Time</span></div>
+                            <div class="lp-stat"><b id="lpLiveKm">0.0 mi</b><span data-es="Distancia" data-en="Distance">Distance</span></div>
+                            <div class="lp-stat"><b>🟢</b><span data-es="Estado" data-en="Status">Status</span></div>
+                        </div>
+                        <ul id="lpFeed" class="lp-feed">
+                            <li data-at="0.05"><span aria-hidden="true">🐕</span><span data-es="Recogido en casa" data-en="Picked up at home">Picked up at home</span><time>3:02 pm</time></li>
+                            <li data-at="0.45"><span aria-hidden="true">💧</span><span data-es="Agua y pausa en el parque" data-en="Water break at the park">Water break at the park</span><time>3:14 pm</time></li>
+                            <li data-at="0.95"><span aria-hidden="true">📸</span><span data-es="Foto al dejarlo en casa" data-en="Drop-off photo sent">Drop-off photo sent</span><time>3:31 pm</time></li>
+                        </ul>
+                        <p class="lp-demo" data-es="Demostración: así verás cada paseo en tu teléfono." data-en="Demo: this is how you'll follow every walk on your phone.">Demo: this is how you'll follow every walk on your phone.</p>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Servicios y tarifas (una sola sección) -->
-        <section id="lpServices" class="lp-sec" aria-labelledby="lpServicesTitle">
+        <!-- Cómo funciona: 3 pasos clicables -->
+        <section id="lpHow" class="lp-sec" aria-labelledby="lpHowTitle">
             <div class="lp-wrap">
-                <div class="lp-sec-head">
-                    <h2 id="lpServicesTitle" class="lp-h2" data-es="Servicios y tarifas" data-en="Services &amp; pricing">Services &amp; pricing</h2>
-                    <p class="lp-sub" data-es="Ves el total antes de pagar." data-en="You see the total before you pay.">You see the total before you pay.</p>
+                <p class="lp-kicker" data-es="Cómo funciona" data-en="How it works">How it works</p>
+                <h2 id="lpHowTitle" class="lp-h2" data-es="De la reserva a la foto final, en 3 pasos" data-en="From booking to the final photo, in 3 steps">From booking to the final photo, in 3 steps</h2>
+                <div class="lp-how">
+                    <div class="lp-how-tabs" role="tablist" aria-label="Steps / Pasos">
+                        <button type="button" role="tab" class="lp-how-tab" data-how="0" aria-selected="true"><b>1</b><strong data-es="Pide en segundos" data-en="Book in seconds">Book in seconds</strong></button>
+                        <button type="button" role="tab" class="lp-how-tab" data-how="1" aria-selected="false" tabindex="-1"><b>2</b><strong data-es="Sigue el mapa y las fotos" data-en="Follow the map and photos">Follow the map and photos</strong></button>
+                        <button type="button" role="tab" class="lp-how-tab" data-how="2" aria-selected="false" tabindex="-1"><b>3</b><strong data-es="Recibe el reporte al terminar" data-en="Get the report at the end">Get the report at the end</strong></button>
+                    </div>
+                    <div id="lpHowView" class="lp-how-view" role="tabpanel" aria-live="polite"></div>
                 </div>
-                <div id="lpServiceGrid" class="lp-grid"></div>
+            </div>
+        </section>
+
+        <!-- Servicios y tarifas: comparador -->
+        <section id="lpServices" class="lp-sec is-alt" aria-labelledby="lpServicesTitle">
+            <div class="lp-wrap">
+                <p class="lp-kicker" data-es="Servicios y tarifas" data-en="Services &amp; pricing">Services &amp; pricing</p>
+                <h2 id="lpServicesTitle" class="lp-h2" data-es="Elige un servicio y mira qué incluye" data-en="Pick a service and see what's included">Pick a service and see what's included</h2>
+                <div class="lp-cmp">
+                    <div id="lpCards" class="lp-cards" role="group" aria-label="Services / Servicios"></div>
+                    <aside id="lpDetail" class="lp-detail" aria-live="polite"></aside>
+                </div>
                 <p class="lp-fine" id="lpPriceFine"></p>
+            </div>
+        </section>
+
+        <!-- CTA final -->
+        <section class="lp-sec" aria-labelledby="lpFinalTitle">
+            <div class="lp-wrap">
+                <div class="lp-final">
+                    <div>
+                        <h2 id="lpFinalTitle" data-es="Tu perro, en buenas manos hoy mismo" data-en="Your dog, in good hands today">Your dog, in good hands today</h2>
+                        <p data-es="Crea tu cuenta gratis y reserva tu primer paseo en minutos." data-en="Create your free account and book your first walk in minutes.">Create your free account and book your first walk in minutes.</p>
+                        <button type="button" class="lp-ask" onclick="togglePublicAiWidget()"><span aria-hidden="true">💬</span><span data-es="¿Dudas? Pregúntale a Barky" data-en="Questions? Ask Barky">Questions? Ask Barky</span></button>
+                    </div>
+                    <div class="lp-final-ctas" data-fab-avoid>
+                        <button type="button" class="lp-btn lp-btn-white lp-btn-lg" onclick="openRegistrationModal('client')" data-es="Crear cuenta y reservar" data-en="Sign up &amp; book">Sign up &amp; book</button>
+                        <button type="button" class="lp-btn lp-btn-ghost lp-btn-lg" onclick="openRegistrationModal('shopper')" data-es="Quiero ser paseador" data-en="Become a walker">Become a walker</button>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -2629,9 +2810,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             en: {
                 txtLiveStatus: "Barkwalk-approved walkers in Birmingham &amp; Homewood",
                 btnAboutLink: "About Us →",
-                txtHeroTitle: "Trusted dog walks, <em>tracked live.</em>",
-                txtHeroSub: "Vetted local walkers. Book in under a minute.",
-                txtHeroTagline: "Birmingham &amp; Homewood, AL",
+                txtHeroTitle: "Dog walks you can <em>watch live.</em>",
+                txtHeroSub: "Vetted local walkers, real-time GPS and a photo the moment your dog is home. Book in under a minute.",
+                txtHeroTagline: "Birmingham · Homewood · Vestavia Hills · Mountain Brook, AL",
                 btnToggleAiText: "💬 FAQ AI Assistant",
                 lblPublicAiHeader: "Barkwalk AI Advisor (Pre-Registration)",
                 publicAiIntro: "👋 Hi! Have questions about Barkwalk USA before signing up? Ask me about services, safety, pricing, or walker earnings.",
@@ -2743,9 +2924,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             es: {
                 txtLiveStatus: "Paseadores aprobados por Barkwalk en Birmingham y Homewood",
                 btnAboutLink: "Conócenos →",
-                txtHeroTitle: "Paseos de confianza, <em>en vivo.</em>",
-                txtHeroSub: "Paseadores locales verificados. Reserva en menos de un minuto.",
-                txtHeroTagline: "Birmingham y Homewood, AL",
+                txtHeroTitle: "Paseos que puedes <em>ver en vivo.</em>",
+                txtHeroSub: "Paseadores locales verificados, GPS en tiempo real y una foto en cuanto tu perro llega a casa. Reserva en menos de un minuto.",
+                txtHeroTagline: "Birmingham · Homewood · Vestavia Hills · Mountain Brook, AL",
                 btnToggleAiText: "💬 Preguntas F.A.Q. AI",
                 lblPublicAiHeader: "Barkwalk AI Advisor (Pre-Registro)",
                 publicAiIntro: "👋 ¡Hola! ¿Tienes dudas sobre Barkwalk USA antes de registrarte? Pregúntame sobre quiénes somos, seguridad, precios o ganancias para paseadores.",
@@ -11175,27 +11356,32 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   };
 })();
 </script>
-    <!-- PORTADA: barra que se vuelve sólida al bajar, reserva rápida con precios reales, servicios y tarifas, textos ES/EN -->
+    <!-- PORTADA: navbar sólida al bajar, widget (reservar con desglose / vista en vivo), cómo funciona, comparador y ES/EN -->
     <script>
     (function () {
         const $ = (id) => document.getElementById(id);
         const L = () => (typeof currentLang !== 'undefined' && currentLang === 'es' ? 'es' : 'en');
         const t = (es, en) => (L() === 'es' ? es : en);
         const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
         const allServices = () => (typeof SERVICE_CATALOG !== 'undefined' ? SERVICE_CATALOG : []).flatMap((c) => c.services);
         const vLabel = (v) => (typeof v.label === 'object' ? v.label[L()] : v.label);
+        // Mismas tarifas que cobra el servidor (api/_lib/pricing.js)
+        const FEE_LARGE = typeof LARGE_DOG_FEE !== 'undefined' ? LARGE_DOG_FEE : 4;
+        const FEE_PET = typeof EXTRA_PET_FEE !== 'undefined' ? EXTRA_PET_FEE : 8;
+        const CLUB = typeof MEMBER_DISCOUNT_PCT !== 'undefined' ? MEMBER_DISCOUNT_PCT : 10;
+        const money = (cents) => '$' + (cents % 100 ? (cents / 100).toFixed(2) : String(cents / 100));
         const QUICK = ['walk_std', 'walk_vip', 'walk_run', 'dropin'];
-        const pick = { svc: 'walk_std', v: 1 };
+        const S = { svc: 'walk_std', v: 1, pets: 1, large: false, tab: 0, how: 0, cmp: 'walk_std', cmpV: 0 };
 
-        // Barra superior: transparente sobre la foto, sólida al bajar
+        // ---------- Navbar y enlaces internos ----------
         const syncNav = () => { const n = $('lpNav'); if (n) n.classList.toggle('is-solid', window.scrollY > 12); };
         window.addEventListener('scroll', syncNav, { passive: true });
-        // Enlaces internos: desplazamiento suave sin dejar #ancla en la URL (los enlaces del correo usan el hash)
         document.addEventListener('click', (e) => {
             const a = e.target.closest && e.target.closest('[data-lp-go]'); if (!a) return;
-            e.preventDefault();
+            e.preventDefault(); // sin #ancla en la URL (los enlaces del correo usan el hash)
             const el = $(a.getAttribute('data-lp-go'));
-            if (el) el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+            if (el) el.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' });
         });
 
         // Reservar: con sesión abre la reserva; sin sesión, el registro de dueño de mascota (modal)
@@ -11204,47 +11390,157 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             if (typeof openRegistrationModal === 'function') openRegistrationModal('client');
         };
 
-        // Reserva rápida
-        function renderQuick() {
+        // ---------- Tabs genéricos (flechas izquierda/derecha, Inicio/Fin) ----------
+        function tabKeys(list, onPick) {
+            list.addEventListener('keydown', (e) => {
+                const tabs = [...list.querySelectorAll('[role="tab"]')];
+                const i = tabs.indexOf(document.activeElement); if (i < 0) return;
+                let j = null;
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') j = (i + 1) % tabs.length;
+                else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') j = (i - 1 + tabs.length) % tabs.length;
+                else if (e.key === 'Home') j = 0; else if (e.key === 'End') j = tabs.length - 1;
+                if (j === null) return;
+                e.preventDefault(); tabs[j].focus(); onPick(j);
+            });
+        }
+
+        // ---------- Widget: pestañas Reservar / En vivo ----------
+        function setTab(i) {
+            S.tab = i;
+            const list = document.querySelector('.lp-tabs'); if (!list) return;
+            list.dataset.active = String(i);
+            list.querySelectorAll('[role="tab"]').forEach((b, k) => { b.setAttribute('aria-selected', String(k === i)); b.tabIndex = k === i ? 0 : -1; });
+            $('lpPanelBook').hidden = i !== 0; $('lpPanelLive').hidden = i !== 1;
+            if (i === 1) startLive(); else stopLive();
+            if (window.bwFabAvoid) window.bwFabAvoid();
+        }
+
+        // ---------- Reservar: servicio, duración, perros, perro grande → desglose y Club ----------
+        function quote() {
+            const s = allServices().find((x) => x.id === S.svc); if (!s) return null;
+            const v = s.variants[S.v] || s.variants[0];
+            const lines = [{ label: `${s[L()].name} · ${vLabel(v)}`, cents: v.price * 100 }];
+            if (S.pets > 1) lines.push({ label: t(`Perro adicional × ${S.pets - 1}`, `Extra dog × ${S.pets - 1}`), cents: FEE_PET * 100 * (S.pets - 1) });
+            if (S.large) lines.push({ label: t('Perro grande / alta energía', 'Large / high-energy dog'), cents: FEE_LARGE * 100 });
+            const list = lines.reduce((a, l) => a + l.cents, 0);
+            const club = Math.round(list * (100 - CLUB) / 100);
+            return { s, lines, list, club };
+        }
+        let lastTotal = null;
+        function renderBook() {
             const svcBox = $('lpSvc'), durBox = $('lpDur'); if (!svcBox || !durBox) return;
             const list = QUICK.map((id) => allServices().find((s) => s.id === id)).filter(Boolean);
             if (!list.length) return;
-            const s = list.find((x) => x.id === pick.svc) || list[0];
-            if (pick.v >= s.variants.length) pick.v = 0;
+            const s = list.find((x) => x.id === S.svc) || list[0]; S.svc = s.id;
+            if (S.v >= s.variants.length) S.v = 0;
             svcBox.innerHTML = list.map((x) => `<button type="button" class="lp-chip" data-svc="${x.id}" aria-pressed="${x.id === s.id}">
                 <b>${esc(x.icon)} ${esc(x[L()].name)}</b><span>${esc(t('desde', 'from'))} $${Math.min(...x.variants.map((v) => v.price))}</span></button>`).join('');
-            durBox.innerHTML = s.variants.map((v, i) => `<button type="button" class="lp-chip" data-v="${i}" aria-pressed="${i === pick.v}">${esc(vLabel(v))}</button>`).join('');
-            $('lpPrice').textContent = `$${s.variants[pick.v].price}`;
+            durBox.innerHTML = s.variants.map((v, i) => `<button type="button" class="lp-chip" data-v="${i}" aria-pressed="${i === S.v}">${esc(vLabel(v))}</button>`).join('');
+            $('lpPets').textContent = S.pets;
+            $('lpPetsMinus').disabled = S.pets <= 1; $('lpPetsPlus').disabled = S.pets >= 4;
+            $('lpPetsMinus').setAttribute('aria-label', t('Quitar un perro', 'Remove a dog'));
+            $('lpPetsPlus').setAttribute('aria-label', t('Agregar un perro', 'Add a dog'));
+            $('lpLarge').setAttribute('aria-pressed', String(S.large));
+            const q = quote(); if (!q) return;
+            $('lpBreak').innerHTML = q.lines.map((l) => `<li><span>${esc(l.label)}</span><span>${money(l.cents)}</span></li>`).join('')
+                + `<li class="is-club"><span>${esc(t(`Con Barkwalk Club (−${CLUB} %)`, `With Barkwalk Club (−${CLUB}%)`))}</span><span>${money(q.club)}</span></li>`;
+            const p = $('lpPrice');
+            p.textContent = money(q.list);
+            $('lpPriceNote').textContent = t('por paseo · ves el total antes de pagar', 'per walk · see the total before you pay');
+            if (lastTotal !== null && lastTotal !== q.list && !reduced()) { p.classList.add('is-bump'); setTimeout(() => p.classList.remove('is-bump'), 180); }
+            lastTotal = q.list;
         }
         document.addEventListener('click', (e) => {
-            const c = e.target.closest && e.target.closest('#lpSvc [data-svc], #lpDur [data-v]'); if (!c) return;
-            if (c.dataset.svc) { pick.svc = c.dataset.svc; const s = allServices().find((x) => x.id === pick.svc); pick.v = s && s.variants.length > 1 ? 1 : 0; }
-            else pick.v = Number(c.dataset.v);
-            renderQuick();
+            if (!e.target.closest) return;
+            const tab = e.target.closest('.lp-tabs [data-lp-tab]'); if (tab) return setTab(Number(tab.dataset.lpTab));
+            const c = e.target.closest('#lpSvc [data-svc], #lpDur [data-v]');
+            if (c) {
+                if (c.dataset.svc) { S.svc = c.dataset.svc; const s = allServices().find((x) => x.id === S.svc); S.v = s && s.variants.length > 1 ? 1 : 0; }
+                else S.v = Number(c.dataset.v);
+                return renderBook();
+            }
+            if (e.target.closest('#lpPetsMinus')) { S.pets = Math.max(1, S.pets - 1); return renderBook(); }
+            if (e.target.closest('#lpPetsPlus')) { S.pets = Math.min(4, S.pets + 1); return renderBook(); }
+            if (e.target.closest('#lpLarge')) { S.large = !S.large; return renderBook(); }
+            const how = e.target.closest('[data-how]'); if (how) return setHow(Number(how.dataset.how));
+            const card = e.target.closest('#lpCards [data-cmp]'); if (card) { S.cmp = card.dataset.cmp; S.cmpV = 0; return renderCmp(); }
+            const cv = e.target.closest('#lpDetail [data-cmpv]'); if (cv) { S.cmpV = Number(cv.dataset.cmpv); return renderCmp(); }
+            if (e.target.closest('#lpDetailBook')) { S.svc = S.cmp; S.v = S.cmpV; renderBook(); return lpBook(); }
         });
 
-        // Servicios y tarifas: nombre + precios por duración (sin textos largos)
-        function renderServices() {
-            const g = $('lpServiceGrid'); if (!g) return;
-            g.innerHTML = allServices().map((s) => `<article class="lp-card">
-                <div class="lp-card-top"><span class="lp-card-ico" aria-hidden="true">${esc(s.icon)}</span><h3>${esc(s[L()].name)}</h3>
-                ${s.badge === 'popular' ? `<span class="lp-pop">${esc(t('Popular', 'Popular'))}</span>` : ''}</div>
-                <div class="lp-prices">${s.variants.map((v) => `<span>${esc(vLabel(v))}<b>$${v.price}</b></span>`).join('')}</div></article>`).join('');
-            const add = (typeof GROOMING_ADDONS !== 'undefined' ? GROOMING_ADDONS : []).map((a) => `${a[L()].name} +$${a.price}`).join(' · ');
-            const pct = typeof MEMBER_DISCOUNT_PCT !== 'undefined' ? MEMBER_DISCOUNT_PCT : 10;
-            $('lpPriceFine').textContent = t(`Extras por perro: ${add} · Perro adicional del mismo hogar +$8 · Perro grande o de alta energía +$4 · Barkwalk Club: ${pct} % de descuento.`,
-                `Add-ons per dog: ${add} · Extra dog from the same home +$8 · Large or high-energy dog +$4 · Barkwalk Club: save ${pct}%.`);
+        // ---------- Vista en vivo (demostración animada) ----------
+        const LIVE = { raf: 0, t0: 0, len: 0 };
+        const LOOP_MS = 14000;
+        function drawLive(p) {
+            const path = $('lpRoute'), dot = $('lpWalker'); if (!path || !dot) return;
+            if (!LIVE.len) { LIVE.len = path.getTotalLength(); path.style.strokeDasharray = LIVE.len; }
+            path.style.strokeDashoffset = LIVE.len * (1 - p);
+            const pt = path.getPointAtLength(LIVE.len * p);
+            dot.setAttribute('transform', `translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)})`);
+            const secs = Math.round(p * 29 * 60);
+            $('lpLiveMin').textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+            $('lpLiveKm').textContent = `${(p * 1.3).toFixed(1)} mi`;
+            document.querySelectorAll('#lpFeed li').forEach((li) => li.classList.toggle('is-on', p >= Number(li.dataset.at)));
+        }
+        function frame(now) {
+            if (!LIVE.t0) LIVE.t0 = now;
+            drawLive(((now - LIVE.t0) % LOOP_MS) / LOOP_MS);
+            LIVE.raf = requestAnimationFrame(frame);
+        }
+        function startLive() { stopLive(); if (reduced()) return drawLive(0.96); LIVE.t0 = 0; LIVE.raf = requestAnimationFrame(frame); }
+        function stopLive() { if (LIVE.raf) cancelAnimationFrame(LIVE.raf); LIVE.raf = 0; }
+        document.addEventListener('visibilitychange', () => { if (document.hidden) stopLive(); else if (S.tab === 1 && !$('welcomeView')?.classList.contains('hidden')) startLive(); });
+
+        // ---------- Cómo funciona ----------
+        const HOW = [
+            { art: '📱', es: ['Pide en segundos', 'Elige servicio, fecha y hora. Ves el precio final antes de pagar con tarjeta, Apple Pay o Google Pay.', ['Precio claro', 'Pago con Stripe', 'Hasta 4 perros']],
+                en: ['Book in seconds', 'Pick a service, date and time. See the final price before paying by card, Apple Pay or Google Pay.', ['Clear price', 'Stripe payments', 'Up to 4 dogs']] },
+            { art: '🗺️', es: ['Sigue el mapa y las fotos', 'Mira la ruta en un mapa GPS en tiempo real y chatea con tu paseador mientras pasea a tu perro.', ['GPS en vivo', 'Chat directo', 'Avisos al teléfono']],
+                en: ['Follow the map and photos', 'Watch the route on a real-time GPS map and chat with your walker during the walk.', ['Live GPS', 'Direct chat', 'Phone alerts']] },
+            { art: '📸', es: ['Recibe el reporte al terminar', 'Una foto cuando tu perro queda seguro en casa y un reporte con agua, pipí, popó y notas del paseo.', ['Foto al finalizar', 'Reporte del paseo', 'Califica al paseador']],
+                en: ['Get the report at the end', 'A photo once your dog is safely home and a report with water, pee, poop and walk notes.', ['Drop-off photo', 'Walk report card', 'Rate your walker']] },
+        ];
+        function setHow(i) {
+            S.how = i;
+            document.querySelectorAll('[data-how]').forEach((b, k) => { b.setAttribute('aria-selected', String(k === i)); b.tabIndex = k === i ? 0 : -1; });
+            const h = HOW[i], [title, text, chips] = h[L()], v = $('lpHowView'); if (!v) return;
+            v.innerHTML = `<div class="lp-how-art" aria-hidden="true">${h.art}</div><div><p class="lp-kicker">${esc(t('Paso', 'Step'))} ${i + 1} / 3</p><h3>${esc(title)}</h3><p>${esc(text)}</p><ul>${chips.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>`;
+            if (!reduced()) { v.style.animation = 'none'; void v.offsetWidth; v.style.animation = 'lpIn .28s ease both'; }
         }
 
-        // Textos ES/EN de la portada (data-es / data-en)
+        // ---------- Servicios y tarifas: comparador ----------
+        function renderCmp() {
+            const cards = $('lpCards'), det = $('lpDetail'); if (!cards || !det) return;
+            const list = allServices(); if (!list.length) return;
+            const s = list.find((x) => x.id === S.cmp) || list[0]; S.cmp = s.id;
+            if (S.cmpV >= s.variants.length) S.cmpV = 0;
+            cards.innerHTML = list.map((x) => `<button type="button" class="lp-card" data-cmp="${x.id}" aria-pressed="${x.id === s.id}"><span class="lp-card-ico" aria-hidden="true">${esc(x.icon)}</span><strong>${esc(x[L()].name)}</strong><span>${esc(t('desde', 'from'))} $${Math.min(...x.variants.map((v) => v.price))}</span></button>`).join('');
+            const v = s.variants[S.cmpV];
+            const incl = [s[L()].desc, t('GPS en vivo durante el servicio', 'Live GPS during the service'), t('Foto al dejarlo seguro en casa', 'Photo once your dog is safely home'), t('Reporte al terminar', 'Report when it is done')];
+            det.innerHTML = `<h3><span aria-hidden="true">${esc(s.icon)}</span>${esc(s[L()].name)}</h3>
+                <ul class="lp-incl">${incl.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+                <div class="lp-dur" role="group" aria-label="${esc(t('Duración', 'Duration'))}">${s.variants.map((x, i) => `<button type="button" class="lp-chip" data-cmpv="${i}" aria-pressed="${i === S.cmpV}">${esc(vLabel(x))}</button>`).join('')}</div>
+                <div class="lp-detail-price"><b>$${v.price}</b><span>${esc(t('Club', 'Club'))}: ${money(Math.round(v.price * 100 * (100 - CLUB) / 100))}</span></div>
+                <button type="button" id="lpDetailBook" class="lp-btn lp-btn-primary">${esc(t('Reservar este servicio', 'Book this service'))}</button>`;
+            const add = (typeof GROOMING_ADDONS !== 'undefined' ? GROOMING_ADDONS : []).map((a) => `${a[L()].name} +$${a.price}`).join(' · ');
+            $('lpPriceFine').textContent = t(`Extras por perro: ${add} · Perro adicional del mismo hogar +$${FEE_PET} · Perro grande o de alta energía +$${FEE_LARGE} · Barkwalk Club: ${CLUB} % de descuento en cada servicio.`,
+                `Add-ons per dog: ${add} · Extra dog from the same home +$${FEE_PET} · Large or high-energy dog +$${FEE_LARGE} · Barkwalk Club: save ${CLUB}% on every service.`);
+        }
+
+        // ---------- Idioma ----------
         function lpApplyLang() {
             const l = L();
             document.querySelectorAll('#welcomeView [data-es][data-en]').forEach((el) => { el.textContent = el.getAttribute('data-' + l); });
-            renderQuick(); renderServices();
+            renderBook(); setHow(S.how); renderCmp();
+            if (S.tab === 1) drawLive(reduced() ? 0.96 : 0);
         }
         const prev = window.onLanguageChanged;
         window.onLanguageChanged = function () { if (typeof prev === 'function') prev.apply(this, arguments); lpApplyLang(); };
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', lpApplyLang); else lpApplyLang();
-        syncNav();
+        function init() {
+            const tl = document.querySelector('.lp-tabs'); if (tl) tabKeys(tl, setTab);
+            const hl = document.querySelector('.lp-how-tabs'); if (hl) tabKeys(hl, setHow);
+            lpApplyLang(); syncNav();
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
     })();
     </script>
