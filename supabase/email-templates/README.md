@@ -6,3 +6,4 @@ Pegar en Supabase → Authentication → Emails → Templates:
 
 - `confirm-signup.html` → plantilla "Confirm signup" · Subject: **Confirm your Barkwalk USA account · Confirma tu cuenta**
 - `reset-password.html` → plantilla "Reset password" · Subject: **Reset your Barkwalk USA password · Restablece tu contraseña**
+- `magic-link.html` → plantilla "Magic link" · Subject: **Your Barkwalk USA sign-in link · Tu enlace para entrar**

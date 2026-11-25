@@ -1351,168 +1351,118 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         <span id="lblOfflineText">Sin conexión a internet. Verifique su red.</span>
     </div>
 
-    <!-- PORTADA DE BIENVENIDA (PÚBLICA) · navbar + hero + servicios + tarifas + cómo funciona + registro.
-         Estilos .lp-* aquí mismo; textos bilingües con data-es / data-en (lpApplyLang) y los IDs de siempre (translations).
-         Datos de precios: SERVICE_CATALOG / GROOMING_ADDONS (los mismos que cobra el servidor en api/_lib/pricing.js). -->
+    <!-- PORTADA DE BIENVENIDA (PÚBLICA) · compacta: navbar con Iniciar sesión / Registrarse siempre visibles, hero con
+         reserva rápida, una sola sección de Servicios y tarifas y el pie legal. Textos ES/EN con data-es / data-en
+         (lpApplyLang) y los IDs de siempre (translations). Precios: SERVICE_CATALOG / GROOMING_ADDONS (= api/_lib/pricing.js). -->
     <style>
-        #welcomeView { --lp-max: 1180px; --lp-ink: #0B1F18; background: var(--bw-bg); color: var(--bw-text); overflow-x: clip; }
-        .lp-wrap { width: 100%; max-width: var(--lp-max); margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+        #welcomeView { background: var(--bw-bg); color: var(--bw-text); overflow-x: clip; display: flex; flex-direction: column; }
+        .lp-wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
         @media (min-width: 768px) { .lp-wrap { padding-left: 32px; padding-right: 32px; } }
 
-        /* --- Navbar --- */
-        .lp-nav { position: sticky; top: 0; z-index: 40; padding-top: env(safe-area-inset-top, 0px); transition: background .2s ease, box-shadow .2s ease, border-color .2s ease; border-bottom: 1px solid transparent; }
-        .lp-nav.is-solid { background: rgba(9, 22, 17, .86); backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px); border-bottom-color: rgba(255,255,255,.08); box-shadow: 0 10px 30px -18px rgba(0,0,0,.6); }
-        .lp-nav-in { display: flex; align-items: center; gap: 12px; min-height: 64px; }
-        .lp-logo { display: inline-flex; align-items: center; gap: 9px; color: #fff; font-weight: 900; letter-spacing: .02em; font-size: 16px; text-decoration: none; }
+        /* Navbar */
+        .lp-nav { position: sticky; top: 0; z-index: 40; padding-top: env(safe-area-inset-top, 0px); transition: background .2s ease, box-shadow .2s ease; }
+        .lp-nav.is-solid { background: rgba(9, 22, 17, .88); backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px); box-shadow: 0 1px 0 rgba(255,255,255,.07), 0 10px 30px -18px rgba(0,0,0,.6); }
+        .lp-nav-in { display: flex; align-items: center; gap: 8px; min-height: 60px; }
+        .lp-logo { display: inline-flex; align-items: center; gap: 9px; color: #fff; font-weight: 900; letter-spacing: .02em; font-size: 16px; text-decoration: none; flex: none; }
         .lp-logo-mark { width: 34px; height: 34px; border-radius: 11px; background: #00A859; display: grid; place-items: center; box-shadow: 0 8px 18px -8px rgba(0,168,89,.9); }
         .lp-logo-mark svg { width: 20px; height: 20px; color: #fff; }
         .lp-logo small { font-size: 10px; font-weight: 900; letter-spacing: .18em; color: #C5A059; margin-left: 2px; }
-        .lp-links { display: none; align-items: center; gap: 2px; margin-left: 18px; }
-        .lp-links a, .lp-links button { color: rgba(255,255,255,.82); font-size: 13.5px; font-weight: 700; padding: 8px 12px; border-radius: 10px; text-decoration: none; cursor: pointer; background: none; }
-        .lp-links a:hover, .lp-links button:hover { color: #fff; background: rgba(255,255,255,.08); }
-        .lp-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-        .lp-login { display: none; color: #fff; font-size: 13.5px; font-weight: 800; padding: 9px 14px; border-radius: 12px; cursor: pointer; }
-        .lp-login:hover { background: rgba(255,255,255,.1); }
-        .lp-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px; border-radius: 14px; font-size: 14.5px; font-weight: 900; cursor: pointer; text-decoration: none; white-space: nowrap; border: 1px solid transparent; }
-        .lp-cta svg { width: 18px; height: 18px; flex: none; }
-        .lp-cta-primary { background: #00A859; color: #fff; box-shadow: 0 14px 30px -14px rgba(0,168,89,.95); }
-        .lp-cta-primary:hover { background: #00954F; }
-        .lp-cta-ghost { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.28); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-        .lp-cta-ghost:hover { background: rgba(255,255,255,.18); }
-        .lp-cta:focus-visible, .lp-links a:focus-visible, .lp-burger:focus-visible, .lp-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0,168,89,.55); }
-        .lp-cta-sm { min-height: 40px; padding: 0 14px; font-size: 13px; border-radius: 12px; }
-        .lp-nav-book { display: none; }
-        .lp-lang { background: rgba(0,0,0,.45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding: 4px; border-radius: 999px; display: flex; gap: 2px; border: 1px solid rgba(255,255,255,.2); font-size: 12px; }
+        .lp-logo-word { display: none; }
+        @media (min-width: 560px) { .lp-logo-word { display: inline; } }
+        .lp-link { display: none; color: rgba(255,255,255,.82); font-size: 13.5px; font-weight: 700; padding: 8px 12px; border-radius: 10px; margin-left: 12px; text-decoration: none; }
+        .lp-link:hover { color: #fff; background: rgba(255,255,255,.08); }
+        @media (min-width: 900px) { .lp-link { display: inline-flex; } }
+        .lp-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+        @media (min-width: 640px) { .lp-right { gap: 8px; } }
+        .lp-hide-xs { display: none !important; }
+        @media (min-width: 480px) { .lp-hide-xs { display: inline-flex !important; } }
+        .lp-lang { background: rgba(0,0,0,.45); padding: 3px; border-radius: 999px; display: flex; gap: 2px; border: 1px solid rgba(255,255,255,.2); font-size: 11.5px; }
         .lp-lang button { min-height: 28px; }
-        .lp-burger { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); cursor: pointer; }
-        .lp-burger svg { width: 22px; height: 22px; }
-        .lp-burger .lp-i-x { display: none; }
-        .lp-nav.is-open .lp-burger .lp-i-x { display: block; }
-        .lp-nav.is-open .lp-burger .lp-i-menu { display: none; }
-        @media (min-width: 960px) {
-            .lp-links, .lp-login { display: inline-flex; }
-            .lp-nav-book { display: inline-flex; }
-            .lp-burger { display: none; }
-        }
-        /* Menú móvil */
-        .lp-menu { position: fixed; inset: 0; z-index: 39; background: rgba(6, 15, 11, .97); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: calc(80px + env(safe-area-inset-top, 0px)) 20px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 4px; opacity: 0; visibility: hidden; transform: translateY(-8px); transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s; overflow-y: auto; }
-        .lp-menu.is-open { opacity: 1; visibility: visible; transform: none; transition: opacity .2s ease, transform .2s ease; }
-        .lp-menu a, .lp-menu > button:not(.sound-toggle) { color: #fff; font-size: 22px; font-weight: 900; padding: 14px 4px; border-bottom: 1px solid rgba(255,255,255,.08); text-align: left; text-decoration: none; background: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .lp-menu-actions { display: grid; gap: 10px; margin-top: 18px; }
-        .lp-menu .sound-toggle { margin-top: 14px; align-self: flex-start; }
-        @media (min-width: 960px) { .lp-menu { display: none; } }
-        @media (prefers-reduced-motion: reduce) { .lp-menu, .lp-nav { transition: none; } }
+        .lp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 900; cursor: pointer; white-space: nowrap; border: 1px solid transparent; text-decoration: none; }
+        .lp-btn svg { width: 18px; height: 18px; flex: none; }
+        .lp-btn-lg { min-height: 50px; padding: 0 22px; font-size: 15px; border-radius: 14px; }
+        .lp-btn-primary { background: #00A859; color: #fff; box-shadow: 0 12px 26px -14px rgba(0,168,89,.95); }
+        .lp-btn-primary:hover { background: #00954F; }
+        .lp-btn-ghost { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.3); }
+        .lp-btn-ghost:hover { background: rgba(255,255,255,.18); }
+        .lp-btn:focus-visible, .lp-link:focus-visible, .lp-chip:focus-visible, .lp-textlink:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0,168,89,.55); }
+        @media (max-width: 379px) { .lp-nav .lp-btn { padding: 0 10px; font-size: 12.5px; } }
 
-        /* --- Hero --- */
-        .lp-hero { position: relative; color: #fff; margin-top: calc(-64px - env(safe-area-inset-top, 0px)); padding-top: calc(64px + env(safe-area-inset-top, 0px));
-            background: linear-gradient(100deg, rgba(5,18,13,.92) 0%, rgba(5,18,13,.78) 42%, rgba(5,18,13,.35) 100%), linear-gradient(0deg, rgba(5,18,13,.85) 0%, rgba(5,18,13,0) 40%), url('./hero-bg.jpeg') center/cover no-repeat; }
-        .lp-hero-grid { display: grid; gap: 36px; padding-top: 28px; padding-bottom: 48px; align-items: center; }
-        @media (min-width: 960px) { .lp-hero-grid { grid-template-columns: 1.15fr .85fr; gap: 56px; padding-top: 56px; padding-bottom: 88px; min-height: min(780px, calc(100dvh - 64px)); } }
-        .lp-pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px 7px 10px; border-radius: 999px; background: rgba(0,168,89,.16); border: 1px solid rgba(0,168,89,.45); font-size: 12px; font-weight: 800; color: #D7F5E6; max-width: 100%; }
-        .lp-pill .radar-pulse { width: 9px; height: 9px; border-radius: 999px; background: #00A859; flex: none; }
-        .lp-h1 { font-size: clamp(34px, 7.4vw, 60px); line-height: 1.03; font-weight: 900; letter-spacing: -.025em; margin-top: 18px; text-wrap: balance; }
+        /* Hero */
+        .lp-hero { position: relative; color: #fff; margin-top: calc(-60px - env(safe-area-inset-top, 0px)); padding-top: calc(60px + env(safe-area-inset-top, 0px));
+            background: linear-gradient(100deg, rgba(5,18,13,.93) 0%, rgba(5,18,13,.8) 45%, rgba(5,18,13,.4) 100%), linear-gradient(0deg, rgba(5,18,13,.9) 0%, rgba(5,18,13,0) 45%), url('./hero-bg.jpeg') center/cover no-repeat; }
+        .lp-hero-grid { display: grid; gap: 22px; padding-top: 22px; padding-bottom: 28px; align-items: center; }
+        @media (min-width: 960px) { .lp-hero-grid { grid-template-columns: 1fr 400px; gap: 56px; padding-top: 48px; padding-bottom: 64px; min-height: min(640px, calc(100dvh - 60px)); } }
+        .lp-h1 { font-size: clamp(32px, 8vw, 58px); line-height: 1.02; font-weight: 900; letter-spacing: -.025em; text-wrap: balance; }
         .lp-h1 em { font-style: normal; color: #5BE3A1; }
-        .lp-lead { font-size: clamp(15px, 2.2vw, 18px); line-height: 1.55; color: rgba(255,255,255,.82); margin-top: 16px; max-width: 34em; }
-        .lp-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
-        @media (max-width: 479px) { .lp-ctas .lp-cta { flex: 1 1 100%; } }
-        .lp-badges { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 28px; max-width: 560px; }
-        @media (min-width: 640px) { .lp-badges { grid-template-columns: repeat(4, 1fr); } }
-        .lp-badge { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); font-size: 12px; font-weight: 800; line-height: 1.3; color: rgba(255,255,255,.92); }
-        .lp-badge svg { width: 20px; height: 20px; color: #5BE3A1; }
-        .lp-areas { margin-top: 18px; font-size: 12.5px; color: rgba(255,255,255,.7); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .lp-areas svg { width: 14px; height: 14px; color: #C5A059; flex: none; }
+        .lp-lead { font-size: clamp(15px, 2.1vw, 18px); line-height: 1.45; color: rgba(255,255,255,.82); margin-top: 12px; }
+        .lp-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+        @media (max-width: 479px) { .lp-ctas .lp-btn { flex: 1 1 0; padding: 0 12px; } }
+        .lp-trust { list-style: none; margin: 20px 0 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12.5px; font-weight: 700; color: rgba(255,255,255,.72); }
+        .lp-trust li { display: inline-flex; align-items: center; gap: 6px; }
+        .lp-trust svg { width: 15px; height: 15px; color: #5BE3A1; flex: none; }
 
-        /* Tarjeta de reserva rápida */
-        .lp-quick { background: var(--bw-surface); color: var(--bw-text); border-radius: 26px; padding: 20px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.7); border: 1px solid rgba(255,255,255,.4); position: relative; }
-        html.dark .lp-quick { border-color: var(--bw-line); }
+        /* Reserva rápida */
+        .lp-quick { background: var(--bw-surface); color: var(--bw-text); border-radius: 24px; padding: 18px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.7); border: 1px solid var(--bw-line); }
         .lp-quick-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .lp-quick-title { font-size: 17px; font-weight: 900; color: var(--bw-ink); }
-        .lp-tag { font-size: 10.5px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; background: rgba(0,168,89,.12); color: #00824A; }
+        .lp-quick-title { font-size: 16px; font-weight: 900; color: var(--bw-ink); }
+        .lp-tag { font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; background: rgba(0,168,89,.12); color: #00824A; }
         html.dark .lp-tag { color: #7EDDB0; }
-        .lp-label { font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; opacity: .55; margin-top: 16px; margin-bottom: 8px; }
-        .lp-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .lp-chip { text-align: left; padding: 10px 12px; border-radius: 14px; border: 1.5px solid var(--bw-line); background: var(--bw-soft); cursor: pointer; color: var(--bw-text); min-height: 44px; }
-        .lp-chip b { display: block; font-size: 13px; font-weight: 900; line-height: 1.2; }
-        .lp-chip span { font-size: 11.5px; opacity: .65; font-weight: 700; }
+        .lp-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+        .lp-chip { text-align: left; padding: 9px 11px; border-radius: 13px; border: 1.5px solid var(--bw-line); background: var(--bw-soft); cursor: pointer; color: var(--bw-text); min-height: 44px; }
+        .lp-chip b { display: block; font-size: 12.5px; font-weight: 900; line-height: 1.2; }
+        .lp-chip span { font-size: 11px; opacity: .65; font-weight: 700; }
         .lp-chip[aria-pressed="true"] { border-color: #00A859; background: var(--bw-selected); box-shadow: 0 0 0 3px rgba(0,168,89,.14); }
-        .lp-dur { display: flex; gap: 8px; flex-wrap: wrap; }
-        .lp-dur .lp-chip { flex: 1 1 0; text-align: center; font-size: 13px; font-weight: 900; padding: 10px 8px; }
-        .lp-total { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--bw-dash); }
-        .lp-price { font-size: 34px; font-weight: 900; letter-spacing: -.02em; color: var(--bw-ink); line-height: 1; }
-        .lp-price small { font-size: 13px; font-weight: 800; opacity: .6; letter-spacing: 0; }
-        .lp-incl { font-size: 11.5px; line-height: 1.45; opacity: .7; text-align: right; font-weight: 700; }
-        .lp-quick .lp-cta { width: 100%; margin-top: 14px; }
-        .lp-live { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 10px; border-radius: 16px; background: var(--bw-card); border: 1px solid var(--bw-line); }
-        .lp-live svg.lp-route { width: 72px; height: 48px; flex: none; border-radius: 10px; background: linear-gradient(135deg, #DCEFE5, #F1EBDD); }
-        html.dark .lp-live svg.lp-route { background: linear-gradient(135deg, #18352A, #23302A); }
-        .lp-route-path { stroke-dasharray: 4 4; }
-        .lp-route-dot { animation: lpDot 6s linear infinite; offset-path: path('M8 38 C 22 10, 34 44, 46 20 S 62 12, 66 30'); }
-        @keyframes lpDot { from { offset-distance: 0%; } to { offset-distance: 100%; } }
-        @media (prefers-reduced-motion: reduce) { .lp-route-dot { animation: none; offset-distance: 60%; } }
-        .lp-live p { font-size: 12px; line-height: 1.35; font-weight: 700; }
-        .lp-live p b { display: block; font-size: 13px; font-weight: 900; color: var(--bw-ink); }
-        .lp-note { font-size: 10.5px; opacity: .5; margin-top: 8px; text-align: center; }
+        .lp-dur { display: flex; gap: 8px; margin-top: 8px; }
+        .lp-dur .lp-chip { flex: 1 1 0; text-align: center; font-size: 12.5px; font-weight: 900; padding: 8px 6px; min-height: 40px; }
+        .lp-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+        .lp-price { font-size: 30px; font-weight: 900; letter-spacing: -.02em; color: var(--bw-ink); line-height: 1; white-space: nowrap; }
+        .lp-price small { font-size: 12px; font-weight: 800; opacity: .6; letter-spacing: 0; }
+        .lp-total .lp-btn { flex: 1 1 auto; max-width: 220px; min-height: 46px; }
+        .lp-quick-foot { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--bw-dash); display: flex; justify-content: center; gap: 6px; font-size: 12.5px; font-weight: 700; opacity: .9; flex-wrap: wrap; }
+        .lp-textlink { color: var(--bw-ink); font-weight: 900; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; background: none; border-radius: 6px; }
 
-        /* --- Secciones --- */
-        .lp-sec { padding: 64px 0; }
-        @media (min-width: 768px) { .lp-sec { padding: 96px 0; } }
-        .lp-sec.is-alt { background: var(--bw-card); }
-        .lp-kicker { font-size: 12px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #00A859; }
-        .lp-h2 { font-size: clamp(26px, 4.4vw, 40px); font-weight: 900; letter-spacing: -.02em; line-height: 1.1; margin-top: 8px; color: var(--bw-ink); text-wrap: balance; }
-        .lp-sub { font-size: 15px; line-height: 1.6; opacity: .72; margin-top: 10px; max-width: 40em; }
-        .lp-grid { display: grid; gap: 14px; margin-top: 32px; }
-        @media (min-width: 640px) { .lp-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (min-width: 1024px) { .lp-grid.is-3 { grid-template-columns: repeat(3, 1fr); } }
-        .lp-card { background: var(--bw-surface); border: 1px solid var(--bw-line); border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
-        .lp-card-ico { font-size: 26px; line-height: 1; }
-        .lp-card h3 { font-size: 17px; font-weight: 900; color: var(--bw-ink); }
-        .lp-card p { font-size: 13.5px; line-height: 1.55; opacity: .75; }
-        .lp-from { margin-top: auto; padding-top: 8px; font-size: 13px; font-weight: 800; }
-        .lp-from b { font-size: 22px; font-weight: 900; color: var(--bw-ink); }
-        .lp-pop { align-self: flex-start; font-size: 10.5px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: #C5A059; color: #2B2621; }
-        .lp-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 28px; background: var(--bw-surface); border: 1px solid var(--bw-line); border-radius: 20px; overflow: hidden; font-size: 14px; }
-        .lp-table th, .lp-table td { padding: 13px 16px; text-align: left; border-bottom: 1px solid var(--bw-line); }
-        .lp-table tr:last-child td { border-bottom: 0; }
-        .lp-table th { font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; opacity: .6; background: var(--bw-soft); }
-        .lp-table td:last-child, .lp-table th:last-child { text-align: right; white-space: nowrap; }
-        .lp-table td b { font-weight: 900; }
-        .lp-table td.lp-price-cell { font-weight: 900; color: var(--bw-ink); }
+        /* Servicios y tarifas */
+        .lp-sec { padding: 40px 0 44px; }
+        @media (min-width: 768px) { .lp-sec { padding: 64px 0; } }
+        .lp-sec-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; }
+        .lp-h2 { font-size: clamp(22px, 3.6vw, 32px); font-weight: 900; letter-spacing: -.02em; line-height: 1.1; color: var(--bw-ink); }
+        .lp-sub { font-size: 13.5px; opacity: .7; font-weight: 600; }
+        .lp-grid { display: grid; gap: 10px; margin-top: 20px; }
+        @media (min-width: 600px) { .lp-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1000px) { .lp-grid { grid-template-columns: repeat(3, 1fr); } }
+        .lp-card { background: var(--bw-surface); border: 1px solid var(--bw-line); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+        .lp-card-top { display: flex; align-items: center; gap: 10px; }
+        .lp-card-ico { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--bw-card); font-size: 19px; flex: none; }
+        .lp-card h3 { font-size: 15px; font-weight: 900; color: var(--bw-ink); line-height: 1.2; }
+        .lp-pop { margin-left: auto; font-size: 9.5px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; background: #C5A059; color: #2B2621; flex: none; }
+        .lp-prices { display: flex; flex-wrap: wrap; gap: 6px; }
+        .lp-prices span { font-size: 12.5px; font-weight: 700; padding: 5px 9px; border-radius: 9px; background: var(--bw-soft); border: 1px solid var(--bw-line); }
+        .lp-prices b { font-weight: 900; color: var(--bw-ink); margin-left: 4px; }
         .lp-fine { font-size: 12.5px; line-height: 1.55; opacity: .7; margin-top: 14px; }
-        .lp-steps { counter-reset: lp; display: grid; gap: 14px; margin-top: 32px; }
-        @media (min-width: 768px) { .lp-steps { grid-template-columns: repeat(3, 1fr); } }
-        .lp-step { position: relative; padding: 22px; border-radius: 22px; background: var(--bw-surface); border: 1px solid var(--bw-line); }
-        .lp-step::before { counter-increment: lp; content: counter(lp); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #1B4D3E; color: #fff; font-weight: 900; font-size: 15px; margin-bottom: 12px; }
-        html.dark .lp-step::before { background: #00A859; }
-        .lp-step h3 { font-size: 16px; font-weight: 900; color: var(--bw-ink); }
-        .lp-step p { font-size: 13.5px; line-height: 1.55; opacity: .75; margin-top: 6px; }
-        .lp-join { display: grid; gap: 24px; align-items: center; }
-        @media (min-width: 960px) { .lp-join { grid-template-columns: 1fr 440px; gap: 56px; } }
-        .lp-join-card { background: var(--bw-surface); color: var(--bw-text); border-radius: 26px; padding: 22px; border: 1px solid var(--bw-line); box-shadow: 0 30px 60px -36px rgba(0,0,0,.45); display: grid; gap: 10px; }
-        .lp-join-card .lp-cta { width: 100%; }
-        .lp-cta-outline { background: transparent; color: var(--bw-text); border-color: var(--bw-line); }
-        .lp-cta-outline:hover { background: var(--bw-soft); }
-        .lp-foot { padding: 28px 0 calc(110px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--bw-line); font-size: 12px; opacity: .8; }
-        .lp-foot a { text-decoration: underline; text-underline-offset: 2px; }
-        .lp-foot-row { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; align-items: center; }
-        .lp-fab { display: flex; justify-content: center; padding: 0 16px 24px; } /* móvil: en el flujo, sin tapar el contenido */
-        @media (min-width: 960px) { .lp-fab { position: fixed; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 30; padding: 0; } }
+
+        /* Pie legal */
+        .lp-foot { margin-top: auto; padding: 22px 0 calc(96px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--bw-line); font-size: 12px; }
+        @media (min-width: 960px) { .lp-foot { padding-bottom: 28px; } }
+        .lp-foot-row { display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between; align-items: center; }
+        .lp-foot nav { display: flex; flex-wrap: wrap; gap: 6px 14px; font-weight: 700; }
+        .lp-foot a, .lp-foot nav button { text-decoration: underline; text-underline-offset: 2px; opacity: .85; cursor: pointer; background: none; }
+        .lp-foot p { opacity: .65; line-height: 1.5; }
+        .lp-fab { position: fixed; right: 16px; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 30; }
+        @media (max-width: 959px) { .lp-fab { display: none; } }
+        @media (min-width: 960px) { .lp-mobile-only { display: none !important; } }
     </style>
     <div id="welcomeView" class="min-h-screen relative animate-fade">
-        <!-- Navbar -->
+        <!-- Navbar: Iniciar sesión y Registrarse SIEMPRE visibles (móvil y escritorio) -->
         <header id="lpNav" class="lp-nav">
             <div class="lp-wrap lp-nav-in">
                 <a href="/" class="lp-logo" aria-label="Barkwalk USA" onclick="event.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' })">
                     <span class="lp-logo-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15.4" rx="4.2" ry="3.4"/><circle cx="6.6" cy="10" r="1.9"/><circle cx="10" cy="6.6" r="1.9"/><circle cx="14" cy="6.6" r="1.9"/><circle cx="17.4" cy="10" r="1.9"/></svg></span>
-                    <span>BARKWALK<small>USA</small></span>
+                    <span class="lp-logo-word">BARKWALK<small>USA</small></span>
                 </a>
-                <nav class="lp-links" aria-label="Main">
-                    <a href="#lpServices" data-lp-go="lpServices" data-es="Servicios" data-en="Services">Services</a>
-                    <a href="#lpPricing" data-lp-go="lpPricing" data-es="Tarifas" data-en="Pricing">Pricing</a>
-                    <a href="#lpHow" data-lp-go="lpHow" data-es="Cómo funciona" data-en="How it works">How it works</a>
-                    <button type="button" id="btnAboutLink" onclick="openAboutModal()">About Us →</button>
-                </nav>
+                <a href="#lpServices" class="lp-link" data-lp-go="lpServices" data-es="Servicios y tarifas" data-en="Services &amp; pricing">Services &amp; pricing</a>
                 <div class="lp-right">
-                    <button type="button" class="bw-theme-pill bw-theme-btn" data-bw-theme-btn onclick="bwToggleTheme()" aria-pressed="false" aria-label="Dark mode / Modo oscuro" title="Dark mode / Modo oscuro">
+                    <button type="button" class="bw-theme-pill bw-theme-btn lp-hide-xs" data-bw-theme-btn onclick="bwToggleTheme()" aria-pressed="false" aria-label="Dark mode / Modo oscuro" title="Dark mode / Modo oscuro">
                         <svg class="bw-i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
                         <svg class="bw-i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
                     </button>
@@ -1520,154 +1470,77 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                         <button id="btnEN" onclick="setLanguage('en')" class="px-2.5 py-0.5 rounded-full bg-white text-black font-bold transition-all">EN</button>
                         <button id="btnES" onclick="setLanguage('es')" class="px-2.5 py-0.5 rounded-full text-white/80 font-medium transition-all">ES</button>
                     </div>
-                    <button type="button" class="lp-login" onclick="openRegistrationModal(null, 'login')" data-es="Iniciar sesión" data-en="Log in">Log in</button>
-                    <button type="button" class="lp-cta lp-cta-primary lp-cta-sm lp-nav-book" onclick="lpBook()" data-es="Reservar paseo" data-en="Book a Walk">Book a Walk</button>
-                    <button type="button" class="lp-burger" aria-controls="lpMenu" aria-expanded="false" aria-label="Menu" onclick="lpToggleMenu()">
-                        <svg class="lp-i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-                        <svg class="lp-i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                    </button>
+                    <button type="button" class="lp-btn lp-btn-ghost" onclick="openRegistrationModal(null, 'login')" data-es="Iniciar sesión" data-en="Log in">Log in</button>
+                    <button type="button" class="lp-btn lp-btn-primary" onclick="openRegistrationModal('client')" data-es="Registrarse" data-en="Sign up">Sign up</button>
                 </div>
             </div>
         </header>
 
-        <!-- Menú móvil (fixed: no se anima con la entrada de la portada) -->
-        <div id="lpMenu" class="lp-menu fixed" aria-hidden="true">
-            <a href="#lpServices" data-lp-go="lpServices"><span data-es="Servicios" data-en="Services">Services</span><span aria-hidden="true">→</span></a>
-            <a href="#lpPricing" data-lp-go="lpPricing"><span data-es="Tarifas" data-en="Pricing">Pricing</span><span aria-hidden="true">→</span></a>
-            <a href="#lpHow" data-lp-go="lpHow"><span data-es="Cómo funciona" data-en="How it works">How it works</span><span aria-hidden="true">→</span></a>
-            <button type="button" onclick="lpToggleMenu(false); openAboutModal()"><span data-es="Conócenos" data-en="About us">About us</span><span aria-hidden="true">→</span></button>
-            <div class="lp-menu-actions">
-                <button type="button" class="lp-cta lp-cta-primary" onclick="lpToggleMenu(false); lpBook()" data-es="Reservar paseo" data-en="Book a Walk">Book a Walk</button>
-                <button type="button" class="lp-cta lp-cta-ghost" onclick="lpToggleMenu(false); openRegistrationModal(null, 'login')" data-es="Iniciar sesión / Mi cuenta" data-en="Log in / My account">Log in / My account</button>
-            </div>
-            <button type="button" onclick="toggleSoundAlerts()" aria-pressed="false" class="sound-toggle">🔕 Activar alertas sonoras</button>
-        </div>
-
-        <!-- Hero -->
+        <!-- Hero: título, una línea, CTA, confianza en una fila y reserva rápida al lado (escritorio) o debajo (móvil) -->
         <section class="lp-hero" aria-labelledby="txtHeroTitle">
             <div class="lp-wrap lp-hero-grid">
                 <div>
-                    <span class="lp-pill"><span class="radar-pulse" aria-hidden="true"></span><span id="txtLiveStatus">Barkwalk-approved walkers in Birmingham &amp; Homewood</span></span>
-                    <h1 id="txtHeroTitle" class="lp-h1">Trusted dog walks, <em>tracked live</em> from start to finish.</h1>
-                    <p id="txtHeroSub" class="lp-lead">Book a vetted local walker in minutes. Follow every step on a live GPS map and get a photo the moment your dog is safely home.</p>
+                    <h1 id="txtHeroTitle" class="lp-h1">Trusted dog walks, <em>tracked live.</em></h1>
+                    <p id="txtHeroSub" class="lp-lead">Vetted local walkers. Book in under a minute.</p>
                     <div class="lp-ctas">
-                        <button type="button" class="lp-cta lp-cta-primary" onclick="lpBook()">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                            <span data-es="Reservar un paseo" data-en="Book a walk">Book a walk</span>
-                        </button>
-                        <a href="#lpPricing" data-lp-go="lpPricing" class="lp-cta lp-cta-ghost"><span data-es="Ver servicios y tarifas" data-en="See services &amp; pricing">See services &amp; pricing</span></a>
+                        <button type="button" class="lp-btn lp-btn-primary lp-btn-lg" onclick="lpBook()"><span data-es="Reservar paseo" data-en="Book a walk">Book a walk</span></button>
+                        <a href="#lpServices" data-lp-go="lpServices" class="lp-btn lp-btn-ghost lp-btn-lg"><span data-es="Ver tarifas" data-en="See pricing">See pricing</span></a>
                     </div>
-                    <ul class="lp-badges" aria-label="Why Barkwalk">
-                        <li class="lp-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.79a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg><span data-es="GPS en vivo en cada paseo" data-en="Live GPS on every walk">Live GPS on every walk</span></li>
-                        <li class="lp-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg><span data-es="Foto al dejarlo en casa" data-en="Safe drop-off photo">Safe drop-off photo</span></li>
-                        <li class="lp-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg><span data-es="Paseadores con ID verificada" data-en="ID-verified walkers">ID-verified walkers</span></li>
-                        <li class="lp-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span data-es="Pago seguro con Stripe" data-en="Secure Stripe payments">Secure Stripe payments</span></li>
+                    <ul class="lp-trust" aria-label="Barkwalk">
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.79a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg><span data-es="GPS en vivo" data-en="Live GPS">Live GPS</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg><span data-es="Foto al finalizar" data-en="Photo at drop-off">Photo at drop-off</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span data-es="Pago seguro con Stripe" data-en="Secure Stripe payments">Secure Stripe payments</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 19-9-9 19-2-8-8-2z"/></svg><span id="txtHeroTagline">Birmingham &amp; Homewood, AL</span></li>
                     </ul>
-                    <p class="lp-areas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.79a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg><span id="txtHeroTagline">Serving Birmingham · Homewood · Vestavia Hills · Mountain Brook, AL</span></p>
                 </div>
 
-                <!-- Reserva rápida: elige servicio y duración, ve el precio real y continúa -->
                 <div class="lp-quick" aria-labelledby="lpQuickTitle">
                     <div class="lp-quick-head">
                         <h2 id="lpQuickTitle" class="lp-quick-title" data-es="Reserva rápida" data-en="Quick booking">Quick booking</h2>
-                        <span class="lp-tag" data-es="Precios reales" data-en="Real prices">Real prices</span>
+                        <span class="lp-tag" data-es="Precio real" data-en="Real price">Real price</span>
                     </div>
-                    <p class="lp-label" id="lpSvcLbl" data-es="Servicio" data-en="Service">Service</p>
-                    <div id="lpSvc" class="lp-svc" role="group" aria-labelledby="lpSvcLbl"></div>
-                    <p class="lp-label" id="lpDurLbl" data-es="Duración" data-en="Duration">Duration</p>
-                    <div id="lpDur" class="lp-dur" role="group" aria-labelledby="lpDurLbl"></div>
+                    <div id="lpSvc" class="lp-svc" role="group" aria-label="Service / Servicio"></div>
+                    <div id="lpDur" class="lp-dur" role="group" aria-label="Duration / Duración"></div>
                     <div class="lp-total">
                         <p class="lp-price" aria-live="polite"><span id="lpPrice">$22</span> <small data-es="/ paseo" data-en="/ walk">/ walk</small></p>
-                        <p class="lp-incl" data-es="GPS en vivo + foto al final incluidos" data-en="Live GPS + drop-off photo included">Live GPS + drop-off photo included</p>
+                        <button type="button" class="lp-btn lp-btn-primary" onclick="lpBook()"><span data-es="Continuar" data-en="Continue">Continue</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
                     </div>
-                    <button type="button" class="lp-cta lp-cta-primary" onclick="lpBook()"><span data-es="Continuar con la reserva" data-en="Continue booking">Continue booking</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
-                    <div class="lp-live" aria-hidden="true">
-                        <svg class="lp-route" viewBox="0 0 74 48"><path class="lp-route-path" d="M8 38 C 22 10, 34 44, 46 20 S 62 12, 66 30" fill="none" stroke="#00A859" stroke-width="2.2"/><circle cx="8" cy="38" r="3" fill="#1B4D3E"/><circle cx="66" cy="30" r="3" fill="#C5A059"/><circle class="lp-route-dot" r="4" fill="#00A859" stroke="#fff" stroke-width="1.5"/></svg>
-                        <p><b data-es="Así lo verás en vivo" data-en="What you'll see live">What you'll see live</b><span data-es="Ruta, tiempo y avisos del paseador en tu teléfono." data-en="Route, time and walker updates on your phone.">Route, time and walker updates on your phone.</span></p>
-                    </div>
-                    <p class="lp-note" data-es="Eliges fecha y hora después de crear tu cuenta gratis." data-en="Pick a date and time after creating your free account.">Pick a date and time after creating your free account.</p>
+                    <p class="lp-quick-foot"><span data-es="¿Ya tienes cuenta?" data-en="Have an account?">Have an account?</span><button type="button" class="lp-textlink" onclick="openRegistrationModal(null, 'login')" data-es="Iniciar sesión" data-en="Log in">Log in</button></p>
                 </div>
             </div>
         </section>
 
-        <!-- Servicios -->
+        <!-- Servicios y tarifas (una sola sección) -->
         <section id="lpServices" class="lp-sec" aria-labelledby="lpServicesTitle">
             <div class="lp-wrap">
-                <p class="lp-kicker" data-es="Servicios" data-en="Services">Services</p>
-                <h2 id="lpServicesTitle" class="lp-h2" data-es="Todo lo que tu perro necesita, con alguien de tu vecindario" data-en="Everything your dog needs, from someone in your neighborhood">Everything your dog needs, from someone in your neighborhood</h2>
-                <p class="lp-sub" data-es="Paseos, visitas a casa y cuidado de día o de noche. Cada servicio incluye seguimiento en vivo y un reporte al terminar." data-en="Walks, home visits and day or overnight care. Every service includes live tracking and a report when it's done.">Walks, home visits and day or overnight care. Every service includes live tracking and a report when it's done.</p>
-                <div id="lpServiceGrid" class="lp-grid is-3"></div>
-            </div>
-        </section>
-
-        <!-- Tarifas -->
-        <section id="lpPricing" class="lp-sec is-alt" aria-labelledby="lpPricingTitle">
-            <div class="lp-wrap">
-                <p class="lp-kicker" data-es="Tarifas" data-en="Pricing">Pricing</p>
-                <h2 id="lpPricingTitle" class="lp-h2" data-es="Precios claros, sin sorpresas" data-en="Clear prices, no surprises">Clear prices, no surprises</h2>
-                <p class="lp-sub" data-es="Pagas solo lo que reservas. Ves el total antes de pagar." data-en="You only pay for what you book. You see the total before you pay.">You only pay for what you book. You see the total before you pay.</p>
-                <div style="overflow-x:auto"><table class="lp-table" id="lpPriceTable"></table></div>
+                <div class="lp-sec-head">
+                    <h2 id="lpServicesTitle" class="lp-h2" data-es="Servicios y tarifas" data-en="Services &amp; pricing">Services &amp; pricing</h2>
+                    <p class="lp-sub" data-es="Ves el total antes de pagar." data-en="You see the total before you pay.">You see the total before you pay.</p>
+                </div>
+                <div id="lpServiceGrid" class="lp-grid"></div>
                 <p class="lp-fine" id="lpPriceFine"></p>
             </div>
         </section>
 
-        <!-- Cómo funciona -->
-        <section id="lpHow" class="lp-sec" aria-labelledby="lpHowTitle">
-            <div class="lp-wrap">
-                <p class="lp-kicker" data-es="Cómo funciona" data-en="How it works">How it works</p>
-                <h2 id="lpHowTitle" class="lp-h2" data-es="Tu primer paseo en 3 pasos" data-en="Your first walk in 3 steps">Your first walk in 3 steps</h2>
-                <ol class="lp-steps">
-                    <li class="lp-step"><h3 data-es="Crea tu cuenta y registra a tu perro" data-en="Create your account and add your dog">Create your account and add your dog</h3><p data-es="Su raza, notas y pasaporte de salud con alergias, para que el paseador sepa todo." data-en="Breed, notes and a health passport with allergies, so your walker knows everything.">Breed, notes and a health passport with allergies, so your walker knows everything.</p></li>
-                    <li class="lp-step"><h3 data-es="Elige servicio, fecha y hora" data-en="Pick a service, date and time">Pick a service, date and time</h3><p data-es="Ves el precio final antes de pagar con tarjeta, Apple Pay o Google Pay." data-en="See the final price before paying by card, Apple Pay or Google Pay.">See the final price before paying by card, Apple Pay or Google Pay.</p></li>
-                    <li class="lp-step"><h3 data-es="Síguelo en vivo y recibe la foto final" data-en="Follow it live and get the final photo">Follow it live and get the final photo</h3><p data-es="Mapa GPS en tiempo real, chat con el paseador y una foto cuando tu perro queda seguro en casa." data-en="Real-time GPS map, chat with your walker and a photo once your dog is safely home.">Real-time GPS map, chat with your walker and a photo once your dog is safely home.</p></li>
-                </ol>
-            </div>
-        </section>
-
-        <!-- Registro / inicio de sesión -->
-        <section id="lpJoin" class="lp-sec is-alt" aria-labelledby="lpJoinTitle">
-            <div class="lp-wrap lp-join">
-                <div>
-                    <p class="lp-kicker" data-es="Empieza hoy" data-en="Get started">Get started</p>
-                    <h2 id="lpJoinTitle" class="lp-h2" data-es="Únete a Barkwalk USA" data-en="Join Barkwalk USA">Join Barkwalk USA</h2>
-                    <p class="lp-sub" data-es="Dueños de mascotas: reserven en minutos. Paseadores: postúlense, el equipo revisa tu ID y empiezas a ganar en tu zona." data-en="Pet owners: book in minutes. Walkers: apply, our team reviews your ID and you start earning in your area.">Pet owners: book in minutes. Walkers: apply, our team reviews your ID and you start earning in your area.</p>
-                </div>
-                <div class="lp-join-card">
-                    <p id="txtChooseAccount" class="text-center text-xs font-semibold opacity-70">Choose your account type</p>
-                    <button type="button" onclick="openRegistrationModal('client')" class="lp-cta lp-cta-primary">
-                        <i data-lucide="dog" class="w-4 h-4"></i>
-                        <span id="btnPetOwner">Pet Owner Registration</span>
-                    </button>
-                    <button type="button" onclick="openRegistrationModal('shopper')" class="lp-cta lp-cta-outline">
-                        <i data-lucide="briefcase" class="w-4 h-4"></i>
-                        <span id="btnDogWalker">Dog Walker Registration</span>
-                    </button>
-                    <button type="button" onclick="openRegistrationModal(null, 'login')" class="w-full text-brandDarkGreen font-bold py-2 text-sm underline underline-offset-2 cursor-pointer min-h-[44px]" style="color:var(--bw-ink)">
-                        <span id="btnLoginWelcome">Already have an account? Log in</span>
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <div class="lp-fab" style="margin-top:24px">
+        <div class="lp-fab fixed">
             <button type="button" onclick="togglePublicAiWidget()" class="bg-gradient-to-r from-brandGold to-amber-500 text-[#2B2621] font-extrabold px-4 py-3 rounded-full shadow-2xl flex items-center gap-2 text-xs border border-white/40 active:scale-95 transition-all cursor-pointer min-h-[44px]">
-                <i data-lucide="bot" class="w-4 h-4 animate-bounce"></i>
+                <i data-lucide="bot" class="w-4 h-4"></i>
                 <span id="btnToggleAiText">💬 FAQ AI Assistant</span>
             </button>
         </div>
 
         <footer class="lp-foot">
             <div class="lp-wrap lp-foot-row">
-                <p>
+                <nav aria-label="Legal">
                     <a href="/terminos-clientes" id="lnkTermsClients">Client Terms</a>
-                    <span aria-hidden="true"> · </span>
                     <a href="/terminos-paseadores" id="lnkTermsWalkers">Walker Agreement</a>
-                    <span aria-hidden="true"> · </span>
                     <a href="/privacidad" id="lnkPrivacy">Privacy</a>
-                    <span aria-hidden="true"> · </span>
+                    <button type="button" id="btnAboutLink" onclick="openAboutModal()">About Us →</button>
                     <a href="mailto:barkwalkusallc@gmail.com">barkwalkusallc@gmail.com</a>
-                </p>
-                <p class="leading-snug">© 2026 Barkwalk USA LLC. All rights reserved. · 900 Beacon Crest Circle 917, Birmingham, AL 35209</p>
+                    <button type="button" class="lp-mobile-only" onclick="togglePublicAiWidget()" data-es="Preguntas (IA)" data-en="FAQ (AI)">FAQ (AI)</button>
+                    <button type="button" onclick="bwToggleTheme()" data-es="Modo claro / oscuro" data-en="Light / dark mode">Light / dark mode</button>
+                </nav>
+                <p>© 2026 Barkwalk USA LLC · 900 Beacon Crest Circle 917, Birmingham, AL 35209</p>
             </div>
         </footer>
 
@@ -1854,6 +1727,13 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <span id="btnSubmitRegText">Complete Registration & Enter</span>
                     <i id="btnSubmitRegSpinner" data-lucide="loader-2" class="w-4 h-4 animate-spin hidden"></i>
                 </button>
+                <!-- Solo al iniciar sesión: entrar sin contraseña con un enlace al correo (sendMagicLink) -->
+                <div id="regMagicRow" class="hidden space-y-2">
+                    <div class="flex items-center gap-3 text-[10.5px] font-bold uppercase tracking-wider" style="color:rgb(var(--bw-text-rgb) / .55)" aria-hidden="true"><span class="flex-1 h-px" style="background:var(--bw-line)"></span><span id="regMagicOr">or</span><span class="flex-1 h-px" style="background:var(--bw-line)"></span></div>
+                    <button type="button" id="btnMagicLink" onclick="sendMagicLink()" class="w-full bg-white border border-brandBeige text-brandDarkGreen font-bold py-3 rounded-xl text-xs min-h-[46px] flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all">
+                        <i data-lucide="wand-sparkles" class="w-4 h-4"></i><span id="btnMagicLinkText">Email me a magic link</span>
+                    </button>
+                </div>
                 <button type="button" id="regModeSwitch" onclick="setAuthMode(authMode === 'login' ? 'signup' : 'login')" class="w-full text-brandDarkGreen text-[11px] font-bold underline underline-offset-2 cursor-pointer min-h-[36px]"></button>
             </form>
         </div>
@@ -2743,9 +2623,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             en: {
                 txtLiveStatus: "Barkwalk-approved walkers in Birmingham &amp; Homewood",
                 btnAboutLink: "About Us →",
-                txtHeroTitle: "Trusted dog walks, <em>tracked live</em> from start to finish.",
-                txtHeroSub: "Book a vetted local walker in minutes. Follow every step on a live GPS map and get a photo the moment your dog is safely home.",
-                txtHeroTagline: "Serving Birmingham · Homewood · Vestavia Hills · Mountain Brook, AL",
+                txtHeroTitle: "Trusted dog walks, <em>tracked live.</em>",
+                txtHeroSub: "Vetted local walkers. Book in under a minute.",
+                txtHeroTagline: "Birmingham &amp; Homewood, AL",
                 btnToggleAiText: "💬 FAQ AI Assistant",
                 lblPublicAiHeader: "Barkwalk AI Advisor (Pre-Registration)",
                 publicAiIntro: "👋 Hi! Have questions about Barkwalk USA before signing up? Ask me about services, safety, pricing, or walker earnings.",
@@ -2857,9 +2737,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             es: {
                 txtLiveStatus: "Paseadores aprobados por Barkwalk en Birmingham y Homewood",
                 btnAboutLink: "Conócenos →",
-                txtHeroTitle: "Paseos de confianza, <em>en vivo</em> de principio a fin.",
-                txtHeroSub: "Reserva un paseador local verificado en minutos. Sigue cada paso en un mapa GPS en vivo y recibe una foto en cuanto tu perro esté seguro en casa.",
-                txtHeroTagline: "En Birmingham · Homewood · Vestavia Hills · Mountain Brook, AL",
+                txtHeroTitle: "Paseos de confianza, <em>en vivo.</em>",
+                txtHeroSub: "Paseadores locales verificados. Reserva en menos de un minuto.",
+                txtHeroTagline: "Birmingham y Homewood, AL",
                 btnToggleAiText: "💬 Preguntas F.A.Q. AI",
                 lblPublicAiHeader: "Barkwalk AI Advisor (Pre-Registro)",
                 publicAiIntro: "👋 ¡Hola! ¿Tienes dudas sobre Barkwalk USA antes de registrarte? Pregúntame sobre quiénes somos, seguridad, precios o ganancias para paseadores.",
@@ -3703,6 +3583,35 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
               <button type="button" class="w-btn w-btn-primary w-full" onclick="closeSheet('forgotModal'); openRegistrationModal(null, 'login')">${tr('Volver a iniciar sesión', 'Back to log in')}</button>`;
         }
 
+        // Entrar sin contraseña: enlace de un solo uso al correo (solo cuentas existentes: el registro SIEMPRE
+        // pasa por /api/signup por la constancia legal, por eso shouldCreateUser: false). Al abrirlo, supabase-js
+        // crea la sesión desde #access_token (type=magiclink) y restoreSession entra al panel como siempre.
+        async function sendMagicLink() {
+            const input = document.getElementById('regEmail');
+            const btn = document.getElementById('btnMagicLink');
+            const email = (input?.value || '').trim();
+            if (!email || !input.checkValidity()) {
+                showRegError(tr('Escribe tu correo arriba y vuelve a tocar el botón.', 'Enter your email above and tap the button again.'), null, 'warn');
+                input?.focus(); return;
+            }
+            const sb = window.supabaseClient;
+            if (!sb || !btn) return;
+            const txt = document.getElementById('btnMagicLinkText');
+            const prev = txt.textContent;
+            btn.disabled = true; txt.textContent = tr('Enviando…', 'Sending…');
+            let error = null;
+            try { ({ error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: RESET_REDIRECT_URL } })); }
+            catch (e) { error = e; }
+            btn.disabled = false; txt.textContent = prev;
+            const m = (error && error.message) || '';
+            if (error && /banned/i.test(m)) return showRegError(tr('Esta cuenta fue cerrada. Si quieres reactivarla, escríbenos a barkwalkusallc@gmail.com.', 'This account was closed. To reactivate it, email barkwalkusallc@gmail.com.'));
+            if (error && /rate limit|seconds|security purposes/i.test(m)) return showRegError(tr('Ya enviamos un enlace hace poco. Espera un minuto e inténtalo de nuevo.', 'We just sent a link. Wait a minute and try again.'), null, 'warn');
+            if (error && /fetch|network/i.test(m)) return showRegError(tr('Sin conexión. Revisa tu internet e inténtalo de nuevo.', 'No connection. Check your internet and try again.'));
+            if (error && !/signups not allowed|not found|user/i.test(m)) console.warn('signInWithOtp:', m);
+            // Mismo mensaje exista o no la cuenta (no revela qué correos están registrados)
+            showRegError(`📧 ${tr('Si existe una cuenta con', 'If an account exists for')} ${email}, ${tr('te enviamos un enlace para entrar. Ábrelo en este dispositivo (revisa también Spam).', 'we sent you a sign-in link. Open it on this device (check Spam too).')}`, null, 'ok');
+        }
+
         // Al abrir el enlace del correo: ventana "Restablecer contraseña".
         // Se muestra al instante; el formulario se habilita cuando llega la sesión de recuperación.
         function showResetPasswordModal() {
@@ -3846,6 +3755,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             document.getElementById('regName').required = !login;
             document.getElementById('regPass').autocomplete = login ? 'current-password' : 'new-password';
             document.getElementById('regForgotRow').classList.toggle('hidden', !login); // "¿Olvidaste tu contraseña?" solo en login
+            document.getElementById('regMagicRow')?.classList.toggle('hidden', !login);  // enlace mágico solo en login
+            set('regMagicOr', tr('o', 'or'));
+            set('btnMagicLinkText', tr('Enviarme un enlace mágico (sin contraseña)', 'Email me a magic link (no password)'));
             // Solo al crear cuenta: fecha de nacimiento, exención (Alabama), Términos + Privacidad y, si es paseador,
             // el Acuerdo de Contratista Independiente
             const termsRow = document.getElementById('regTermsRow');
@@ -11224,60 +11136,44 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   };
 })();
 </script>
-    <!-- PORTADA: navbar (menú móvil), reserva rápida con precios reales, servicios, tarifas y textos ES/EN -->
+    <!-- PORTADA: barra que se vuelve sólida al bajar, reserva rápida con precios reales, servicios y tarifas, textos ES/EN -->
     <script>
     (function () {
         const $ = (id) => document.getElementById(id);
         const L = () => (typeof currentLang !== 'undefined' && currentLang === 'es' ? 'es' : 'en');
         const t = (es, en) => (L() === 'es' ? es : en);
         const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-        const catalog = () => (typeof SERVICE_CATALOG !== 'undefined' ? SERVICE_CATALOG : []);
-        const allServices = () => catalog().flatMap((c) => c.services);
+        const allServices = () => (typeof SERVICE_CATALOG !== 'undefined' ? SERVICE_CATALOG : []).flatMap((c) => c.services);
         const vLabel = (v) => (typeof v.label === 'object' ? v.label[L()] : v.label);
         const QUICK = ['walk_std', 'walk_vip', 'walk_run', 'dropin'];
         const pick = { svc: 'walk_std', v: 1 };
 
-        // ---- Menú móvil ----
-        window.lpToggleMenu = function (force) {
-            const nav = $('lpNav'), menu = $('lpMenu'); if (!nav || !menu) return;
-            const open = typeof force === 'boolean' ? force : !menu.classList.contains('is-open');
-            menu.classList.toggle('is-open', open); nav.classList.toggle('is-open', open);
-            menu.setAttribute('aria-hidden', open ? 'false' : 'true');
-            const b = nav.querySelector('.lp-burger'); if (b) b.setAttribute('aria-expanded', String(open));
-            document.documentElement.style.overflow = open ? 'hidden' : '';
-            syncNav();
-        };
-        function syncNav() {
-            const nav = $('lpNav'); if (!nav) return;
-            nav.classList.toggle('is-solid', window.scrollY > 12 || nav.classList.contains('is-open'));
-        }
+        // Barra superior: transparente sobre la foto, sólida al bajar
+        const syncNav = () => { const n = $('lpNav'); if (n) n.classList.toggle('is-solid', window.scrollY > 12); };
         window.addEventListener('scroll', syncNav, { passive: true });
-        window.addEventListener('resize', () => { if (window.innerWidth >= 960 && $('lpMenu')?.classList.contains('is-open')) lpToggleMenu(false); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('lpMenu')?.classList.contains('is-open')) lpToggleMenu(false); });
         // Enlaces internos: desplazamiento suave sin dejar #ancla en la URL (los enlaces del correo usan el hash)
         document.addEventListener('click', (e) => {
             const a = e.target.closest && e.target.closest('[data-lp-go]'); if (!a) return;
             e.preventDefault();
             const el = $(a.getAttribute('data-lp-go'));
-            if ($('lpMenu')?.classList.contains('is-open')) lpToggleMenu(false);
             if (el) el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
         });
 
-        // ---- Reservar: con sesión abre la reserva; sin sesión, el registro de dueño de mascota ----
+        // Reservar: con sesión abre la reserva; sin sesión, el registro de dueño de mascota (modal)
         window.lpBook = function () {
             if (window.currentUser && typeof openBookingModal === 'function') return openBookingModal();
             if (typeof openRegistrationModal === 'function') openRegistrationModal('client');
         };
 
-        // ---- Reserva rápida ----
+        // Reserva rápida
         function renderQuick() {
             const svcBox = $('lpSvc'), durBox = $('lpDur'); if (!svcBox || !durBox) return;
             const list = QUICK.map((id) => allServices().find((s) => s.id === id)).filter(Boolean);
             if (!list.length) return;
-            svcBox.innerHTML = list.map((s) => `<button type="button" class="lp-chip" data-svc="${s.id}" aria-pressed="${s.id === pick.svc}">
-                <b>${esc(s.icon)} ${esc(s[L()].name)}</b><span>${esc(t('desde', 'from'))} $${Math.min(...s.variants.map((v) => v.price))}</span></button>`).join('');
             const s = list.find((x) => x.id === pick.svc) || list[0];
             if (pick.v >= s.variants.length) pick.v = 0;
+            svcBox.innerHTML = list.map((x) => `<button type="button" class="lp-chip" data-svc="${x.id}" aria-pressed="${x.id === s.id}">
+                <b>${esc(x.icon)} ${esc(x[L()].name)}</b><span>${esc(t('desde', 'from'))} $${Math.min(...x.variants.map((v) => v.price))}</span></button>`).join('');
             durBox.innerHTML = s.variants.map((v, i) => `<button type="button" class="lp-chip" data-v="${i}" aria-pressed="${i === pick.v}">${esc(vLabel(v))}</button>`).join('');
             $('lpPrice').textContent = `$${s.variants[pick.v].price}`;
         }
@@ -11288,30 +11184,24 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             renderQuick();
         });
 
-        // ---- Servicios y tarifas (del catálogo real) ----
+        // Servicios y tarifas: nombre + precios por duración (sin textos largos)
         function renderServices() {
             const g = $('lpServiceGrid'); if (!g) return;
             g.innerHTML = allServices().map((s) => `<article class="lp-card">
-                ${s.badge === 'popular' ? `<span class="lp-pop">${esc(t('Más popular', 'Most popular'))}</span>` : ''}
-                <span class="lp-card-ico" aria-hidden="true">${esc(s.icon)}</span>
-                <h3>${esc(s[L()].name)}</h3><p>${esc(s[L()].desc)}</p>
-                <p class="lp-from">${esc(t('Desde', 'From'))} <b>$${Math.min(...s.variants.map((v) => v.price))}</b></p></article>`).join('');
-        }
-        function renderPricing() {
-            const tb = $('lpPriceTable'); if (!tb) return;
-            const rows = allServices().flatMap((s) => s.variants.map((v, i) => `<tr><td>${i === 0 ? `<b>${esc(s.icon)} ${esc(s[L()].name)}</b>` : ''}</td><td>${esc(vLabel(v))}</td><td class="lp-price-cell">$${v.price}</td></tr>`));
-            const add = (typeof GROOMING_ADDONS !== 'undefined' ? GROOMING_ADDONS : []).map((a) => `<tr><td><b>+ ${esc(a[L()].name)}</b></td><td>${esc(t('por perro', 'per dog'))}</td><td class="lp-price-cell">$${a.price}</td></tr>`);
-            tb.innerHTML = `<thead><tr><th scope="col">${esc(t('Servicio', 'Service'))}</th><th scope="col">${esc(t('Duración', 'Duration'))}</th><th scope="col">${esc(t('Precio', 'Price'))}</th></tr></thead><tbody>${rows.join('')}${add.join('')}</tbody>`;
+                <div class="lp-card-top"><span class="lp-card-ico" aria-hidden="true">${esc(s.icon)}</span><h3>${esc(s[L()].name)}</h3>
+                ${s.badge === 'popular' ? `<span class="lp-pop">${esc(t('Popular', 'Popular'))}</span>` : ''}</div>
+                <div class="lp-prices">${s.variants.map((v) => `<span>${esc(vLabel(v))}<b>$${v.price}</b></span>`).join('')}</div></article>`).join('');
+            const add = (typeof GROOMING_ADDONS !== 'undefined' ? GROOMING_ADDONS : []).map((a) => `${a[L()].name} +$${a.price}`).join(' · ');
             const pct = typeof MEMBER_DISCOUNT_PCT !== 'undefined' ? MEMBER_DISCOUNT_PCT : 10;
-            $('lpPriceFine').textContent = t(`Perro adicional del mismo hogar: +$8 · Perro grande o de alta energía: +$4. Miembros de Barkwalk Club: ${pct} % de descuento en cada servicio.`,
-                `Each extra dog from the same home: +$8 · Large or high-energy dog: +$4. Barkwalk Club members save ${pct}% on every service.`);
+            $('lpPriceFine').textContent = t(`Extras por perro: ${add} · Perro adicional del mismo hogar +$8 · Perro grande o de alta energía +$4 · Barkwalk Club: ${pct} % de descuento.`,
+                `Add-ons per dog: ${add} · Extra dog from the same home +$8 · Large or high-energy dog +$4 · Barkwalk Club: save ${pct}%.`);
         }
 
-        // ---- Textos ES/EN de la portada (data-es / data-en) ----
+        // Textos ES/EN de la portada (data-es / data-en)
         function lpApplyLang() {
             const l = L();
             document.querySelectorAll('#welcomeView [data-es][data-en]').forEach((el) => { el.textContent = el.getAttribute('data-' + l); });
-            renderQuick(); renderServices(); renderPricing();
+            renderQuick(); renderServices();
         }
         const prev = window.onLanguageChanged;
         window.onLanguageChanged = function () { if (typeof prev === 'function') prev.apply(this, arguments); lpApplyLang(); };

@@ -6,7 +6,7 @@ const vm = require('vm');
 const assert = require('assert');
 const ROOT = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const HTML = read('index.html');
+const HTML = read('index.html').replace(/\r\n/g, '\n'); // CRLF en Windows (core.autocrlf) o LF: igual
 const SQL = read('supabase/migrations/20261205_delivery_photo.sql');
 const D = require(path.join(ROOT, 'delivery-photo.js'));
 const W = 'a1b2c3d4-0000-4000-8000-000000000001';

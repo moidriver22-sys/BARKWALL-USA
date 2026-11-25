@@ -17,6 +17,7 @@ const notice = (t) => `<table role="presentation" width="100%" border="0" cellpa
 
 const templates = {
   'confirm-signup.html': {
+    supabase: 'Confirm signup',
     subject: 'Confirm your Barkwalk USA account · Confirma tu cuenta',
     html: emailShell({
       title: 'Confirm your Barkwalk USA account',
@@ -36,6 +37,7 @@ const templates = {
     }),
   },
   'reset-password.html': {
+    supabase: 'Reset password',
     subject: 'Reset your Barkwalk USA password · Restablece tu contraseña',
     html: emailShell({
       title: 'Reset your Barkwalk USA password',
@@ -54,16 +56,36 @@ const templates = {
       ].join('\n'),
     }),
   },
+  'magic-link.html': {
+    supabase: 'Magic link',
+    subject: 'Your Barkwalk USA sign-in link · Tu enlace para entrar',
+    html: emailShell({
+      title: 'Your Barkwalk USA sign-in link',
+      preheader: 'Sign in without a password · Entra sin contraseña',
+      bodyHtml: [
+        h1('Sign in to Barkwalk USA ✨'),
+        p(`Tap the button to sign in as <strong>${EMAIL_VAR}</strong> — no password needed.`),
+        button(URL_VAR, 'Sign me in'),
+        notice('For your security this link expires soon and works only once. Open it on the device where you requested it. If you didn’t request it, ignore this email.'),
+        divider(),
+        esHead('Español'),
+        p('<strong>Entra a Barkwalk USA.</strong> Toca el botón para iniciar sesión sin contraseña.'),
+        button(URL_VAR, 'Entrar a mi cuenta'),
+        notice('Por tu seguridad, este enlace vence pronto y solo funciona una vez. Ábrelo en el dispositivo donde lo pediste. Si no lo pediste, ignora este correo.'),
+        fallbackLink(URL_VAR, 'Button not working? Copy and paste this link · ¿El botón no funciona? Copia y pega este enlace:'),
+      ].join('\n'),
+    }),
+  },
 };
 
 const outDir = path.join(__dirname, '..', 'supabase', 'email-templates');
 fs.mkdirSync(outDir, { recursive: true });
 const readme = ['# Plantillas de Supabase Auth (generadas)', '', 'Generadas por `npm run build:emails` desde `api/_lib/email-layout.js`. No las edites a mano: cambia el script y regenera.', '',
   'Pegar en Supabase → Authentication → Emails → Templates:', ''];
-for (const [file, { subject, html }] of Object.entries(templates)) {
+for (const [file, { supabase, subject, html }] of Object.entries(templates)) {
   if (!html.includes(URL_VAR)) throw new Error(`${file}: falta ${URL_VAR}`);
   fs.writeFileSync(path.join(outDir, file), html);
-  readme.push(`- \`${file}\` → plantilla "${file.startsWith('confirm') ? 'Confirm signup' : 'Reset password'}" · Subject: **${subject}**`);
+  readme.push(`- \`${file}\` → plantilla "${supabase}" · Subject: **${subject}**`);
   console.log(`${file}: ${Buffer.byteLength(html)} bytes · subject: ${subject}`);
 }
 fs.writeFileSync(path.join(outDir, 'README.md'), readme.join('\n') + '\n');
