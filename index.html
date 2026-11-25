@@ -1374,8 +1374,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         @media (min-width: 900px) { .lp-link { display: inline-flex; } }
         .lp-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
         @media (min-width: 640px) { .lp-right { gap: 8px; } }
-        .lp-hide-xs { display: none !important; }
-        @media (min-width: 480px) { .lp-hide-xs { display: inline-flex !important; } }
+        /* Modo claro/oscuro: SIEMPRE visible en la barra (también en móvil) */
+        @media (max-width: 419px) { .lp-nav-in { gap: 6px; } .lp-right { gap: 5px; } .lp-nav .lp-theme { width: 32px; height: 32px; flex: none; } .lp-lang { font-size: 11px; } .lp-lang button { padding-left: 7px !important; padding-right: 7px !important; } .lp-nav .lp-btn { padding: 0 10px; font-size: 12.5px; } }
         .lp-lang { background: rgba(0,0,0,.45); padding: 3px; border-radius: 999px; display: flex; gap: 2px; border: 1px solid rgba(255,255,255,.2); font-size: 11.5px; }
         .lp-lang button { min-height: 28px; }
         .lp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 900; cursor: pointer; white-space: nowrap; border: 1px solid transparent; text-decoration: none; }
@@ -1386,7 +1386,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         .lp-btn-ghost { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.3); }
         .lp-btn-ghost:hover { background: rgba(255,255,255,.18); }
         .lp-btn:focus-visible, .lp-link:focus-visible, .lp-chip:focus-visible, .lp-textlink:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0,168,89,.55); }
-        @media (max-width: 379px) { .lp-nav .lp-btn { padding: 0 10px; font-size: 12.5px; } }
+        @media (max-width: 379px) { .lp-nav .lp-btn { padding: 0 8px; font-size: 12px; } .lp-logo-mark { width: 30px; height: 30px; } }
+        @media (max-width: 359px) { .lp-logo { display: none; } .lp-right { margin-left: 0; width: 100%; justify-content: space-between; } }
 
         /* Hero */
         .lp-hero { position: relative; color: #fff; margin-top: calc(-60px - env(safe-area-inset-top, 0px)); padding-top: calc(60px + env(safe-area-inset-top, 0px));
@@ -1462,7 +1463,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 </a>
                 <a href="#lpServices" class="lp-link" data-lp-go="lpServices" data-es="Servicios y tarifas" data-en="Services &amp; pricing">Services &amp; pricing</a>
                 <div class="lp-right">
-                    <button type="button" class="bw-theme-pill bw-theme-btn lp-hide-xs" data-bw-theme-btn onclick="bwToggleTheme()" aria-pressed="false" aria-label="Dark mode / Modo oscuro" title="Dark mode / Modo oscuro">
+                    <button type="button" class="bw-theme-pill bw-theme-btn lp-theme" data-bw-theme-btn onclick="bwToggleTheme()" aria-pressed="false" aria-label="Dark mode / Modo oscuro" title="Dark mode / Modo oscuro">
                         <svg class="bw-i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
                         <svg class="bw-i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
                     </button>
@@ -1538,7 +1539,6 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <button type="button" id="btnAboutLink" onclick="openAboutModal()">About Us →</button>
                     <a href="mailto:barkwalkusallc@gmail.com">barkwalkusallc@gmail.com</a>
                     <button type="button" class="lp-mobile-only" onclick="togglePublicAiWidget()" data-es="Preguntas (IA)" data-en="FAQ (AI)">FAQ (AI)</button>
-                    <button type="button" onclick="bwToggleTheme()" data-es="Modo claro / oscuro" data-en="Light / dark mode">Light / dark mode</button>
                 </nav>
                 <p>© 2026 Barkwalk USA LLC · 900 Beacon Crest Circle 917, Birmingham, AL 35209</p>
             </div>
