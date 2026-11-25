@@ -2269,17 +2269,6 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <div id="demandInsights" class="grid grid-cols-2 gap-2 mt-3"></div>
                 </section>
 
-                <!-- 8. MODO DE RASTREO (batería / datos) -->
-                <section data-walk-only class="w-card">
-                    <div class="w-card-head">
-                        <span class="w-eyebrow"><i data-lucide="battery-medium"></i><span data-i18n="trackTitle">GPS tracking</span></span>
-                    </div>
-                    <div class="w-seg" role="radiogroup" aria-label="GPS">
-                        <button type="button" role="radio" id="trackContinuous" onclick="setTrackingMode('continuous')"><span data-i18n="trackCont">📡 Continuous</span></button>
-                        <button type="button" role="radio" id="trackInterval" onclick="setTrackingMode('interval')"><span data-i18n="trackInt">🔋 Saver · 60 s</span></button>
-                    </div>
-                    <p id="trackHint" class="text-[11px] text-brandTextDark/60 mt-2"></p>
-                </section>
 
                 <!-- ACCESO A CASA (códigos ocultos) -->
                 <section data-walk-only class="w-card">
@@ -4520,6 +4509,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="/terms-gate.js?v=20261202" defer></script>
 <script src="/walker-application.js?v=20261203" defer></script>
 <script src="/account-close.js?v=20261204" defer></script>
+<script src="/delivery-photo.js?v=20261205" defer></script>
 <script src="/membership-value.js?v=20261130" defer></script>
 <script src="/booking-flow.js?v=20261130" defer></script>
 
@@ -5499,6 +5489,16 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         <fieldset class="bg-white border border-brandBeige rounded-2xl p-3 space-y-3" data-report-dog="${id}">
           <legend class="sr-only">${esc(d.row.pet_name || '')}</legend>
           <p class="font-black text-[14px] text-brandDarkGreen">🐶 ${esc(d.row.pet_name || tr('Mascota', 'Pet'))}</p>
+          <!-- ENTREGA SEGURA (obligatoria): instrucciones del cliente + foto del perro en el lugar de entrega -->
+          <div class="rounded-2xl border-2 ${d.deliveryPhoto ? 'border-emerald-500 bg-emerald-50' : 'border-amber-400 bg-amber-50'} p-3 space-y-2" data-delivery="${id}">
+            <p class="font-black text-[12.5px] text-brandTextDark">🏠 ${tr('Entrega segura', 'Safe drop-off')} <span class="text-[10.5px] font-bold text-red-700">· ${tr('obligatoria', 'required')}</span></p>
+            <ul class="text-[12px] font-semibold text-brandTextDark/80 space-y-1 list-disc pl-4" data-delivery-instr="${id}"><li>${tr('Cargando instrucciones del cliente…', 'Loading the client instructions…')}</li></ul>
+            <label class="w-btn ${d.deliveryPhoto ? 'w-btn-ghost' : 'w-btn-primary'} w-full cursor-pointer">
+              <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" class="sr-only" onchange="takeDeliveryPhoto('${id}', this)">
+              📸 ${d.deliveryPhoto ? tr('Repetir foto de entrega', 'Retake drop-off photo') : tr('Tomar foto de entrega segura', 'Take safe drop-off photo')}
+            </label>
+            <p class="text-[11.5px] font-bold min-h-[1em] ${d.deliveryPhoto ? 'text-emerald-700' : 'text-amber-800'}" data-delivery-status="${id}">${d.deliveryPhoto ? '✅ ' + tr('Foto de entrega guardada', 'Drop-off photo saved') : tr('Toma la foto de tu mascota en el lugar de entrega para poder completar el paseo.', 'Take a photo of the pet at the drop-off spot to be able to complete the walk.')}</p>
+          </div>
           <div class="grid grid-cols-3 gap-2">
             ${REPORT_COUNTS.map(c => `
               <div class="text-center bg-brandCream/60 rounded-xl py-2">
@@ -5538,9 +5538,53 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       ${secciones}
       <p id="finishStatus" class="text-[12px] font-bold min-h-[1em]" role="status"></p>
       <button type="button" id="finishSubmit" class="w-btn w-btn-warn w-cta" onclick="submitFinishSheet()">
-        ✅ ${tr('Guardar reporte y finalizar', 'Save report & finish')}
+        ✅ ${tr('Completar paseo', 'Complete walk')}
       </button>`);
+    updateFinishButton();
+    dogs.forEach(d => fillDeliveryInstructions(d)); // instrucciones de entrega del cliente (por perro)
   }
+
+  // ---- Entrega segura: instrucciones del cliente + foto obligatoria (delivery-photo.js) ----
+  // El botón "Completar paseo" solo se habilita con la foto de cada perro; la base lo vuelve a exigir.
+  function updateFinishButton() {
+    const btn = document.getElementById('finishSubmit');
+    if (!btn) return;
+    const ids = [...document.querySelectorAll('#finishModal [data-report-dog]')].map(f => f.dataset.reportDog);
+    const faltan = window.BWDeliveryPhoto ? BWDeliveryPhoto.missingPhotos(ids.map(id => ({ id, deliveryPhoto: (packDog(id) || {}).deliveryPhoto }))) : ids;
+    btn.disabled = faltan.length > 0;
+    btn.title = faltan.length ? tr('Falta la foto de entrega segura', 'Safe drop-off photo missing') : '';
+  }
+  async function fillDeliveryInstructions(d) {
+    const ul = document.querySelector(`[data-delivery-instr="${CSS.escape(String(d.row.id))}"]`);
+    if (!ul || !window.BWDeliveryPhoto) return;
+    let acc = {};
+    try {
+      const r = await window.supabaseClient.rpc('get_home_access_for_walk', { p_walk_id: String(d.row.id) });
+      const v = r.data || {};
+      acc = v.status === 'ok' ? { method: v.entry_method, homeNotes: v.special_notes } : { locked: v.status === 'too_early' };
+    } catch (e) { /* sin indicaciones del hogar: se muestran las de la reserva */ }
+    const lineas = BWDeliveryPhoto.instructions({ ...acc, bookingNotes: d.row.special_notes || '' }, currentLang === 'en' ? 'en' : 'es');
+    ul.innerHTML = lineas.map(l => `<li>${esc(l)}</li>`).join('');
+  }
+  async function takeDeliveryPhoto(id, input) {
+    const file = input.files && input.files[0];
+    input.value = '';
+    const d = packDog(id);
+    const st = document.querySelector(`[data-delivery-status="${CSS.escape(String(id))}"]`);
+    if (!file || !d || !window.BWDeliveryPhoto) return;
+    if (st) { st.textContent = tr('Subiendo foto de entrega…', 'Uploading drop-off photo…'); st.className = 'text-[11.5px] font-bold min-h-[1em] text-brandTextDark/70'; }
+    const r = await BWDeliveryPhoto.upload(id, file);
+    if (r.error) {
+      if (st) { st.textContent = '⚠️ ' + tr('No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.', 'Could not upload the photo. Check your connection and try again.'); st.className = 'text-[11.5px] font-bold min-h-[1em] text-red-700'; }
+      return;
+    }
+    d.deliveryPhoto = r.path;
+    const box = document.querySelector(`[data-delivery="${CSS.escape(String(id))}"]`);
+    if (box) { box.classList.remove('border-amber-400', 'bg-amber-50'); box.classList.add('border-emerald-500', 'bg-emerald-50'); }
+    if (st) { st.textContent = '✅ ' + tr('Foto de entrega guardada', 'Drop-off photo saved'); st.className = 'text-[11.5px] font-bold min-h-[1em] text-emerald-700'; }
+    updateFinishButton();
+  }
+  window.takeDeliveryPhoto = takeDeliveryPhoto;
 
   // Lee y valida el formulario (un bloque por perro)
   function readFinishForm() {
@@ -5589,6 +5633,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       const nombre = d.row.pet_name || '';
       if (window.supabaseClient) {
         // Comprobación previa del tiempo mínimo (la regla real está en la base): si es pronto, no se envía nada
+        if (!d.deliveryPhoto) { errores.push(`${nombre}: ${tr('falta la foto de entrega segura', 'safe drop-off photo missing')}`); continue; }
         const faltan = walkMinutesLeft(d.row);
         if (faltan > 0) {
           errores.push(`${nombre}: ${tr(`aún no puedes completar el paseo, faltan ${faltan} min`, `you can't complete this walk yet, ${faltan} min left`)}`);
@@ -5604,8 +5649,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
           const rm = await insertWalkMessages([{ walk_id: d.row.id, message: resumen }]); // errores → consola
           if (rm && !rm.error) d.summarySent = true;
         }
-        const r2 = await setWalkStatus(d.row.id, 'completed'); // in_progress → completed
-        if (r2.error) { errores.push(`${nombre}: ${r2.error.message}`); continue; }
+        const r2 = await setWalkStatus(d.row.id, 'completed'); // in_progress → completed (la base exige la foto de entrega)
+        if (r2.error) { errores.push(`${nombre}: ${window.BWDeliveryPhoto ? BWDeliveryPhoto.friendlyError(r2.error.message, currentLang) : r2.error.message}`); continue; }
+        await insertWalkMessages([{ walk_id: d.row.id, message: `📸 ${tr('Entrega segura: dejé a', 'Safe drop-off: I left')} ${nombre} ${tr('en el lugar indicado. Puedes ver la foto en el reporte del paseo.', 'at the requested spot. You can see the photo in the walk report.')}` }]);
         if (typeof requestWalkerPayout === 'function') requestWalkerPayout(d.row.id); // Stripe Connect: pago al paseador
       }
       recordWalkHistory(d);
@@ -6115,27 +6161,39 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     if (el) el.textContent = text;
   }
 
-  // ---- 8. Modo de rastreo: continuo (watchPosition, envío cada 3 s) o ahorro (una lectura cada 60 s) ----
-  const TRACK_INTERVAL_MS = 60000;
-  let gpsIntervalId = null;
-  function getTrackingMode() { return lsGet('barkwalk_tracking_mode', 'continuous') === 'interval' ? 'interval' : 'continuous'; }
-  function setTrackingMode(mode) {
-    lsSet('barkwalk_tracking_mode', mode === 'interval' ? 'interval' : 'continuous');
-    applyTrackingUI();
-    if (PACK.length) { lastGpsSentAt = 0; startLocationSharing(); }
-    showToast(mode === 'interval' ? tr('🔋 Modo ahorro: ubicación cada 60 s', '🔋 Saver mode: location every 60 s') : tr('📡 Rastreo continuo activado', '📡 Continuous tracking on'));
+  // ---- 8. Rastreo GPS CONTINUO de alta precisión durante todo el paseo (sin modo ahorro de energía) ----
+  // watchPosition con enableHighAccuracy y sin lecturas en caché; envío cada GPS_SEND_INTERVAL_MS y, si el
+  // paseador está quieto (watchPosition no avisa), un "latido" reenvía la última posición cada GPS_HEARTBEAT_MS.
+  // Si no llega ninguna lectura en GPS_STALL_MS se fuerza una nueva; sin señal o sin permiso → alerta visible.
+  const GPS_OPTIONS = { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 };
+  const GPS_HEARTBEAT_MS = 10000;
+  const GPS_STALL_MS = 30000;
+  let gpsHeartbeatId = null, lastFixAt = 0;
+  try { localStorage.removeItem('barkwalk_tracking_mode'); } catch (e) { /* preferencia antigua del modo ahorro */ }
+
+  // Alerta visible mientras hay un paseo activo y el GPS falla (permiso denegado, sin señal o sin lecturas)
+  function showGpsAlert(kind) {
+    let el = document.getElementById('gpsLostAlert');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'gpsLostAlert'; el.setAttribute('role', 'alert');
+      el.style.cssText = 'position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:9500;margin:0 auto;max-width:440px;padding:14px 16px;border-radius:18px;background:#B91C1C;color:#fff;font-weight:800;font-size:13.5px;box-shadow:0 18px 40px -16px rgba(0,0,0,.6)';
+      document.body.appendChild(el);
+    }
+    const txt = kind === 'denied'
+      ? tr('📍 Permiso de ubicación desactivado. Actívalo ahora: el cliente necesita ver dónde estás durante todo el paseo.', '📍 Location permission is off. Turn it on now: the client needs to see where you are for the whole walk.')
+      : tr('📍 Se perdió la señal GPS. Mantén el GPS activo y la app abierta: el cliente no puede ver tu ubicación.', '📍 GPS signal lost. Keep GPS on and the app open: the client cannot see your location.');
+    el.innerHTML = `<div>${txt}</div><button type="button" style="margin-top:10px;width:100%;min-height:44px;border-radius:12px;background:#fff;color:#B91C1C;font-weight:900" onclick="retryGps()">${tr('Reintentar GPS', 'Retry GPS')}</button>`;
+    el.hidden = false;
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   }
-  function applyTrackingUI() {
-    const mode = getTrackingMode();
-    const c = document.getElementById('trackContinuous'), i = document.getElementById('trackInterval'), hint = document.getElementById('trackHint');
-    if (c) c.setAttribute('aria-checked', mode === 'continuous' ? 'true' : 'false');
-    if (i) i.setAttribute('aria-checked', mode === 'interval' ? 'true' : 'false');
-    if (hint) hint.textContent = mode === 'continuous'
-      ? tr('Máxima precisión: envía tu ubicación cada 3 s. Usa más batería y datos.', 'Highest accuracy: sends your location every 3 s. Uses more battery and data.')
-      : tr('Ahorra batería y datos: actualiza tu ubicación cada 60 s. El mapa del cliente se moverá con menos frecuencia.', "Saves battery and data: updates your location every 60 s. The client's map moves less often.");
-  }
+  function hideGpsAlert() { const el = document.getElementById('gpsLostAlert'); if (el) el.hidden = true; }
+  function retryGps() { hideGpsAlert(); lastGpsSentAt = 0; startLocationSharing(); requestWakeLock(); }
+  window.retryGps = retryGps;
+  const walkIsActive = () => PACK.length > 0;
 
   function onGeoError(err) {
+    if (walkIsActive() && (err.code === 1 || err.code === 2)) showGpsAlert(err.code === 1 ? 'denied' : 'lost');
     const msgs = {
       1: tr('⚠️ Permiso de ubicación denegado. Actívalo en la configuración del navegador para que el cliente te vea.', '⚠️ Location permission denied. Enable it in browser settings so the client can see you.'),
       2: tr('⚠️ Ubicación no disponible.', '⚠️ Location unavailable.'),
@@ -6147,6 +6205,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 
   // Cada lectura de GPS: posición, millas caminadas, distancia/ETA y envío a Supabase
   function handleWalkerPosition(pos) {
+    lastFixAt = Date.now();
+    hideGpsAlert();
     const cur = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     rememberWalkerPos(cur.lat, cur.lng);
     if (PACK.some(d => d.state === 'walking') && (pos.coords.accuracy || 0) <= 50) {
@@ -6167,22 +6227,32 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       return;
     }
     setShareStatus(tr('📡 Obteniendo ubicación…', '📡 Getting location…'));
-    if (getTrackingMode() === 'interval') {
-      const leer = () => navigator.geolocation.getCurrentPosition(handleWalkerPosition, onGeoError,
-        { enableHighAccuracy: false, maximumAge: 30000, timeout: 20000 });
-      leer();
-      gpsIntervalId = setInterval(leer, TRACK_INTERVAL_MS);
-    } else {
-      gpsWatchId = navigator.geolocation.watchPosition(handleWalkerPosition, onGeoError,
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+    lastFixAt = Date.now();
+    gpsWatchId = navigator.geolocation.watchPosition(handleWalkerPosition, onGeoError, GPS_OPTIONS);
+    // Latido: reenvía la posición aunque el paseador esté quieto y detecta un GPS que dejó de responder
+    gpsHeartbeatId = setInterval(() => {
+      if (!walkIsActive()) return;
+      if (Date.now() - lastFixAt > GPS_STALL_MS) {
+        showGpsAlert('lost');
+        navigator.geolocation.getCurrentPosition(handleWalkerPosition, onGeoError, GPS_OPTIONS);
+      } else if (lastWalkerPos && Date.now() - lastGpsSentAt >= GPS_HEARTBEAT_MS) {
+        queueLocation(lastWalkerPos.lat, lastWalkerPos.lng);
+      }
+    }, GPS_HEARTBEAT_MS);
+    // Si el permiso de ubicación cambia a "denegado" durante el paseo, la alerta aparece al instante
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' }).then((p) => {
+        p.onchange = () => { if (p.state === 'denied' && walkIsActive()) showGpsAlert('denied'); else if (p.state === 'granted' && walkIsActive()) retryGps(); };
+      }).catch(() => {});
     }
   }
 
   function stopLocationSharing() {
     if (gpsWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatchId);
     gpsWatchId = null;
-    clearInterval(gpsIntervalId);
-    gpsIntervalId = null;
+    clearInterval(gpsHeartbeatId);
+    gpsHeartbeatId = null;
+    if (!walkIsActive()) hideGpsAlert();
     prevWalkPos = null;
     clearTimeout(gpsSendTimer);
     gpsSendTimer = null;
@@ -6212,8 +6282,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       console.error('Error al enviar ubicación:', error);
       setShareStatus(tr('⚠️ No se pudo compartir la ubicación. Reintentando…', '⚠️ Could not share location. Retrying…'));
     } else {
-      const modo = getTrackingMode() === 'interval' ? tr(' · ahorro 60 s', ' · saver 60 s') : '';
-      setShareStatus(tr(`🟢 Ubicación en vivo compartida${PACK.length > 1 ? ` con ${PACK.length} dueños` : ' con el cliente'}`, `🟢 Live location shared${PACK.length > 1 ? ` with ${PACK.length} owners` : ' with the client'}`) + modo);
+      setShareStatus(tr(`🟢 Ubicación en vivo compartida${PACK.length > 1 ? ` con ${PACK.length} dueños` : ' con el cliente'}`, `🟢 Live location shared${PACK.length > 1 ? ` with ${PACK.length} owners` : ' with the client'}`));
     }
   }
 
@@ -7859,7 +7928,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   async function renderReport() {
     renderReportView(lsGetJSON('barkwalk_last_report'), true); // vista inmediata mientras carga
     const fresh = await fetchLatestReport();
-    if (fresh) renderReportView(fresh, false);
+    if (fresh) { renderReportView(fresh, false); showReportDeliveryPhoto(fresh.walkId); }
     else if (!lsGetJSON('barkwalk_last_report')) renderReportView(null, false);
   }
 
@@ -7904,7 +7973,14 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         <button type="button" onclick="closePoochReportModal()" class="bg-white border-2 border-brandBeige text-brandDarkGreen font-bold py-3 rounded-xl min-h-[48px]">${tr('Cerrar', 'Close')}</button>
         <button type="button" onclick="closePoochReportModal(); openReviewTipModal();" class="bg-brandDarkGreen text-white font-bold py-3 rounded-xl min-h-[48px] shadow-md">⭐ ${tr('Calificar', 'Rate & tip')}</button>
       </div>
+      <div id="reportDeliveryPhoto" class="bg-white p-3.5 rounded-2xl border border-brandBeige" hidden></div>
       ${r.walkId != null ? `<button type="button" onclick="reportWalkIssue('${esc(String(r.walkId))}')" class="w-full text-[12px] font-bold text-red-700 underline py-2 min-h-[44px]">⚠️ ${tr('Reportar un problema con este paseo', 'Report a problem with this walk')}</button>` : ''}`;
+  }
+
+  // Foto de entrega segura en el reporte del cliente (se pide después de dibujar el reporte)
+  function showReportDeliveryPhoto(walkId) {
+    const el = document.getElementById('reportDeliveryPhoto');
+    if (el && walkId != null && window.BWDeliveryPhoto) BWDeliveryPhoto.showInto(String(walkId), el);
   }
 
   // El paseador registra pipí/popó/agua → mensaje automático al cliente
@@ -8409,9 +8485,6 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     heatLow: ['Baja', 'Low'],
     heatMid: ['Media', 'Medium'],
     heatHigh: ['Alta', 'High'],
-    trackTitle: ['Rastreo GPS', 'GPS tracking'],
-    trackCont: ['📡 Continuo', '📡 Continuous'],
-    trackInt: ['🔋 Ahorro · 60 s', '🔋 Saver · 60 s'],
     // Vista del cliente
     yourPet: ['Tu mascota', 'Your pet'],
     bookService: ['Reservar un servicio', 'Book a service'],
@@ -9343,7 +9416,6 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     else if (ws === 'pending') showToast(tr('⏳ Tu cuenta está en revisión por el equipo de Barkwalk.', '⏳ Your account is under review by the Barkwalk team.'), 'warn', 5000);
     renderWalkerAccess();
     applyAvailabilityUI();
-    applyTrackingUI();
     renderPackCard();
     updateMainCta();
     renderWalkerGallery();
@@ -9937,13 +10009,12 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
     if (typeof updateConfirmBookingText === 'function') updateConfirmBookingText();
     const nota = document.querySelector('#cardSecureNote span');
     if (nota) nota.textContent = tr('Los datos de la tarjeta van directo a Stripe. Barkwalk nunca ve ni guarda el número completo.', 'Card details go straight to Stripe. Barkwalk never sees or stores your full card number.');
-    setTxt('lblAccessNotes', tr('Notas especiales', 'Special notes'));
+    setTxt('lblAccessNotes', tr('Notas especiales y lugar de entrega segura', 'Special notes & safe drop-off spot'));
     setTxt('inputAccessNotes', tr('Ej: Cierra la reja lateral, el perro se escapa. El gato debe quedarse adentro.', 'Ex: Close the side gate, the dog escapes. The cat must stay inside.'), 'placeholder');
     if (clientLastRow) renderClientWalkStatus(clientLastRow);
     renderWalkerAccess(); // setLanguage sobrescribe el título/texto de acceso con textos fijos
     updateWalkerStatusPill();
     applyAvailabilityUI();
-    applyTrackingUI();
     updateMainCta();
     renderPackCard();
     renderWalkerGallery();
