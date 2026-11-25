@@ -100,6 +100,9 @@
 
             var hasSession = false;
             try { hasSession = !!localStorage.getItem('sb-hdtgtrnbqoyvjasvzilr-auth-token'); } catch (e) {}
+            // Enlace mágico / de acceso (#access_token=…): la sesión aún no está guardada, pero va a entrar al panel;
+            // no enseñar la portada mientras supabase-js la crea (la recuperación de contraseña tiene su propio modo)
+            if (!hasSession) { var lnk = location.hash + location.search; hasSession = /access_token=/.test(lnk) && !/type=recovery/.test(lnk); }
             if (hasSession) root.classList.add('bw-resume');
 
             function reveal() { // la vista que esté en pantalla entra con elevación suave
@@ -1356,6 +1359,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
          (lpApplyLang) y los IDs de siempre (translations). Precios: SERVICE_CATALOG / GROOMING_ADDONS (= api/_lib/pricing.js). -->
     <style>
         #welcomeView { background: var(--bw-bg); color: var(--bw-text); overflow-x: clip; display: flex; flex-direction: column; }
+        /* Con sesión iniciada la portada desaparece por completo: el id (#welcomeView) pesa más que .hidden de Tailwind */
+        #welcomeView.hidden { display: none !important; }
         .lp-wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
         @media (min-width: 768px) { .lp-wrap { padding-left: 32px; padding-right: 32px; } }
 
@@ -1483,7 +1488,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 <div>
                     <h1 id="txtHeroTitle" class="lp-h1">Trusted dog walks, <em>tracked live.</em></h1>
                     <p id="txtHeroSub" class="lp-lead">Vetted local walkers. Book in under a minute.</p>
-                    <div class="lp-ctas">
+                    <div class="lp-ctas" data-fab-avoid>
                         <button type="button" class="lp-btn lp-btn-primary lp-btn-lg" onclick="lpBook()"><span data-es="Reservar paseo" data-en="Book a walk">Book a walk</span></button>
                         <a href="#lpServices" data-lp-go="lpServices" class="lp-btn lp-btn-ghost lp-btn-lg"><span data-es="Ver tarifas" data-en="See pricing">See pricing</span></a>
                     </div>
@@ -1502,7 +1507,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     </div>
                     <div id="lpSvc" class="lp-svc" role="group" aria-label="Service / Servicio"></div>
                     <div id="lpDur" class="lp-dur" role="group" aria-label="Duration / Duración"></div>
-                    <div class="lp-total">
+                    <div class="lp-total" data-fab-avoid>
                         <p class="lp-price" aria-live="polite"><span id="lpPrice">$22</span> <small data-es="/ paseo" data-en="/ walk">/ walk</small></p>
                         <button type="button" class="lp-btn lp-btn-primary" onclick="lpBook()"><span data-es="Continuar" data-en="Continue">Continue</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
                     </div>
@@ -1580,6 +1585,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             user-select: none; -webkit-user-select: none; transition: transform .15s ease, box-shadow .15s ease; }
         .bw-chat-fab:focus-visible { outline: 3px solid #0F3D2E; outline-offset: 3px; }
         .bw-chat-fab.is-dragging { cursor: grabbing; transform: scale(1.08); box-shadow: 0 16px 32px rgba(0,0,0,.45); transition: none; }
+        .bw-chat-fab.is-yielding { opacity: 0; pointer-events: none; transition: opacity .15s ease; } /* portada móvil: no tapa los botones */
         .bw-chat-fab .bw-chat-dot { position: absolute; top: 5px; right: 5px; width: 13px; height: 13px; border-radius: 9999px; background: #10B981; border: 2px solid #fff; }
         .bw-chat-fab[aria-expanded="true"] .bw-chat-dot { display: none; }
         .bw-chat-panel { position: fixed; z-index: 61; width: min(380px, calc(100vw - 32px)); height: min(540px, calc(100dvh - 150px));
@@ -3866,6 +3872,18 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             document.getElementById('regErrorMsg').classList.add('hidden');
             setPasswordVisible('regPass', document.getElementById('btnTogglePass'), false); // no dejar la clave visible
         }
+        // Cerrar también con Escape o tocando el fondo oscuro (además de la ✕). No se cierra mientras se envía
+        // el formulario ni si hay otra ventana encima (p. ej. "¿Olvidaste tu contraseña?").
+        (function () {
+            const modal = document.getElementById('registerModal');
+            if (!modal) return;
+            const canClose = () => !modal.classList.contains('hidden') && !isProcessingAction
+                && !document.getElementById('forgotModal') && !document.getElementById('newPasswordModal');
+            let downOnBackdrop = false; // evita cerrar al seleccionar texto y soltar el mouse fuera de la tarjeta
+            modal.addEventListener('pointerdown', (e) => { downOnBackdrop = e.target === modal; });
+            modal.addEventListener('click', (e) => { if (e.target === modal && downOnBackdrop && canClose()) closeRegistrationModal(); downOnBackdrop = false; });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && canClose()) { e.preventDefault(); closeRegistrationModal(); } });
+        })();
 
         // ---------- Mostrar / ocultar contraseña ----------
         function setPasswordVisible(inputId, btn, visible) {
@@ -10308,6 +10326,27 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       const s = lsGetJSON(FLOAT_POS_KEY);
       if (s && Number.isFinite(s.yRatio)) restoreFab(); else if (FLOAT_CHAT.open) positionChatPanel();
     });
+    // Portada en móvil: la burbuja se aparta (se desvanece) mientras taparía "Continuar" o los botones del hero
+    // ([data-fab-avoid]); vuelve sola al pasar esa zona. Funciona con cualquier alto de pantalla y posición arrastrada.
+    let fabRaf = 0;
+    const fabAvoid = () => {
+      fabRaf = 0;
+      let tapa = false;
+      if (!FLOAT_CHAT.open && !FLOAT_CHAT.drag && window.innerWidth < 960) {
+        const f = fab.getBoundingClientRect(), m = 10;
+        tapa = !!f.width && [...document.querySelectorAll('#welcomeView:not(.hidden) [data-fab-avoid]')].some((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.left < f.right + m && r.right > f.left - m && r.top < f.bottom + m && r.bottom > f.top - m;
+        });
+      }
+      fab.classList.toggle('is-yielding', tapa);
+    };
+    const pedirFabAvoid = () => { if (!fabRaf) fabRaf = requestAnimationFrame(fabAvoid); };
+    window.addEventListener('scroll', pedirFabAvoid, { passive: true });
+    window.addEventListener('resize', pedirFabAvoid);
+    fab.addEventListener('pointerup', () => setTimeout(pedirFabAvoid, 260)); // tras pegarse al borde
+    window.bwFabAvoid = pedirFabAvoid;
+    pedirFabAvoid();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
