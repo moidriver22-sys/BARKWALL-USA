@@ -91,14 +91,18 @@ function boot(fixture) {
     assert.ok(gate > 0 && show > gate, 'primero decide, después muestra la app');
     assert.match(fn.slice(gate, show), /showWalkerOnboarding\(\);[\s\S]*return;/);
     const must = HTML.slice(HTML.indexOf('async function walkerMustOnboard'), HTML.indexOf('function showWalkerOnboarding'));
-    assert.match(must, /if \(currentUserRole !== 'shopper' \|\| !u \|\| u\.is_admin\) return false;/, 'clientes y admin no pasan por el onboarding');
-    assert.match(must, /if \(!window\.BWWalkerApp\) return true;/, 'sin módulo: bloqueado');
-    assert.match(must, /catch \(e\) \{[^}]*return true; \}/, 'error: bloqueado');
+    assert.match(HTML, /function walkerGateApplies\(u = window\.currentUser\) \{ return !!u && currentUserRole === 'shopper' && !u\.is_admin; \}/, 'clientes y admin no pasan por el onboarding');
+    assert.match(must, /if \(!walkerGateApplies\(u\)\) return false;/);
+    assert.match(must, /let approved = false;\s*if \(window\.BWWalkerApp\) \{/, 'sin módulo: bloqueado');
+    assert.match(must, /catch \(e\) \{[^}]*approved = false; \}/, 'error: bloqueado');
+    assert.match(must, /return !approved;/);
     assert.match(HTML, /function showWalkerOnboarding\(\) \{\s*document\.getElementById\('appDashboard'\)\.classList\.add\('hidden'\);/);
     assert.ok(!/Completa tu postulación: sube tu ID vigente y una selfie en Walker Pro/.test(HTML), 'ya no se envía al paseador a Walker Pro para postular');
   });
   await t('al aprobarse: bwUnlockApp desbloquea toda la app y lleva a Walker Pro (cobros con Stripe); cerrar sesión limpia todo', async () => {
-    const un = HTML.slice(HTML.indexOf('window.bwUnlockApp = function'), HTML.indexOf('// Botón "Admin" en la barra inferior'));
+    const un = HTML.slice(HTML.indexOf('window.bwUnlockApp = async function'), HTML.indexOf('// 1) Nadie puede dejar #appDashboard visible'));
+    assert.ok(un.length > 50, 'bwUnlockApp encontrado');
+    assert.ok(un.indexOf('if (await walkerMustOnboard()) { enforceWalkerLock(); return; }') < un.indexOf("appDashboard').classList.remove('hidden')"), 'solo abre la app si el servidor lo confirma');
     assert.match(un, /walkerOnboardingView'\)\.classList\.add\('hidden'\)/); assert.match(un, /appDashboard'\)\.classList\.remove\('hidden'\)/);
     assert.match(un, /switchTab\('pro'\)/);
     assert.match(HTML, /BWWalkerApp\.stop\(\); document\.getElementById\('walkerOnboardingView'\)\.classList\.add\('hidden'\)/);

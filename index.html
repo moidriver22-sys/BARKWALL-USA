@@ -4540,17 +4540,39 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             maybeWelcomeVerified(user, opts.justVerified === true);
         }
 
-        // ¿Este paseador debe quedarse en el onboarding? Solo pasa a la app con aprobación del admin
-        // (walker_status 'verified' + postulación aprobada con ID vigente; misma regla que la base).
-        // Si el módulo no carga, se BLOQUEA por seguridad (nunca se abre la app por error).
+        // ===== BW_WALKER_GATE:START =====
+        // PUERTA DEL PASEADOR: un paseador (no admin) SOLO ve la app interna (#appDashboard) cuando el admin lo
+        // aprobó: walker_status 'verified' + postulación aprobada con ID vigente (BWWalkerApp.isApproved, la misma
+        // regla que la base: public.bw_is_verified_walker). Pendiente, sin postulación, rechazado, suspendido o con
+        // el ID vencido = BLOQUEADO. Si el módulo no carga o la red falla, también se bloquea.
+        // La regla se hace cumplir SIEMPRE, no solo al entrar:
+        //   · un observador re-oculta #appDashboard en cuanto cualquier código lo muestre (pestañas, "atrás",
+        //     "Volver a la app", consola…) mientras la aprobación vigente no sea de ESTE usuario;
+        //   · se vuelve a consultar al servidor en pageshow (incluida la vuelta desde la caché "atrás" del
+        //     navegador), popstate y al volver a la pestaña;
+        //   · los datos del paseador (paseos activos, alertas en vivo) no se cargan mientras esté bloqueado.
+        // Los datos de paseos además están protegidos por RLS: un paseador no verificado no puede leerlos.
+        const WALKER_GATE = { approvedFor: null, lastCheck: 0 };
+        function walkerGateApplies(u = window.currentUser) { return !!u && currentUserRole === 'shopper' && !u.is_admin; }
+        function walkerLocked() { const u = window.currentUser; return walkerGateApplies(u) && WALKER_GATE.approvedFor !== u.id; }
+        window.walkerLocked = walkerLocked;
+
+        // ¿Debe quedarse en el onboarding? Consulta al servidor (Supabase) y guarda la respuesta para ESTE usuario
         async function walkerMustOnboard() {
             const u = window.currentUser;
-            if (currentUserRole !== 'shopper' || !u || u.is_admin) return false;
+            if (!walkerGateApplies(u)) return false;
             for (let i = 0; i < 25 && !window.BWWalkerApp; i++) await new Promise(r => setTimeout(r, 200));
-            if (!window.BWWalkerApp) return true;
-            try { const g = await BWWalkerApp.gate(); return !g.approved; } catch (e) { console.warn('Estado del paseador:', e); return true; }
+            let approved = false;
+            if (window.BWWalkerApp) {
+                try { approved = (await BWWalkerApp.gate()).approved === true; } catch (e) { console.warn('Estado del paseador:', e); approved = false; }
+            }
+            if (window.currentUser !== u) return true; // cambió la sesión mientras se consultaba
+            WALKER_GATE.approvedFor = approved ? u.id : null;
+            WALKER_GATE.lastCheck = Date.now();
+            return !approved;
         }
         window.walkerMustOnboard = walkerMustOnboard;
+
         function showWalkerOnboarding() {
             document.getElementById('appDashboard').classList.add('hidden');
             document.getElementById('walkerOnboardingView').classList.remove('hidden');
@@ -4558,16 +4580,138 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             else document.getElementById('onbRoot').innerHTML = '<p class="text-center text-sm font-bold py-10">' + tr('No se pudo cargar tu postulación. Recarga la página.', 'Could not load your application. Reload the page.') + '</p>';
             if (window.lucide) lucide.createIcons();
         }
-        // Lo llama la bienvenida cuando el admin aprueba: se desbloquea TODA la app
-        window.bwUnlockApp = function () {
+        // Hace cumplir el bloqueo AHORA (síncrono): oculta la app y deja el onboarding a la vista
+        function enforceWalkerLock() {
+            if (!walkerLocked()) return false;
+            const app = document.getElementById('appDashboard'), view = document.getElementById('walkerOnboardingView');
+            if (app && !app.classList.contains('hidden')) app.classList.add('hidden');
+            if (view && view.classList.contains('hidden')) showWalkerOnboarding();
+            return true;
+        }
+        window.enforceWalkerLock = enforceWalkerLock;
+        // Vuelve a preguntar al servidor (p. ej. lo suspendieron o se aprobó) y aplica el resultado
+        async function recheckWalkerGate() {
+            if (!walkerGateApplies()) return;
+            await walkerMustOnboard();
+            enforceWalkerLock();
+        }
+        // Lo llama la bienvenida cuando el admin aprueba: se desbloquea TODA la app, SOLO si el servidor lo confirma
+        window.bwUnlockApp = async function () {
+            if (await walkerMustOnboard()) { enforceWalkerLock(); return; }
             if (window.BWWalkerApp) BWWalkerApp.stop();
-            if (window.currentUser) window.currentUser.walker_status = 'verified';
             document.getElementById('walkerOnboardingView').classList.add('hidden');
             document.getElementById('appDashboard').classList.remove('hidden');
             showDashboardWithSkeleton();
             if (window.BWTermsGate) BWTermsGate.check();
             if (typeof switchTab === 'function') switchTab('pro'); // conectar cobros con Stripe
         };
+        // 1) Nadie puede dejar #appDashboard visible a un paseador bloqueado (se re-oculta antes de pintarse)
+        (function watchWalkerLock() {
+            const app = document.getElementById('appDashboard');
+            if (app && typeof MutationObserver === 'function') {
+                new MutationObserver(() => { if (!app.classList.contains('hidden')) enforceWalkerLock(); })
+                    .observe(app, { attributes: true, attributeFilter: ['class'] });
+            }
+            // 2) "Atrás" / vuelta desde otra página (caché bfcache) / volver a la pestaña: bloquear y re-verificar
+            window.addEventListener('popstate', () => { enforceWalkerLock(); recheckWalkerGate(); });
+            window.addEventListener('pageshow', () => { enforceWalkerLock(); recheckWalkerGate(); });
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) return;
+                enforceWalkerLock();
+                if (Date.now() - WALKER_GATE.lastCheck > 15000) recheckWalkerGate();
+            });
+        })();
+        // ===== BW_WALKER_GATE:END =====
+
+        // ===== BW_LEGAL_MODAL:START =====
+        // Documentos legales (Términos, Acuerdo para Paseadores / Independent Contractor Agreement, Privacidad)
+        // DENTRO de la app: un enlace a /terminos-* o /privacidad no navega fuera (en la app instalada del iPhone
+        // un target="_blank" puede abrirse en la misma ventana y el "Atrás" volvía a una vista anterior). Se lee el
+        // documento del mismo sitio y se muestra en un modal; "Abrir en pestaña nueva" sigue disponible.
+        const LEGAL_PATH = /^\/(terminos-clientes|terminos-paseadores|privacidad)(\.html)?$/;
+        function legalTarget(a) {
+            if (!a || !a.getAttribute) return null;
+            const href = a.getAttribute('href');
+            if (!href || a.dataset.legalExternal === '1') return null;
+            let url; try { url = new URL(href, location.href); } catch (e) { return null; }
+            if (url.origin !== location.origin || !LEGAL_PATH.test(url.pathname)) return null;
+            return { path: url.pathname.replace(/\.html$/, ''), anchor: decodeURIComponent(url.hash.slice(1)) };
+        }
+        // Copia segura del documento: sin scripts, estilos, marcos, manejadores on* ni enlaces javascript:
+        function cleanLegalNode(node) {
+            node.querySelectorAll('script,style,iframe,object,embed,link,meta,form').forEach(n => n.remove());
+            node.querySelectorAll('*').forEach(el => [...el.attributes].forEach(at => {
+                if (/^on/i.test(at.name) || (/^(href|src|xlink:href)$/i.test(at.name) && /^\s*javascript:/i.test(at.value))) el.removeAttribute(at.name);
+            }));
+            return node;
+        }
+        let legalReturnFocus = null;
+        function closeLegalModal() {
+            document.getElementById('bwLegalModal')?.remove();
+            document.removeEventListener('keydown', legalKeydown, true);
+            if (legalReturnFocus && legalReturnFocus.focus) { try { legalReturnFocus.focus(); } catch (e) {} }
+            legalReturnFocus = null;
+        }
+        function legalKeydown(e) { if (e.key === 'Escape') { e.stopPropagation(); closeLegalModal(); } }
+        async function openLegalModal(path, anchor) {
+            if (!document.getElementById('bwLegalModal')) legalReturnFocus = document.activeElement;
+            document.getElementById('bwLegalModal')?.remove();
+            const es = currentLang === 'es';
+            const wrap = document.createElement('div');
+            wrap.id = 'bwLegalModal';
+            wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-modal', 'true'); wrap.setAttribute('aria-labelledby', 'bwLegalTitle');
+            wrap.style.cssText = 'position:fixed;inset:0;z-index:9700;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(5,12,9,.82)';
+            wrap.innerHTML = `<div style="width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column;background:var(--bw-surface,#fff);color:var(--bw-text,#2B2621);border-radius:22px;overflow:hidden;box-shadow:0 30px 60px -24px rgba(0,0,0,.6)">
+                <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--bw-line,#EBE3D5)">
+                  <p id="bwLegalTitle" style="flex:1;margin:0;font-weight:900;font-size:14px;color:var(--bw-ink,#1B4D3E)">${es ? 'Cargando…' : 'Loading…'}</p>
+                  <a data-legal-external="1" href="${path}?lang=${es ? 'es' : 'en'}" target="_blank" rel="noopener" style="font-size:12px;font-weight:800;color:var(--bw-ink,#1B4D3E);text-decoration:underline">${es ? 'Abrir en pestaña nueva ↗' : 'Open in new tab ↗'}</a>
+                  <button type="button" data-legal-close aria-label="${es ? 'Cerrar' : 'Close'}" style="min-width:44px;min-height:44px;border:0;background:none;font-size:22px;font-weight:900;cursor:pointer;color:inherit">×</button>
+                </div>
+                <div id="bwLegalBody" class="bw-legal-body" style="overflow-y:auto;padding:16px 18px 22px;font-size:13.5px;line-height:1.55"></div>
+              </div>`;
+            if (!document.getElementById('bwLegalCss')) {
+                const st = document.createElement('style'); st.id = 'bwLegalCss';
+                st.textContent = '.bw-legal-body h1{font-size:19px;font-weight:900;margin:0 0 4px;color:var(--bw-ink,#1B4D3E)}.bw-legal-body h2{font-size:15px;font-weight:900;margin:18px 0 6px;color:var(--bw-ink,#1B4D3E)}.bw-legal-body p,.bw-legal-body li{margin:0 0 8px}.bw-legal-body ul{padding-left:20px;margin:0 0 8px;list-style:disc}.bw-legal-body a{text-decoration:underline;font-weight:700}.bw-legal-body .lg-meta,.bw-legal-body .lg-kicker{font-size:12px;opacity:.7;margin:0 0 6px}.bw-legal-body .lg-toc{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;margin:8px 0 4px}';
+                document.head.appendChild(st);
+            }
+            document.body.appendChild(wrap);
+            wrap.addEventListener('click', (e) => {
+                if (e.target === wrap || e.target.closest('[data-legal-close]')) { closeLegalModal(); return; }
+                const a = e.target.closest('a[href^="#"]'); // índice del documento: desplazarse dentro del modal
+                if (a) { e.preventDefault(); const t = wrap.querySelector(`[id="${CSS.escape(a.getAttribute('href').slice(1))}"]`); if (t) t.scrollIntoView({ block: 'start' }); }
+            });
+            document.addEventListener('keydown', legalKeydown, true);
+            wrap.querySelector('[data-legal-close]').focus();
+            const body = wrap.querySelector('#bwLegalBody'), title = wrap.querySelector('#bwLegalTitle');
+            try {
+                const r = await fetch(path, { credentials: 'same-origin', cache: 'no-cache' });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+                const art = doc.querySelector(`article[data-doc-lang="${es ? 'es' : 'en'}"]`) || doc.querySelector('article') || doc.body;
+                const copia = cleanLegalNode(art.cloneNode(true));
+                copia.removeAttribute('hidden');
+                if (!document.getElementById('bwLegalModal')) return; // lo cerraron mientras cargaba
+                body.replaceChildren(...copia.childNodes);
+                title.textContent = (body.querySelector('h1') || {}).textContent || (es ? 'Documento legal' : 'Legal document');
+                const t = anchor ? body.querySelector(`[id="${CSS.escape(anchor)}"]`) : null;
+                if (t) t.scrollIntoView({ block: 'start' });
+            } catch (e) {
+                console.warn('Documento legal:', e);
+                title.textContent = es ? 'No se pudo cargar el documento' : 'Could not load the document';
+                body.innerHTML = `<p>${es ? 'Revisa tu conexión o ábrelo en una pestaña nueva con el enlace de arriba.' : 'Check your connection or open it in a new tab with the link above.'}</p>`;
+            }
+        }
+        window.openLegalModal = openLegalModal;
+        // Fase de captura: corre antes que cualquier otro manejador; Ctrl/⌘/Shift/clic medio conservan el comportamiento normal
+        document.addEventListener('click', (e) => {
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+            const dest = legalTarget(a);
+            if (!dest) return;
+            e.preventDefault();
+            openLegalModal(dest.path, dest.anchor);
+        }, true);
+        // ===== BW_LEGAL_MODAL:END =====
 
         // Botón "Admin" en la barra inferior solo para profiles.is_admin = true
         function applyAdminUI() {
@@ -4585,6 +4729,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         function resetAccountState() {
             const paso = (fn) => { try { fn(); } catch (e) { console.warn('logout cleanup:', e); } };
             window.currentUser = null;
+            paso(() => { WALKER_GATE.approvedFor = null; WALKER_GATE.lastCheck = 0; }); // la aprobación era de esa cuenta
             paso(() => { if (window.BWTermsGate) BWTermsGate.hide(); });
             paso(() => { if (window.BWWalkerApp) BWWalkerApp.stop(); document.getElementById('walkerOnboardingView').classList.add('hidden'); document.getElementById('bwWelcomeApproved')?.remove(); });
             paso(() => applyAdminUI()); // ocultar y vaciar el panel de admin
@@ -4610,7 +4755,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             ['cntPee', 'cntPoop', 'cntWater'].forEach(id => { const el = document.getElementById(id); if (el) el.innerText = '0'; });
         }
 
-        async function logoutUser() {
+        // opts.notice: aviso que se muestra en la portada nueva (p. ej. "Tu cuenta fue eliminada")
+        async function logoutUser(opts = {}) {
             const sb = window.supabaseClient;
             // Con la sesión aún activa: este dispositivo deja de recibir avisos push de esta cuenta
             if (window.bwPushGate) { try { await window.bwPushGate.unregister(); } catch (e) { console.warn('push unregister:', e); } }
@@ -4624,7 +4770,38 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             }
             resetAccountState();
             goHome();
+            bwHardHome(opts && typeof opts.notice === 'string' ? opts.notice : '');
         }
+
+        // ===== BW_SIGNOUT:START =====
+        // Cerrar sesión SIEMPRE termina en la portada actual y limpia: se carga de nuevo "/" (sin el documento
+        // anterior con sus pestañas, ventanas e historial de la app). location.replace no deja una entrada a la
+        // que volver con "Atrás". Se vacían sessionStorage y cualquier caché del Service Worker.
+        const BW_SIGNOUT_NOTICE = 'bw_signout_notice';
+        function bwHardHome(notice) {
+            try { sessionStorage.clear(); if (notice) sessionStorage.setItem(BW_SIGNOUT_NOTICE, String(notice).slice(0, 300)); } catch (e) {}
+            try { if (window.caches && caches.keys) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {}); } catch (e) {}
+            window.bwSignedOut = true;
+            location.replace('/');
+        }
+        window.bwHardHome = bwHardHome;
+        // Aviso de un solo uso en la portada nueva (después del splash)
+        (function showSignoutNotice() {
+            let n = null; try { n = sessionStorage.getItem(BW_SIGNOUT_NOTICE); sessionStorage.removeItem(BW_SIGNOUT_NOTICE); } catch (e) {}
+            if (n) setTimeout(() => { if (typeof showToast === 'function') showToast(n, 'ok', 6000); }, 1800);
+        })();
+        // Página restaurada desde la caché "atrás" del navegador (bfcache): si ya no hay sesión (se cerró aquí o
+        // en otra pestaña), nunca se muestra la app vieja.
+        window.addEventListener('pageshow', async (e) => {
+            if (!e.persisted) return;
+            const sb = window.supabaseClient;
+            let session = null;
+            try { session = sb ? (await sb.auth.getSession()).data.session : null; } catch (err) { session = null; }
+            const enApp = !document.getElementById('appDashboard')?.classList.contains('hidden')
+                || !document.getElementById('walkerOnboardingView')?.classList.contains('hidden');
+            if (!session && (window.currentUser || enApp || window.bwSignedOut)) { resetAccountState(); bwHardHome(); }
+        });
+        // ===== BW_SIGNOUT:END =====
 
         // Al cargar la página: si ya hay sesión guardada, entrar directo a su vista
         async function restoreSession() {
@@ -4634,7 +4811,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 // (PASSWORD_RECOVERY se escucha al crear el cliente de Supabase, en el 2.º script)
                 // Sesión cerrada en otra pestaña o token vencido -> volver a la portada
                 // (logoutUser ya limpia por su cuenta; aquí se cubre el cierre desde otra pestaña / token revocado)
-                if (event === 'SIGNED_OUT' && window.currentUser) { resetAccountState(); goHome(); }
+                if (event === 'SIGNED_OUT' && window.currentUser) { resetAccountState(); goHome(); bwHardHome(); }
                 else if (event === 'SIGNED_OUT' && !document.getElementById('appDashboard').classList.contains('hidden')) goHome();
             });
             // Enlaces del correo: los manejan startRecoveryFlow / startConfirmFlow (sin mostrar Registro/Login)
@@ -4857,8 +5034,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="/bw-safety.js?v=20261126" defer></script>
 <!-- Reserva por pasos animada (pasos, resumen en vivo, revisión final y Cancelar amable) -->
 <script src="/terms-gate.js?v=20261212" defer></script>
-<script src="/walker-application.js?v=20261212" defer></script>
-<script src="/account-close.js?v=20261208" defer></script>
+<script src="/walker-application.js?v=20261213" defer></script>
+<script src="/account-close.js?v=20261213" defer></script>
 <script src="/delivery-photo.js?v=20261205" defer></script>
 <script src="/membership-value.js?v=20261130" defer></script>
 <script src="/booking-flow.js?v=20261130" defer></script>
@@ -9805,6 +9982,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   let walkerWalksRestored = false;
   async function restoreWalkerWalks() {
     if (walkerWalksRestored || !window.supabaseClient) return;
+    if (window.walkerLocked && window.walkerLocked()) return; // paseador sin aprobar: ni sus paseos
     const uid = await getAuthUserId();
     if (!uid) return;
     walkerWalksRestored = true;
@@ -9817,6 +9995,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   }
 
   function onWalkerDashboardShown() {
+    // Paseador sin aprobar: no se carga nada de la app (y la puerta oculta el panel)
+    if (window.walkerLocked && window.walkerLocked()) { if (window.enforceWalkerLock) window.enforceWalkerLock(); return; }
     restoreWalkerWalks();
     handleConnectReturn(); // regreso del onboarding de Stripe Connect
     handleMembershipReturn(); // tarjeta "Socio Pro" + regreso de Stripe Checkout / portal
@@ -10627,6 +10807,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       noEsPortada:     !isVisible('welcomeView'),            // la portada pública NO está en pantalla
       enLinea:         walkerOnline,                         // interruptor "En línea" activado
       cuentaNoSuspendida: !(window.currentUser && window.currentUser.walker_status === 'suspended'), // suspendido por admin
+      paseadorAprobado: !(window.walkerLocked && window.walkerLocked()), // sin aprobación del admin: ninguna alerta de paseo
       cupoEnGrupo:     PACK.length < PACK_MAX                // le queda lugar en el paseo en grupo (máx. 3)
     };
     const ok = Object.values(checks).every(Boolean);

@@ -328,6 +328,8 @@
     }
     function closeApplication() {
       APP.open = false;
+      // "Volver a la app" solo vuelve a la app si este paseador está aprobado; si no, se queda en el onboarding
+      if (typeof win.walkerLocked === 'function' && win.walkerLocked()) return renderOnboarding('onbRoot');
       const app = doc.getElementById('appDashboard'), view = doc.getElementById('walkerOnboardingView');
       if (view) view.classList.add('hidden');
       if (app) app.classList.remove('hidden');

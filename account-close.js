@@ -286,10 +286,12 @@
       await new Promise((r) => win.setTimeout(r, 1600));
       state.busy = false;
       close();
-      try { if (typeof win.logoutUser === 'function') await win.logoutUser(); else { await win.supabaseClient.auth.signOut({ scope: 'local' }); win.location.replace('/'); } }
+      // logoutUser recarga la portada limpia; el aviso viaja a esa portada nueva
+      const aviso = tr('✅ Tu cuenta fue eliminada. Gracias por haber usado Barkwalk USA.', '✅ Your account was deleted. Thank you for using Barkwalk USA.');
+      try { if (typeof win.logoutUser === 'function') await win.logoutUser({ notice: aviso }); else { await win.supabaseClient.auth.signOut({ scope: 'local' }); win.location.replace('/'); } }
       catch (e) { try { await win.supabaseClient.auth.signOut({ scope: 'local' }); } catch (_) {} win.location.replace('/'); return; }
       try { win.scrollTo(0, 0); } catch (e) {}
-      toast(tr('✅ Tu cuenta fue eliminada. Gracias por haber usado Barkwalk USA.', '✅ Your account was deleted. Thank you for using Barkwalk USA.'));
+      toast(aviso); // solo si no hubo recarga (versiones antiguas de la app)
     }
 
     async function load() {

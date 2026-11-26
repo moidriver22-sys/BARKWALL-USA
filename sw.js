@@ -1,8 +1,13 @@
 // Barkwalk USA · Service worker de notificaciones push (Web Push / VAPID)
 // Solo gestiona notificaciones: NO cachea la app (cada visita carga la versión desplegada).
 // El servidor (/api/dispatch → api/_lib/push.js) envía JSON: { title, body, url, tag, urgent }.
+// Sin manejador 'fetch': el navegador SIEMPRE pide la página al servidor (nunca una portada o app vieja).
+// La versión nueva toma el control al instante y borra cualquier caché que hubiera dejado una versión anterior.
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (event) => event.waitUntil((async () => {
+  try { const keys = await caches.keys(); await Promise.all(keys.map((k) => caches.delete(k))); } catch (e) { /* sin Cache Storage */ }
+  await self.clients.claim();
+})()));
 
 self.addEventListener('push', (event) => {
   let data = {};
