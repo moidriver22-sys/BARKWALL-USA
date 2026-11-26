@@ -231,9 +231,6 @@
 
     function wireForm(box, after) {
       const $ = (id) => doc.getElementById(id);
-      // Vencimiento del ID en Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb).
-      // Escribe en el mismo #waExpiry y dispara 'change', así el aviso de vencimiento de abajo sigue funcionando.
-      if (win.BWDateSelect) win.BWDateSelect.attach($('waExpiry'), { win, future: true });
       const preview = (inputId, imgId, boxId, key) => $(inputId).addEventListener('change', async (e) => {
         const f = await shrink(e.target.files && e.target.files[0]);
         pick[key] = f || null;

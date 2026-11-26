@@ -2035,7 +2035,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <div id="bookingDatesList" class="flex flex-wrap gap-1.5 mt-2" aria-live="polite"></div>
                     <details class="dp-more mt-2">
                         <summary id="lblOtherDate">+ Another date (further ahead)</summary>
-                        <div class="flex flex-wrap items-end gap-2 mt-2">
+                        <div class="flex gap-2 mt-2">
                             <input type="date" id="inputBookingDate" class="bw-field flex-1" aria-describedby="bookingDatesHelp">
                             <button type="button" id="btnAddBookingDate" onclick="addBookingDate()" class="w-btn w-btn-primary shrink-0" style="min-height:44px;padding:0 14px">+ Add day</button>
                         </div>
@@ -3394,12 +3394,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             const strip = document.getElementById('bookingDayStrip');
             const hoy = todayBirmingham();
             const fin = shiftYmd(hoy, STRIP_DAYS - 1);
-            if (input) {
-                input.min = shiftYmd(hoy, STRIP_DAYS); input.max = shiftYmd(hoy, 366);
-                // Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb). Escribe en el
-                // mismo #inputBookingDate (addBookingDate sigue validando el rango); sin el script queda el nativo.
-                if (window.BWDateSelect) window.BWDateSelect.attach(input, { future: true });
-            }
+            if (input) { input.min = shiftYmd(hoy, STRIP_DAYS); input.max = shiftYmd(hoy, 366); }
             const es = currentLang === 'es';
             if (strip) {
                 const nuevo = strip.dataset.start !== hoy || strip.dataset.lang !== currentLang;
@@ -3964,9 +3959,6 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 birth.max = `${lim.getFullYear()}-${String(lim.getMonth() + 1).padStart(2, '0')}-${String(lim.getDate()).padStart(2, '0')}`;
                 set('lblBirth', tr('Fecha de nacimiento', 'Date of birth'));
                 set('regBirthHint', tr(`Debes tener ${MIN_SIGNUP_AGE} años o más para usar Barkwalk.`, `You must be ${MIN_SIGNUP_AGE} or older to use Barkwalk.`));
-                // Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb si no es bisiesto).
-                // Escribe en el mismo #regBirth; sin el script queda el selector nativo.
-                if (window.BWDateSelect) window.BWDateSelect.attach(birth);
 
                 const link = (href, txt) => `<a href="${href}" target="_blank" rel="noopener" class="font-bold text-brandDarkGreen underline underline-offset-2">${txt}</a>`;
                 set('regWaiverTitle', tr('Asunción de riesgos y exención de responsabilidad (Alabama)', 'Assumption of Risk and Release of Liability (Alabama)'));
@@ -4864,9 +4856,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="/content-filter.js?v=20261126" defer></script>
 <script src="/bw-safety.js?v=20261126" defer></script>
 <!-- Reserva por pasos animada (pasos, resumen en vivo, revisión final y Cancelar amable) -->
-<script src="/date-select.js?v=20261211" defer></script>
-<script src="/terms-gate.js?v=20261208" defer></script>
-<script src="/walker-application.js?v=20261209" defer></script>
+<script src="/terms-gate.js?v=20261212" defer></script>
+<script src="/walker-application.js?v=20261212" defer></script>
 <script src="/account-close.js?v=20261208" defer></script>
 <script src="/delivery-photo.js?v=20261205" defer></script>
 <script src="/membership-value.js?v=20261130" defer></script>
@@ -7680,11 +7671,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
           <button type="submit" id="pf_save" class="w-btn w-btn-primary" ${editing ? 'data-editing="1"' : ''}>${editing ? tr('Guardar cambios', 'Save changes') : tr('Guardar mascota', 'Save pet')}</button>
         </div>
       </form>`);
-    // Fecha de nacimiento en Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb),
-    // nunca futura. Escribe en el mismo #pf_birth_0 y su 'change' llena la edad; sin el script queda el nativo.
-    const birth0 = document.getElementById('pf_birth_0');
-    if (birth0 && window.BWDateSelect) window.BWDateSelect.attach(birth0);
-    syncPetAgeFromBirth(0);
+    syncPetAgeFromBirth(0); // con fecha de nacimiento guardada, la edad se muestra calculada y de solo lectura
   }
 
   // Un bloque de campos por mascota. El primero trae todos los campos; los adicionales
@@ -7999,9 +7986,6 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
           <button type="button" onclick="renderPassport('view')" class="bg-white border-2 border-brandBeige text-brandDarkGreen font-bold py-3 rounded-xl min-h-[48px]">${tr('Cancelar', 'Cancel')}</button>
           <button type="button" onclick="savePassportForm()" class="bg-brandDarkGreen text-white font-bold py-3 rounded-xl min-h-[48px] shadow-md">${tr('Guardar', 'Save')}</button>
         </div>`;
-      // Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb) y solo ofrece el rango.
-      // Escribe en el mismo #pp_vac_*; sin el script queda el selector nativo.
-      if (window.BWDateSelect) Object.keys(VACCINE_NAMES).forEach(k => window.BWDateSelect.attach(document.getElementById('pp_vac_' + k), { future: true }));
       return;
     }
 
