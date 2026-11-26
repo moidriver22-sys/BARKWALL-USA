@@ -5,6 +5,9 @@
 //   (29 de febrero en un año no bisiesto, 31 en un mes de 30 días) el día se ajusta al último día válido
 //   de ese mes (28/29/30) — nunca se reinicia a un valor por defecto.
 // · Mientras falte el año, febrero admite hasta el 29 (podría ser bisiesto); al elegir el año se ajusta.
+// · Rango exacto: solo se ofrecen los meses y días entre min y max del input. Si un cambio de año/mes deja la
+//   fecha fuera, se lleva al límite más cercano (p. ej. min 24-dic-2026: marzo 2026 → diciembre, día 10 → 24),
+//   sin vaciar ningún campo.
 // · Escribe 'YYYY-MM-DD' en el MISMO <input> original (mismo id, que pasa a type="hidden"), así el resto de la
 //   app (validación de edad, envío a /api/signup) no cambia. Sin este script queda el <input type="date"> nativo.
 // Módulo UMD: funciona en Node (pruebas) y en el navegador (window.BWDateSelect).
@@ -46,6 +49,40 @@
     return m ? adjust({ y: +m[1], m: +m[2], d: +m[3] }) : { y: 0, m: 0, d: 0 };
   }
 
+  // ---------- Rango exacto [min, max] (atributos min/max del input; cualquiera puede faltar) ----------
+  // Fecha límite completa 'YYYY-MM-DD' → { y, m, d }, o null si no hay límite
+  const bound = (iso) => { const b = fromIso(iso); return b.y && b.m && b.d ? b : null; };
+  // Meses que se pueden elegir en el año y (sin año: todos)
+  function monthRange(y, min, max) {
+    const lo = y && min && y === min.y ? min.m : 1;
+    const hi = y && max && y === max.y ? max.m : 12;
+    return [lo, hi];
+  }
+  // Días que se pueden elegir en y/m (sin año o sin mes: hasta 29 en febrero, 30/31 según el mes)
+  function dayRange(y, m, min, max) {
+    const tope = daysInMonth(y, m);
+    const lo = y && m && min && y === min.y && m === min.m ? min.d : 1;
+    const hi = y && m && max && y === max.y && m === max.m ? Math.min(max.d, tope) : tope;
+    return [lo, hi];
+  }
+  // Ajuste seguro al rango SIN vaciar nada: conserva mes y día si caben; si no, los lleva al límite más cercano
+  // (y el día al último válido del mes). Un año fuera de la lista (valor guardado) no se toca.
+  function clampToRange(state, min, max) {
+    let { y, m, d } = adjust(state);
+    const enRango = y && (!min || y >= min.y) && (!max || y <= max.y);
+    if (enRango && m) {
+      const [mlo, mhi] = monthRange(y, min, max);
+      if (m < mlo) m = mlo;
+      if (m > mhi) m = mhi;
+      if (d) {
+        const [dlo, dhi] = dayRange(y, m, min, max);
+        if (d < dlo) d = dlo;
+        if (d > dhi) d = dhi;
+      }
+    }
+    return adjust({ y, m, d });
+  }
+
   const CSS = `
   .bw-dsel{display:grid;grid-template-columns:1.5fr .8fr 1fr;gap:6px;margin-top:4px;flex:1 1 230px;min-width:0}
   .bw-dsel select{display:block;width:100%;min-height:44px;padding:10px 8px;border:1.5px solid var(--bw-line,#EBE3D5);border-radius:12px;font-size:14px;background:var(--bw-surface,#fff);color:var(--bw-text,#2B2621)}
@@ -83,20 +120,35 @@
       input.scrollIntoView = (o2) => { if (typeof wrap.scrollIntoView === 'function') wrap.scrollIntoView(o2); };
       const onPick = (key) => () => {
         const v = toInt(ui[key].value);
-        ui.state = key === 'y' ? withYear(ui.state, v) : key === 'm' ? withMonth(ui.state, v) : adjust({ ...ui.state, d: v });
+        const next = key === 'y' ? withYear(ui.state, v) : key === 'm' ? withMonth(ui.state, v) : adjust({ ...ui.state, d: v });
+        ui.state = clampToRange(next, ...ui.limits());
         ui.render();
-        const iso = toIso(ui.state);
-        if (input.value !== iso) {
-          input.value = iso;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        ui.sync();
       };
       ui.m.addEventListener('change', onPick('m'));
       ui.d.addEventListener('change', onPick('d'));
       ui.y.addEventListener('change', onPick('y'));
     }
 
+    // Límites vigentes: min/max del input (renderBookingDates los mueve cada día). Nacimiento sin max → hoy.
+    function limits() {
+      const min = bound(input.getAttribute('min'));
+      let max = bound(input.getAttribute('max'));
+      if (!conf().future) {
+        const t = new Date(), hoyB = { y: t.getFullYear(), m: t.getMonth() + 1, d: t.getDate() };
+        if (!max || toIso(max) > toIso(hoyB)) max = hoyB;
+      }
+      return [min, max];
+    }
+    // Escribe el valor en el input original y avisa (solo si cambió)
+    function sync() {
+      const iso = toIso(ui.state);
+      if (input.value !== iso) {
+        input.value = iso;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
     function options(sel, items, selected, placeholder) {
       sel.innerHTML = `<option value="">${placeholder}</option>` + items.map(([v, t]) => `<option value="${v}"${v === selected ? ' selected' : ''}>${t}</option>`).join('');
     }
@@ -104,8 +156,14 @@
       const es = lang() === 'es';
       const s = ui.state;
       const fmt = new Intl.DateTimeFormat(es ? 'es-US' : 'en-US', { month: 'long', timeZone: 'UTC' });
-      const meses = Array.from({ length: 12 }, (_, i) => { const t = fmt.format(new Date(Date.UTC(2000, i, 1))); return [i + 1, t.charAt(0).toUpperCase() + t.slice(1)]; });
-      const dias = Array.from({ length: daysInMonth(s.y, s.m) }, (_, i) => [i + 1, String(i + 1)]);
+      const [min, max] = limits();
+      const [mlo, mhi] = monthRange(s.y, min, max), [dlo, dhi] = dayRange(s.y, s.m, min, max);
+      const mes = (i) => { const t = fmt.format(new Date(Date.UTC(2000, i - 1, 1))); return t.charAt(0).toUpperCase() + t.slice(1); };
+      const meses = []; for (let i = mlo; i <= mhi; i++) meses.push([i, mes(i)]);
+      const dias = []; for (let i = dlo; i <= dhi; i++) dias.push([i, String(i)]);
+      // Un valor guardado fuera del rango (año que ya no está en la lista) se sigue mostrando para no perderlo
+      if (s.m && !meses.some(([v]) => v === s.m)) meses.push([s.m, mes(s.m)]);
+      if (s.d && !dias.some(([v]) => v === s.d)) dias.push([s.d, String(s.d)]);
       const hoy = new Date().getFullYear();
       const future = !!conf().future;
       const minAttr = toInt(String(input.getAttribute('min') || '').slice(0, 4));
@@ -127,12 +185,16 @@
       ui.d.setAttribute('aria-label', es ? 'Día' : 'Day');
       ui.y.setAttribute('aria-label', es ? 'Año' : 'Year');
     }
-    ui.render = render;
+    ui.render = render; ui.limits = limits; ui.sync = sync;
     // Si alguien fijó el valor del input por código, se respeta
     if (input.value && input.value !== toIso(ui.state)) ui.state = fromIso(input.value);
+    // Al volver a montar con otro rango (p. ej. pasó la medianoche) la fecha elegida se ajusta al rango nuevo
+    const antes = toIso(ui.state);
+    ui.state = clampToRange(ui.state, ...limits());
     render();
+    if (antes && toIso(ui.state) !== antes) sync();
     return ui;
   }
 
-  return { isLeap, daysInMonth, adjust, withYear, withMonth, toIso, fromIso, attach, CSS };
+  return { isLeap, daysInMonth, adjust, withYear, withMonth, toIso, fromIso, bound, monthRange, dayRange, clampToRange, attach, CSS };
 });

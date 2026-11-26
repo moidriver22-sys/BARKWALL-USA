@@ -39,6 +39,26 @@ t('toIso / fromIso: solo una fecha completa produce valor', () => {
   assert.deepEqual(DS.fromIso('1990-05-01'), { y: 1990, m: 5, d: 1 }); assert.deepEqual(DS.fromIso(''), { y: 0, m: 0, d: 0 });
 });
 
+t('rango exacto (puro): meses/días permitidos y ajuste al límite más cercano sin vaciar nada', () => {
+  const min = DS.bound('2026-12-24'), max = DS.bound('2027-11-27');
+  assert.equal(DS.bound(''), null); assert.equal(DS.bound(null), null);
+  assert.deepEqual(DS.monthRange(2026, min, max), [12, 12]); assert.deepEqual(DS.monthRange(2027, min, max), [1, 11]);
+  assert.deepEqual(DS.monthRange(0, min, max), [1, 12], 'sin año: todos los meses');
+  assert.deepEqual(DS.dayRange(2026, 12, min, max), [24, 31]); assert.deepEqual(DS.dayRange(2027, 11, min, max), [1, 27]);
+  assert.deepEqual(DS.dayRange(2027, 2, min, max), [1, 28]); assert.deepEqual(DS.dayRange(2027, 0, min, max), [1, 31]);
+  assert.deepEqual(DS.clampToRange({ y: 2026, m: 3, d: 10 }, min, max), { y: 2026, m: 12, d: 24 }, 'antes del mínimo → mínimo');
+  assert.deepEqual(DS.clampToRange({ y: 2026, m: 12, d: 30 }, min, max), { y: 2026, m: 12, d: 30 }, 'dentro: no cambia');
+  assert.deepEqual(DS.clampToRange({ y: 2027, m: 12, d: 15 }, min, max), { y: 2027, m: 11, d: 15 }, 'mes después del máximo → mes máximo, día se conserva');
+  assert.deepEqual(DS.clampToRange({ y: 2027, m: 12, d: 31 }, min, max), { y: 2027, m: 11, d: 27 }, 'y el día al máximo');
+  assert.deepEqual(DS.clampToRange({ y: 2027, m: 3, d: 0 }, min, max), { y: 2027, m: 3, d: 0 }, 'sin día no inventa uno');
+  assert.deepEqual(DS.clampToRange({ y: 2030, m: 5, d: 5 }, min, max), { y: 2030, m: 5, d: 5 }, 'año guardado fuera de la lista: no se toca');
+  assert.deepEqual(DS.clampToRange({ y: 2027, m: 2, d: 29 }, null, null), { y: 2027, m: 2, d: 28 }, 'sin rango: solo el ajuste de febrero');
+  // Nacimiento (registro): max = cumpleaños 19 → el día exacto del límite sí, el siguiente no
+  const dmax = DS.bound('2007-11-26');
+  assert.deepEqual(DS.dayRange(2007, 11, null, dmax), [1, 26]); assert.deepEqual(DS.monthRange(2007, null, dmax), [1, 11]);
+  assert.deepEqual(DS.clampToRange({ y: 2007, m: 12, d: 3 }, null, dmax), { y: 2007, m: 11, d: 3 });
+});
+
 // ---------- Control montado sobre un DOM mínimo simulado ----------
 function fakeDom() {
   const byId = {};
@@ -153,6 +173,39 @@ t('fecha de reserva: años solo del rango (hoy+28 … hoy+366), foco y desplazam
   // renderBookingDates() vuelve a montar en cada cambio (agregar/quitar día, idioma): no duplica ni pierde la fecha
   input.setAttribute('min', '2026-12-25'); assert.equal(DS.attach(input, { lang: 'en', future: true }), ui); assert.equal(input.value, '2027-04-30');
   assert.match(ui.m.innerHTML, /April/);
+  delete global.document; delete global.Event;
+});
+
+t('control con rango exacto: la reserva solo ofrece meses/días entre hoy+28 y hoy+366; al cambiar año ajusta al límite', () => {
+  const { doc, mkEl } = fakeDom();
+  global.document = doc; global.Event = class { constructor(type) { this.type = type; } };
+  const input = mkEl('input'); input.id = 'inputBookingDate'; input.type = 'date'; input.ownerDocument = doc;
+  input.setAttribute('min', '2026-12-24'); input.setAttribute('max', '2027-11-27');
+  let changes = 0; input.addEventListener('change', () => changes++);
+  const ui = DS.attach(input, { lang: 'es', future: true });
+  const vals = (sel) => [...sel.innerHTML.matchAll(/value="(\d+)"/g)].map((m) => +m[1]);
+  assert.deepEqual(vals(ui.m), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'sin año: todos los meses');
+  const pick = (sel, v) => { sel.value = String(v); sel.dispatchEvent(new Event('change')); };
+  pick(ui.y, 2026);
+  assert.deepEqual(vals(ui.m), [12], '2026: solo diciembre');
+  pick(ui.m, 12);
+  assert.deepEqual(vals(ui.d), [24, 25, 26, 27, 28, 29, 30, 31], 'diciembre 2026: desde el 24');
+  pick(ui.d, 28); assert.equal(input.value, '2026-12-28');
+  pick(ui.y, 2027);
+  assert.equal(input.value, '2027-11-27', 'diciembre 2027 no existe en el rango → 27-nov-2027 (el máximo)');
+  assert.deepEqual(ui.state, { y: 2027, m: 11, d: 27 });
+  assert.deepEqual(vals(ui.m), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]); assert.equal(Math.max(...vals(ui.d)), 27);
+  pick(ui.m, 3); assert.equal(input.value, '2027-03-27', 'dentro del rango conserva el día');
+  pick(ui.y, 2026); assert.equal(input.value, '2026-12-27', 'volver a 2026 → diciembre, día 27 sigue válido');
+  // renderBookingDates mueve el mínimo al día siguiente: la fecha elegida se ajusta y se avisa
+  const n0 = changes; input.setAttribute('min', '2026-12-28'); DS.attach(input, { future: true });
+  assert.equal(input.value, '2026-12-28'); assert.ok(changes > n0, 'el input avisa del ajuste');
+  // Nacimiento sin max: nunca deja elegir un día futuro
+  const dob = mkEl('input'); dob.id = 'tgBirth'; dob.type = 'date'; dob.ownerDocument = doc;
+  const u2 = DS.attach(dob, { lang: 'es' });
+  const t0 = new Date(); pick(u2.y, t0.getFullYear());
+  assert.equal(Math.max(...vals(u2.m)), t0.getMonth() + 1, 'este año: solo hasta el mes actual');
+  pick(u2.m, t0.getMonth() + 1); assert.equal(Math.max(...vals(u2.d)), t0.getDate(), 'y hasta hoy');
   delete global.document; delete global.Event;
 });
 
