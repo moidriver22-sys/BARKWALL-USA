@@ -90,6 +90,51 @@ t('control: cambiar el año en pantalla conserva mes/día y ajusta 29-feb; escri
   delete global.document; delete global.Event;
 });
 
+t('vencimiento del ID (future): años de hoy hacia adelante, conserva mes/día, 29-feb → 28-feb, sin autocompletar', () => {
+  const { doc, mkEl } = fakeDom();
+  global.document = doc; global.Event = class { constructor(type) { this.type = type; } };
+  const hoy = new Date().getFullYear();
+  const input = mkEl('input'); input.id = 'waExpiry'; input.type = 'date'; input.ownerDocument = doc;
+  input.setAttribute('min', `${hoy}-01-15`); input.setAttribute('max', `${hoy + 12}-01-10`);
+  let changes = 0; input.addEventListener('change', () => changes++);
+  const ui = DS.attach(input, { lang: 'en', future: true });
+  const years = [...ui.y.innerHTML.matchAll(/value="(\d{4})"/g)].map((m) => +m[1]);
+  assert.equal(years[0], hoy, 'empieza en el año actual'); assert.equal(years[years.length - 1], hoy + 12, 'llega al máximo (+12)');
+  assert.deepEqual(years, [...years].sort((a, b) => a - b), 'orden ascendente');
+  assert.equal(ui.y.getAttribute('autocomplete'), 'off', 'no ofrece la fecha de nacimiento');
+  const pick = (sel, v) => { sel.value = String(v); sel.dispatchEvent(new Event('change')); };
+  const bisiesto = [...Array(8)].map((_, i) => hoy + 1 + i).find((y) => DS.isLeap(y));
+  pick(ui.m, 2); pick(ui.d, 29); pick(ui.y, bisiesto);
+  assert.equal(input.value, `${bisiesto}-02-29`);
+  pick(ui.y, bisiesto + 1);
+  assert.equal(input.value, `${bisiesto + 1}-02-28`, '29-feb → 28-feb'); assert.deepEqual(ui.state, { y: bisiesto + 1, m: 2, d: 28 });
+  assert.ok(changes >= 2, 'dispara change: el aviso "tu ID vence en N días" se actualiza');
+  // Re-montar (p. ej. cambio de idioma) usa las opciones nuevas también al elegir
+  DS.attach(input, { lang: 'es', future: true }); pick(ui.y, bisiesto + 2);
+  assert.match(ui.m.innerHTML, /Febrero/, 'los selectores usan el idioma del último montaje'); assert.equal(input.value, `${bisiesto + 2}-02-28`);
+  // Nacimiento no cambia: nunca ofrece años futuros
+  const dob = mkEl('input'); dob.id = 'dob'; dob.type = 'date'; dob.ownerDocument = doc;
+  const u2 = DS.attach(dob, { lang: 'es' });
+  assert.doesNotMatch(u2.y.innerHTML, new RegExp(`value="${hoy + 1}"`)); assert.equal(u2.y.getAttribute('autocomplete'), 'bday-year');
+  delete global.document; delete global.Event;
+});
+
+t('integración: el vencimiento del ID usa el selector (future) sobre el mismo #waExpiry con el máximo del servidor', () => {
+  const src = read('walker-application.js');
+  assert.match(src, /<input id="waExpiry" type="date" min="\$\{today\(\)\}" max="\$\{maxExpiry\(\)\}" required>/, 'respaldo nativo si no carga el script');
+  assert.match(src, /const maxExpiry = \(\) => new Date\(Date\.parse\(`\$\{today\(\)\}T00:00:00Z`\) \+ 365 \* 12 \* 864e5\)/, 'mismo tope que checkIdExpiry (365 × 12 días)');
+  const wire = src.slice(src.indexOf('function wireForm'), src.indexOf('async function submit'));
+  assert.match(wire, /if \(win\.BWDateSelect\) win\.BWDateSelect\.attach\(\$\('waExpiry'\), \{ win, future: true \}\);/);
+  assert.ok(wire.indexOf('BWDateSelect.attach') < wire.indexOf("$('waExpiry').addEventListener('change'"), 'el aviso de vencimiento sigue escuchando el mismo input');
+  const html = read('index.html');
+  assert.ok(html.indexOf('/date-select.js?v=') < html.indexOf('/walker-application.js?v='), 'se carga antes que walker-application.js');
+  // El tope de la app coincide con el del servidor: el último día permitido pasa, el siguiente no
+  const ID = require(path.join(ROOT, 'api/_lib/walker-identity.js'));
+  const d0 = '2026-11-26', max = new Date(Date.parse(`${d0}T00:00:00Z`) + 365 * 12 * 864e5).toISOString().slice(0, 10);
+  const next = new Date(Date.parse(`${max}T00:00:00Z`) + 864e5).toISOString().slice(0, 10);
+  assert.equal(ID.checkIdExpiry(max, d0).ok, true); assert.equal(ID.checkIdExpiry(next, d0).error, 'invalid_id_expiry');
+});
+
 t('integración: registro y pantalla de Términos usan el selector sobre el mismo input; sin script queda el nativo', () => {
   const html = read('index.html'), tg = read('terms-gate.js');
   assert.match(html, /<input type="date" id="regBirth"/, 'respaldo nativo si no carga el script');

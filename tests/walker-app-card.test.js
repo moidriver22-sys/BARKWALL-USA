@@ -37,7 +37,7 @@ t('el onboarding del registro (antes de la aprobación) sigue mostrando el formu
 t('módulo carga en el navegador y expone openApplication; index.html usa la versión nueva', () => {
   const ctx = { self: {} }; vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'walker-application.js'), 'utf8'), ctx);
   assert.equal(typeof ctx.self.BWWalkerApp.openApplication, 'function');
-  assert.match(HTML, /<script src="\/walker-application\.js\?v=20261207" defer><\/script>/);
+  assert.match(HTML, /<script src="\/walker-application\.js\?v=20261209" defer><\/script>/);
   assert.match(HTML, /<section id="walkerApplicationCard" class="w-card" hidden><\/section>/);
 });
 console.log(`\n${n} pruebas OK`);

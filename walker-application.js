@@ -150,6 +150,8 @@
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const msg = (code) => { const m = ERR[code]; return m ? tr(m[0], m[1]) : tr('No se pudo enviar. Intenta de nuevo.', 'Could not submit. Please try again.'); };
     const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    // Último vencimiento que acepta el servidor (checkIdExpiry: ningún ID de EE. UU. dura más de 12 años)
+    const maxExpiry = () => new Date(Date.parse(`${today()}T00:00:00Z`) + 365 * 12 * 864e5).toISOString().slice(0, 10);
     const css = () => { if (!doc.getElementById('bwWaCss')) { const s = doc.createElement('style'); s.id = 'bwWaCss'; s.textContent = CSS; doc.head.appendChild(s); } };
     const pick = { id: null, selfie: null };
 
@@ -192,7 +194,7 @@
           <label class="wa-field">${esc(tr('Ciudad', 'City'))}<input id="waCity" autocomplete="address-level2" placeholder="Homewood" required></label>
           <div class="wa-row2">
             <label class="wa-field">${esc(tr('Tipo de ID', 'ID type'))}<select id="waIdType"><option value="drivers_license">${esc(tr('Licencia de conducir', "Driver's license"))}</option><option value="state_id">State ID</option></select></label>
-            <label class="wa-field">${esc(tr('Vence el', 'Expires on'))}<input id="waExpiry" type="date" min="${today()}" required></label>
+            <label class="wa-field">${esc(tr('Vence el', 'Expires on'))}<input id="waExpiry" type="date" min="${today()}" max="${maxExpiry()}" required></label>
           </div>
           <p id="waExpiryNote" class="wa-note"></p>
           <label class="wa-photo" id="waIdBox"><input type="file" id="waIdFile" accept="image/jpeg,image/png,image/webp" capture="environment"><img alt="" id="waIdPrev"><span><b>🪪 ${esc(tr('Foto de tu ID (frente)', 'Photo of your ID (front)'))}</b><br><span class="wa-note">${esc(tr('Clara, completa, sin reflejos. JPEG/PNG/WEBP.', 'Clear, whole, no glare. JPEG/PNG/WEBP.'))}</span></span></label>
@@ -229,6 +231,9 @@
 
     function wireForm(box, after) {
       const $ = (id) => doc.getElementById(id);
+      // Vencimiento del ID en Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb).
+      // Escribe en el mismo #waExpiry y dispara 'change', así el aviso de vencimiento de abajo sigue funcionando.
+      if (win.BWDateSelect) win.BWDateSelect.attach($('waExpiry'), { win, future: true });
       const preview = (inputId, imgId, boxId, key) => $(inputId).addEventListener('change', async (e) => {
         const f = await shrink(e.target.files && e.target.files[0]);
         pick[key] = f || null;

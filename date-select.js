@@ -1,4 +1,5 @@
-// Selector de fecha Mes / Día / Año (fecha de nacimiento del registro y de la pantalla de Términos)
+// Selector de fecha Mes / Día / Año (fecha de nacimiento del registro y de la pantalla de Términos, y
+// vencimiento del ID en la postulación del paseador con { future: true })
 // ---------------------------------------------------------------------------
 // · Al cambiar el AÑO (o el mes) se conservan el mes y el día ya elegidos. Si la combinación no existe
 //   (29 de febrero en un año no bisiesto, 31 en un mes de 30 días) el día se ajusta al último día válido
@@ -51,19 +52,25 @@
   .bw-dsel select:focus{outline:none;border-color:#1B4D3E}`;
 
   // Convierte un <input type="date"> en Mes/Día/Año. Idempotente: si ya está montado, solo actualiza idioma/años.
+  // opts: { win, lang, future } — future: fechas que vienen (vencimientos): años de min (o el actual) a max
+  // (o +12), en orden ascendente y sin autocompletar con la fecha de nacimiento.
   function attach(input, opts) {
     if (!input || typeof document === 'undefined') return null;
-    const win = (opts && opts.win) || (typeof window !== 'undefined' ? window : null);
     const doc = input.ownerDocument || document;
-    const lang = () => ((opts && opts.lang) || (win && win.currentLang) || 'es') === 'en' ? 'en' : 'es';
     if (!doc.getElementById('bwDselCss')) { const s = doc.createElement('style'); s.id = 'bwDselCss'; s.textContent = CSS; doc.head.appendChild(s); }
 
     let ui = input._bwDsel;
+    const o = opts || {};
+    const win = o.win || (ui && ui.opts.win) || (typeof window !== 'undefined' ? window : null);
+    // Las opciones viven en el control: los selectores siempre usan las del último montaje (p. ej. otro idioma)
+    if (ui) ui.opts = { ...ui.opts, ...o, win };
+    const conf = () => (ui ? ui.opts : { ...o, win });
+    const lang = () => (conf().lang || (win && win.currentLang) || 'es') === 'en' ? 'en' : 'es';
     if (!ui) {
       const wrap = doc.createElement('div');
       wrap.className = 'bw-dsel'; wrap.setAttribute('role', 'group');
-      const mk = (suffix, auto) => { const s = doc.createElement('select'); s.id = `${input.id}_${suffix}`; s.setAttribute('autocomplete', auto); if (input.className) s.className = input.className; wrap.appendChild(s); return s; };
-      ui = { wrap, m: mk('m', 'bday-month'), d: mk('d', 'bday-day'), y: mk('y', 'bday-year'), state: fromIso(input.value) };
+      const mk = (suffix, auto) => { const s = doc.createElement('select'); s.id = `${input.id}_${suffix}`; s.setAttribute('autocomplete', o.future ? 'off' : auto); if (input.className) s.className = input.className; wrap.appendChild(s); return s; };
+      ui = { wrap, m: mk('m', 'bday-month'), d: mk('d', 'bday-day'), y: mk('y', 'bday-year'), state: fromIso(input.value), opts: { ...o, win } };
       input._bwDsel = ui;
       input.type = 'hidden';
       input.insertAdjacentElement('afterend', wrap);
@@ -74,7 +81,7 @@
       const onPick = (key) => () => {
         const v = toInt(ui[key].value);
         ui.state = key === 'y' ? withYear(ui.state, v) : key === 'm' ? withMonth(ui.state, v) : adjust({ ...ui.state, d: v });
-        render();
+        ui.render();
         const iso = toIso(ui.state);
         if (input.value !== iso) {
           input.value = iso;
@@ -97,9 +104,17 @@
       const meses = Array.from({ length: 12 }, (_, i) => { const t = fmt.format(new Date(Date.UTC(2000, i, 1))); return [i + 1, t.charAt(0).toUpperCase() + t.slice(1)]; });
       const dias = Array.from({ length: daysInMonth(s.y, s.m) }, (_, i) => [i + 1, String(i + 1)]);
       const hoy = new Date().getFullYear();
-      const minY = toInt(String(input.getAttribute('min') || '').slice(0, 4)) || 1900;
-      const maxY = Math.min(toInt(String(input.getAttribute('max') || '').slice(0, 4)) || hoy, hoy);
-      const anios = []; for (let y = maxY; y >= minY; y--) anios.push([y, String(y)]);
+      const future = !!conf().future;
+      const minAttr = toInt(String(input.getAttribute('min') || '').slice(0, 4));
+      const maxAttr = toInt(String(input.getAttribute('max') || '').slice(0, 4));
+      const anios = [];
+      if (future) { // vencimientos: del año mínimo (o el actual) hacia adelante
+        const minY = minAttr || hoy, maxY = Math.max(maxAttr || hoy + 12, minY);
+        for (let y = minY; y <= maxY; y++) anios.push([y, String(y)]);
+      } else {      // nacimiento: del máximo (nunca después de hoy) hacia atrás
+        const minY = minAttr || 1900, maxY = Math.min(maxAttr || hoy, hoy);
+        for (let y = maxY; y >= minY; y--) anios.push([y, String(y)]);
+      }
       // Si el año guardado queda fuera del rango (p. ej. cambió el máximo), se muestra igual para no perderlo
       if (s.y && !anios.some(([v]) => v === s.y)) anios.push([s.y, String(s.y)]);
       options(ui.m, meses, s.m, es ? 'Mes' : 'Month');
@@ -109,6 +124,7 @@
       ui.d.setAttribute('aria-label', es ? 'Día' : 'Day');
       ui.y.setAttribute('aria-label', es ? 'Año' : 'Year');
     }
+    ui.render = render;
     // Si alguien fijó el valor del input por código, se respeta
     if (input.value && input.value !== toIso(ui.state)) ui.state = fromIso(input.value);
     render();
