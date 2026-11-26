@@ -211,8 +211,10 @@ const SIGNUP_OK = {
     assert.match(h['Permissions-Policy'], /payment=\(self "https:\/\/js\.stripe\.com"\)/);
     assert.match(h['Strict-Transport-Security'], /max-age=\d+/);
     for (const d of ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'"]) assert.ok(h['Content-Security-Policy'].includes(d), d);
-    // Política completa (por orígenes) en Report-Only hasta comprobarla en producción sin violaciones
-    const csp = h['Content-Security-Policy'] + '; ' + (h['Content-Security-Policy-Report-Only'] || '');
+    // Política completa por orígenes, obligatoria (verificada en producción sin violaciones Report-Only, 2026-11-26)
+    const csp = h['Content-Security-Policy'];
+    assert.equal(h['Content-Security-Policy-Report-Only'], undefined, 'ya no debe haber Report-Only');
+    assert.ok(csp.includes('upgrade-insecure-requests'));
     for (const d of ["default-src 'self'", "frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"]) assert.ok(csp.includes(d), d);
     // Lo que la app necesita de verdad: Stripe, Supabase (REST + realtime), Turnstile, mapas y CDNs fijados
     for (const d of ['https://js.stripe.com', 'https://hooks.stripe.com', 'https://api.stripe.com', 'https://hdtgtrnbqoyvjasvzilr.supabase.co',
