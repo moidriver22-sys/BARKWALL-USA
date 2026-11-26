@@ -4,7 +4,8 @@
 // POST /api/signup { action: 'close_account', confirm: 'DELETE' }  → cierra (Authorization: Bearer <token>)
 //   confirm: DELETE / ELIMINAR (también CERRAR / CLOSE de versiones anteriores de la app) o el correo de la cuenta.
 //
-// Se BLOQUEA si hay: paseos activos o pendientes (como cliente o paseador), pagos al paseador sin liquidar,
+// Se BLOQUEA si hay: paseos activos o pendientes (como cliente o paseador: un paseador con servicios asignados,
+// aceptados, en camino, en curso o futuros pendientes no puede cerrar), pagos al paseador sin liquidar,
 // reembolsos por cancelación en curso, disputas abiertas o una membresía todavía activa en Stripe.
 // Al cerrar:
 //   · constancia en public.account_closures (closed_at, rol, si operó, IP, navegador) — la escribe solo el servidor;
@@ -22,7 +23,9 @@ const { sb, sbOrThrow, enc, supabaseConfig } = require('./supabase');
 const CONFIRM_WORDS = new Set(['DELETE', 'ELIMINAR', 'CERRAR', 'CLOSE']);
 const PET_BUCKET = 'pet-photos';
 const ACTIVE_STATES = '(pending,accepted,en_camino,in_progress)';
-const WALKER_ACTIVE = '(accepted,en_camino,in_progress)';
+// Paseos asignados al paseador que aún no terminan (incluye futuros asignados todavía en 'pending').
+// La misma lista la exige la base: private.bw_walker_active_walks() (migración 20261208).
+const WALKER_ACTIVE = '(pending,accepted,en_camino,in_progress)';
 const UNSETTLED_PAYOUT = '(unpaid,processing,failed)';
 const OPEN_REFUND = '(pending,refunding,needs_review)';
 const SUB_BLOCKING = new Set(['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused']);
@@ -47,8 +50,9 @@ async function closureBlockers(userId) {
   const add = (code, n) => { if (n > 0) b.push({ code, count: n }); };
   const walker = WALKER_ROLES.has(p.role);
   add('active_walks', await count(`/rest/v1/walk_requests?client_id=eq.${enc(userId)}&payment_status=eq.paid&status=in.${ACTIVE_STATES}`));
+  // Servicios asignados como paseador: se revisa por walker_id aunque el rol haya cambiado
+  add('active_walks_as_walker', await count(`/rest/v1/walk_requests?walker_id=eq.${enc(userId)}&status=in.${WALKER_ACTIVE}`));
   if (walker) {
-    add('active_walks_as_walker', await count(`/rest/v1/walk_requests?walker_id=eq.${enc(userId)}&status=in.${WALKER_ACTIVE}`));
     add('unsettled_payouts', await count(`/rest/v1/walk_requests?walker_id=eq.${enc(userId)}&status=eq.completed&payment_status=eq.paid&walker_payout_status=in.${UNSETTLED_PAYOUT}`));
   }
   add('pending_refunds', (await sbOrThrow(`/rest/v1/walk_cancellations?client_id=eq.${enc(userId)}&status=in.${OPEN_REFUND}&select=walk_id&limit=50`)).length);
@@ -107,7 +111,15 @@ async function closeAccount({ user, body, ip, userAgent }) {
     user_id: user.id, role: profile.role, closed_at: now, operated,
     reason: String((body && body.reason) || '').trim().slice(0, 500) || null, ip_address: ip || null, user_agent: String(userAgent || '').slice(0, 500),
   } });
-  if (!r.ok) return { status: r.status === 409 ? 409 : 500, body: { error: r.status === 409 ? 'already_closed' : 'internal_error' } };
+  if (!r.ok) {
+    // La base rechaza el cierre si justo ahora quedó asignado a un paseo (trigger de account_closures)
+    if (/active_walks_as_walker/.test(JSON.stringify(r.data || ''))) {
+      const again = await closureBlockers(user.id).catch(() => ({ blockers: [] }));
+      const bl = again.blockers.length ? again.blockers : [{ code: 'active_walks_as_walker', count: 1 }];
+      return { status: 409, body: { error: 'close_blocked', blockers: bl } };
+    }
+    return { status: r.status === 409 ? 409 : 500, body: { error: r.status === 409 ? 'already_closed' : 'internal_error' } };
+  }
 
   // 2) Desactivar el inicio de sesión. Si falla, se deshace la constancia y la persona puede reintentar.
   try { await banAuthUser(user.id); } catch (e) {

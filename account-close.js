@@ -14,7 +14,7 @@
   // Texto de cada bloqueo (función pura, bilingüe)
   const BLOCKERS = {
     active_walks: ['Tienes paseos pagados que aún no terminan (pendientes o en curso). Cancélalos o espera a que terminen.', 'You have paid walks that have not finished yet (pending or in progress). Cancel them or wait until they end.'],
-    active_walks_as_walker: ['Tienes paseos aceptados o en curso como paseador. Termínalos primero.', 'You have accepted or in-progress walks as a walker. Finish them first.'],
+    active_walks_as_walker: ['Tienes servicios asignados como paseador (aceptados, en camino, en curso o programados a futuro). Antes de cerrar tu cuenta debes completarlos o resolverlos con el cliente y el soporte de Barkwalk: hay perros que cuentan contigo.', 'You have services assigned to you as a walker (accepted, on the way, in progress or scheduled for the future). Before closing your account you must complete them or resolve them with the client and Barkwalk support: there are dogs counting on you.'],
     unsettled_payouts: ['Tienes pagos de paseos completados sin liquidar. Espera a recibirlos (48 h después de cada paseo) o escríbenos.', 'You have completed-walk payouts not yet settled. Wait to receive them (48 h after each walk) or contact us.'],
     pending_refunds: ['Tienes un reembolso por cancelación en proceso. Espera a que se complete.', 'You have a cancellation refund in progress. Wait until it is completed.'],
     open_disputes: ['Tienes una disputa de pago abierta con tu banco. Debe resolverse antes de cerrar la cuenta.', 'You have an open payment dispute with your bank. It must be resolved before closing the account.'],

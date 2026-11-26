@@ -76,6 +76,53 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
     DB.walk_requests.push({ id: 'g', client_id: UID, payment_status: 'paid', status: 'completed' }, { id: 'h', client_id: UID, payment_status: 'paid', status: 'cancelled' });
     assert.deepEqual((await AC.closureBlockers(UID)).blockers, [], 'paseos terminados o cancelados no bloquean');
   });
+  await t('paseador: servicios asignados (pending futuro, aceptado, en camino, en curso) bloquean; terminados o cancelados no', async () => {
+    for (const status of ['pending', 'accepted', 'en_camino', 'in_progress']) {
+      reset('walker');
+      DB.walk_requests.push({ id: 'w-' + status, walker_id: UID, status, payment_status: 'paid', walker_payout_status: 'paid' });
+      const { blockers } = await AC.closureBlockers(UID);
+      assert.deepEqual(blockers, [{ code: 'active_walks_as_walker', count: 1 }], status);
+      const r = await call({ action: 'close_account', confirm: 'DELETE' });
+      assert.equal(r.status, 409, status); assert.equal(r.body.error, 'close_blocked');
+      assert.equal(DB.account_closures.length, 0, 'no se cierra'); assert.equal(DB.profiles[0].walker_status, 'verified', 'nada cambia');
+      assert.equal(DB.push_subscriptions.length, 1, 'no se borra nada');
+    }
+    reset('walker');
+    DB.walk_requests.push({ id: 'x', walker_id: UID, status: 'completed', payment_status: 'paid', walker_payout_status: 'paid' },
+      { id: 'y', walker_id: UID, status: 'cancelled' }, { id: 'z', walker_id: 'otro', status: 'accepted' });
+    assert.deepEqual((await AC.closureBlockers(UID)).blockers, [], 'sin compromisos activos sí puede cerrar');
+    const ok = await call({ action: 'close_account', confirm: 'DELETE' });
+    assert.equal(ok.status, 200); assert.equal(ok.body.status, 'closed'); assert.equal(DB.profiles[0].walker_status, 'suspended');
+    // Aunque su rol ya no sea de paseador, los paseos asignados a su walker_id siguen bloqueando
+    reset('client'); DB.walk_requests.push({ id: 'v', walker_id: UID, status: 'accepted' });
+    assert.deepEqual((await AC.closureBlockers(UID)).blockers.map((b) => b.code), ['active_walks_as_walker']);
+  });
+  await t('paseador: si la base rechaza el cierre (aceptó un paseo justo ahora) la app recibe el mismo bloqueo, no un error', async () => {
+    reset('walker');
+    const real = global.fetch;
+    global.fetch = async (url, opts = {}) => {
+      if (String(url).includes('/rest/v1/account_closures') && opts.method === 'POST') {
+        DB.walk_requests.push({ id: 'race', walker_id: UID, status: 'accepted' }); // aceptó entre la revisión y el cierre
+        return { ok: false, status: 400, text: async () => JSON.stringify({ code: 'P0001', message: 'active_walks_as_walker: 1 servicio(s) asignado(s) sin terminar' }) };
+      }
+      return real(url, opts);
+    };
+    try {
+      const r = await call({ action: 'close_account', confirm: 'DELETE' });
+      assert.equal(r.status, 409); assert.equal(r.body.error, 'close_blocked');
+      assert.deepEqual(r.body.blockers.map((b) => b.code), ['active_walks_as_walker']);
+      assert.ok(!CALLS.some((c) => c.url.includes('/auth/v1/admin/users/')), 'no se desactiva el acceso');
+      assert.equal(DB.push_subscriptions.length, 1, 'no se borra nada');
+    } finally { global.fetch = real; }
+    const M = read('supabase/migrations/20261208_walker_close_guard.sql');
+    assert.match(M, /before insert on public\.account_closures/); assert.match(M, /'pending', 'accepted', 'en_camino', 'in_progress'/);
+    assert.match(M, /before insert or update of walker_id on public\.walk_requests/); assert.match(M, /pg_advisory_xact_lock/);
+    assert.match(read('api/_lib/account-closure.js'), /const WALKER_ACTIVE = '\(pending,accepted,en_camino,in_progress\)'/, 'misma lista en la API y en la base');
+  });
+  await t('app: el bloqueo del paseador explica que primero debe completar o resolver sus servicios asignados', async () => {
+    assert.match(C.blockerText('active_walks_as_walker', 'es'), /servicios asignados[\s\S]*completarlos o resolverlos/);
+    assert.match(C.blockerText('active_walks_as_walker', 'en'), /services assigned[\s\S]*complete them or resolve them/);
+  });
   await t('cerrar exige sesión y escribir CERRAR (o CLOSE); con bloqueos responde 409 y no cambia nada', async () => {
     reset('client');
     assert.equal((await call({ action: 'close_account', confirm: 'CERRAR' }, false)).status, 401);
