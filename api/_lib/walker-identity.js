@@ -59,6 +59,24 @@ function validateApplicationInput(b, uid, today) {
   return { ok: true, value: { legalName, phone, city, zip, idType, idExpiry: x.idExpiry, idPhotoPath, selfiePath }, warning: exp.warning };
 }
 
+// ---------- Firma del Independent Contractor Agreement (1099) ----------
+// Misma regla que la app (walker-application.js → signatureMatches): el nombre escrito como firma debe coincidir
+// con el nombre legal del ID, sin importar mayúsculas, acentos ni espacios repetidos.
+const normName = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z\s'-]/g, '').trim().replace(/\s+/g, ' ');
+function signatureMatches(signature, legalName) {
+  const a = normName(signature), b = normName(legalName);
+  return a.length >= 3 && a === b;
+}
+// Valida la aceptación enviada por la app (función pura). legalName: el ya validado por validateApplicationInput
+function validateContractorSignature(b, legalName) {
+  const x = b || {};
+  if (x.contractorAccepted !== true) return { error: 'contractor_required' };
+  if (String(x.contractorVersion || '') !== TERMS.CURRENT.contractor) return { error: 'contractor_version_outdated', version: TERMS.CURRENT.contractor };
+  const firma = String(x.contractorSignature || '').trim().replace(/\s+/g, ' ');
+  if (!signatureMatches(firma, legalName)) return { error: 'contractor_signature_mismatch' };
+  return { ok: true, value: { version: TERMS.CURRENT.contractor, signature: firma } };
+}
+
 // Metadatos REALES de los archivos en el bucket privado (Storage API con la clave de servicio)
 async function listOwnFiles(uid) {
   const { url, key: serviceKey } = supabaseConfig();
@@ -112,6 +130,12 @@ async function submitApplication({ user, body, ip, userAgent, runAgent }) {
   const v = validateApplicationInput(body, user.id, today);
   if (!v.ok) return { status: 400, body: { error: v.error } };
 
+  // Independent Contractor Agreement: casilla + versión vigente + nombre legal como firma electrónica
+  const firma = validateContractorSignature(body, v.value.legalName);
+  if (!firma.ok) return { status: 400, body: { error: firma.error, ...(firma.version ? { version: firma.version } : {}) } };
+  const signerEmail = String(profile.email || user.email || '').trim().toLowerCase();
+  if (!signerEmail) return { status: 400, body: { error: 'contractor_email_missing' } };
+
   const files = await listOwnFiles(user.id);
   for (const [key, path] of [['id_photo', v.value.idPhotoPath], ['selfie', v.value.selfiePath]]) {
     const c = checkFile(files, path);
@@ -127,6 +151,10 @@ async function submitApplication({ user, body, ip, userAgent, runAgent }) {
       walker_id: user.id, legal_name: v.value.legalName, phone: v.value.phone, city: v.value.city, zip: v.value.zip,
       id_type: v.value.idType, id_expiry: v.value.idExpiry, id_photo_path: v.value.idPhotoPath, selfie_path: v.value.selfiePath,
       ip_address: ip || null, user_agent: String(userAgent || '').slice(0, 500),
+      // Constancia de la firma (la base fija la hora exacta con now() y no deja modificarla después)
+      contractor_agreement_accepted: true, contractor_agreement_accepted_at: new Date().toISOString(),
+      contractor_agreement_version: firma.value.version, contractor_signature_name: firma.value.signature,
+      contractor_signer_email: signerEmail,
     },
   });
 
@@ -145,5 +173,5 @@ async function submitApplication({ user, body, ip, userAgent, runAgent }) {
 
 module.exports = {
   BUCKET, MAX_BYTES, MIME, ID_TYPES, EXPIRY_WARN_DAYS, daysUntil, checkIdExpiry, normPhone, validateApplicationInput,
-  listOwnFiles, checkFile, canSubmit, submitApplication,
+  listOwnFiles, checkFile, canSubmit, submitApplication, normName, signatureMatches, validateContractorSignature,
 };

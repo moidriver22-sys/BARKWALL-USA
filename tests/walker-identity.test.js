@@ -70,7 +70,8 @@ const call = async (handler, { headers = {}, body } = {}) => {
   return { status: res.statusCode, body: res.body ? JSON.parse(res.body) : null };
 };
 const APP = (o) => ({ action: 'walker_application', legalName: 'Camila Rojas', phone: '(205) 555-0123', city: 'Homewood', zip: '35209',
-  idType: 'drivers_license', idExpiry: addDays(400), idPhotoPath: `${UID}/1-id-a.jpg`, selfiePath: `${UID}/1-selfie-b.jpg`, ...o });
+  idType: 'drivers_license', idExpiry: addDays(400), idPhotoPath: `${UID}/1-id-a.jpg`, selfiePath: `${UID}/1-selfie-b.jpg`,
+  contractorAccepted: true, contractorVersion: T.CURRENT.contractor, contractorSignature: 'Camila Rojas', ...o });
 
 let n = 0;
 const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); n++; console.log('✓', name); };
@@ -165,6 +166,71 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
     assert.equal(ID.canSubmit({ role: 'walker', walker_status: 'verified' }, [{ status: 'approved', id_expiry: addDays(200) }], TODAY).error, 'already_approved');
     assert.equal(ID.canSubmit({ role: 'walker', walker_status: 'verified' }, [{ status: 'approved', id_expiry: addDays(20) }], TODAY).ok, true);
     assert.equal(ID.canSubmit({ role: 'walker', walker_status: 'suspended' }, [], TODAY).error, 'walker_suspended');
+  });
+
+  // ---------- 2b. Independent Contractor Agreement (1099) en la Etapa 1 ----------
+  await t('contractor: sin casilla, versión vieja o firma distinta al nombre legal → 400 y no se guarda nada', async () => {
+    const auth = { authorization: 'Bearer token-ok' };
+    for (const [o, code] of [
+      [{ contractorAccepted: undefined }, 'contractor_required'], [{ contractorAccepted: 'true' }, 'contractor_required'],
+      [{ contractorAccepted: false }, 'contractor_required'], [{ contractorVersion: '2026-11-14' }, 'contractor_version_outdated'],
+      [{ contractorVersion: undefined }, 'contractor_version_outdated'], [{ contractorSignature: '' }, 'contractor_signature_mismatch'],
+      [{ contractorSignature: 'Camila' }, 'contractor_signature_mismatch'], [{ contractorSignature: 'Otra Persona' }, 'contractor_signature_mismatch']]) {
+      reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg');
+      const r = await call(signup, { headers: auth, body: APP(o) });
+      assert.equal(r.status, 400, JSON.stringify(o)); assert.equal(r.body.error, code, JSON.stringify(o));
+      assert.equal(DB.walker_applications.length, 0, 'sin firma válida no hay postulación');
+    }
+  });
+  await t('contractor: envío válido guarda aceptado, hora, versión vigente, firma y correo DEL PERFIL (no el que mande la app)', async () => {
+    reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg');
+    DB.profiles[0].email = 'Camila.Rojas@Example.com';
+    const antes = Date.now();
+    const r = await call(signup, { headers: { authorization: 'Bearer token-ok' },
+      body: APP({ contractorSignature: '  camila   ROJAS ', email: 'falso@evil.example', contractorAcceptedAt: '2000-01-01T00:00:00Z' }) });
+    assert.equal(r.status, 200);
+    const a = DB.walker_applications[0];
+    assert.equal(a.contractor_agreement_accepted, true);
+    assert.equal(a.contractor_agreement_version, T.CURRENT.contractor);
+    assert.equal(a.contractor_signature_name, 'camila ROJAS');
+    assert.equal(a.contractor_signer_email, 'camila.rojas@example.com');
+    assert.ok(Date.parse(a.contractor_agreement_accepted_at) >= antes - 1000, 'la hora la pone el servidor, no la app');
+    assert.equal(DB.profiles[0].walker_status, 'pending', 'firmar no aprueba: sigue decidiendo el admin');
+  });
+  await t('contractor: misma regla de firma en la app y el servidor (acentos, mayúsculas, espacios)', async () => {
+    for (const [firma, nombre, ok] of [['Camila Rojas', 'Camila Rojas', true], ['camila rojas', 'Camila Rojas', true], ['José Pérez', 'Jose Perez', true],
+      ['  Ana   María  López ', 'Ana María López', true], ["Mary O'Neil", "mary o'neil", true], ['Camila', 'Camila Rojas', false],
+      ['Camila Rojas Díaz', 'Camila Rojas', false], ['', 'Camila Rojas', false], ['ab', 'ab', false]]) {
+      assert.equal(ID.signatureMatches(firma, nombre), ok, `${firma} / ${nombre}`);
+      assert.equal(WA.signatureMatches(firma, nombre), ok, `app: ${firma} / ${nombre}`);
+    }
+  });
+  await t('contractor: la versión de la app = la del servidor = la del registro; el formulario muestra resumen, acuerdo completo, casilla y firma', async () => {
+    assert.equal(WA.CONTRACTOR_VERSION, T.CURRENT.contractor);
+    assert.match(HTML, new RegExp(`const CONTRACTOR_VERSION = '${T.CURRENT.contractor.replace(/\./g, '\\.')}'`));
+    assert.match(read('terminos-paseadores.html'), new RegExp(`Versión ${T.CURRENT.contractor.replace(/\./g, '\\.')}`), 'el acuerdo enlazado es esa versión');
+    const src = read('walker-application.js');
+    const form = src.slice(src.indexOf('function formHtml'), src.indexOf('function wireForm'));
+    assert.match(form, /\$\{contractorHtml\(\)\}[\s\S]*id="waSubmit"/, 'el acuerdo va antes del botón de envío');
+    const ica = src.slice(src.indexOf('function contractorHtml'), src.indexOf('function wireForm'));
+    for (const re of [/Independent Contractor Agreement \(1099\)/, /Barkwalk USA LLC/, /id="waContractorOk"/, /id="waContractorSign"/, /CONTRACTOR_URL\}#\$\{lang\}-2/, /target="_blank" rel="noopener"/, /1099/, /W-9/])
+      assert.match(ica, re);
+    const sub = src.slice(src.indexOf('async function submit'), src.indexOf('// Tarjeta del paseador'));
+    assert.ok(sub.indexOf("err('contractor_required')") < sub.indexOf('storage.from(BUCKET).upload'), 'se valida antes de subir las fotos');
+    assert.match(sub, /contractorAccepted: \$\('waContractorOk'\)\.checked === true, contractorVersion: CONTRACTOR_VERSION, contractorSignature:/);
+    for (const k of ['contractor_required', 'contractor_signature_mismatch', 'contractor_version_outdated']) assert.ok(WA.ERR[k], k);
+  });
+  await t('contractor: la base exige la firma en cada INSERT, fija la hora con now() y no deja modificarla', async () => {
+    const M = read('supabase/migrations/20261207_walker_contractor_signature.sql');
+    assert.match(M, /before insert on public\.walker_applications/); assert.match(M, /before update on public\.walker_applications/);
+    assert.match(M, /new\.contractor_agreement_accepted is not true/); assert.match(M, /new\.contractor_agreement_accepted_at := now\(\)/);
+    assert.match(M, /no se puede modificar/);
+    assert.doesNotMatch(M, /create policy|admin_set_walker_status\(|bw_is_verified_walker\(\)\s*returns/, 'no toca RLS ni la aprobación');
+  });
+  await t('contractor: terms-gate.js y el flujo de clientes no cambian', async () => {
+    assert.doesNotMatch(read('terms-gate.js'), /contractorSignature|waContractor/);
+    const reg = HTML.slice(HTML.indexOf('contractorAccepted: role ==='), HTML.indexOf('contractorAccepted: role ===') + 200);
+    assert.match(reg, /contractorAccepted: role === 'walker', contractorVersion: role === 'walker' \? CONTRACTOR_VERSION : undefined/);
   });
 
   // ---------- 3. Bucket privado y base de datos ----------

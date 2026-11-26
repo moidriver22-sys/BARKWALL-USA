@@ -19,6 +19,9 @@
   const WARN_DAYS = 30;
   const SIGNED_URL_SECONDS = 120;
   const MAX_SIDE = 2000; // las fotos del teléfono se reducen antes de subirlas (≤ 5 MB y legibles)
+  // Independent Contractor Agreement (1099): misma versión que api/_lib/terms.js (CURRENT.contractor)
+  const CONTRACTOR_VERSION = '2026-11-24.2';
+  const CONTRACTOR_URL = '/terminos-paseadores';
 
   // ---------- Reglas (mismas que api/_lib/walker-identity.js) ----------
   const days = (a, b) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 864e5);
@@ -65,7 +68,19 @@
     return (apps || []).some((a) => a.status === 'approved' && a.id_expiry >= today);
   }
 
+  // Firma electrónica: el nombre escrito debe coincidir con el nombre legal (sin importar mayúsculas, acentos ni
+  // espacios). Misma regla que el servidor (api/_lib/walker-identity.js → signatureMatches).
+  const normName = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z\s'-]/g, '').trim().replace(/\s+/g, ' ');
+  function signatureMatches(signature, legalName) {
+    const a = normName(signature), b = normName(legalName);
+    return a.length >= 3 && a === b;
+  }
+
   const ERR = {
+    contractor_required: ['Para enviar tu postulación debes leer y aceptar el Independent Contractor Agreement (marca la casilla).', 'To submit your application you must read and accept the Independent Contractor Agreement (check the box).'],
+    contractor_signature_mismatch: ['Tu firma debe ser tu nombre legal completo, igual al que escribiste arriba.', 'Your signature must be your full legal name, the same one you entered above.'],
+    contractor_version_outdated: ['El acuerdo se actualizó. Recarga la página y vuelve a revisarlo antes de enviar.', 'The agreement was updated. Reload the page and review it again before submitting.'],
+    contractor_email_missing: ['Tu cuenta no tiene un correo confirmado. Escribe a barkwalkusallc@gmail.com.', 'Your account has no confirmed email. Email barkwalkusallc@gmail.com.'],
     invalid_legal_name: ['Escribe tu nombre legal completo, como aparece en tu ID.', 'Enter your full legal name as it appears on your ID.'],
     invalid_phone: ['Escribe un teléfono de EE. UU. de 10 dígitos.', 'Enter a 10-digit U.S. phone number.'],
     invalid_city: ['Escribe tu ciudad.', 'Enter your city.'],
@@ -120,6 +135,12 @@
   .onb-welcome{width:100%;max-width:400px;text-align:center;background:var(--bw-surface,#fff);color:var(--bw-text,#2B2621);border-radius:26px;padding:26px 22px;box-shadow:0 30px 60px -24px rgba(0,0,0,.55)}
   .onb-welcome h2{margin:6px 0 8px;font-size:22px;font-weight:900;color:var(--bw-ink,#1B4D3E)}
   .onb-welcome p{font-size:13.5px;line-height:1.5;margin:0 0 16px}
+  .wa-ica{border:1.5px solid var(--bw-line,#EBE3D5);border-radius:16px;padding:12px 14px;background:var(--bw-soft,#FAF7F1);display:grid;gap:10px}
+  .wa-ica h3{margin:0;font-size:13.5px;font-weight:900;color:var(--bw-ink,#1B4D3E)}
+  .wa-ica ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:12px;line-height:1.4}
+  .wa-ica a{color:var(--bw-ink,#1B4D3E);font-weight:900;text-decoration:underline}
+  .wa-check{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;font-weight:700;line-height:1.4;cursor:pointer;min-height:44px}
+  .wa-check input{flex:none;width:20px;height:20px;margin-top:1px;accent-color:#00A859}
   .wa-risk.low{background:#E7F6EE;color:#05603A}.wa-risk.medium{background:#FEF3C7;color:#78350F}.wa-risk.high{background:#FDECEA;color:#8A1C12}`;
 
   // ---------- Navegador ----------
@@ -177,9 +198,33 @@
           <label class="wa-photo" id="waIdBox"><input type="file" id="waIdFile" accept="image/jpeg,image/png,image/webp" capture="environment"><img alt="" id="waIdPrev"><span><b>🪪 ${esc(tr('Foto de tu ID (frente)', 'Photo of your ID (front)'))}</b><br><span class="wa-note">${esc(tr('Clara, completa, sin reflejos. JPEG/PNG/WEBP.', 'Clear, whole, no glare. JPEG/PNG/WEBP.'))}</span></span></label>
           <label class="wa-photo" id="waSelfieBox"><input type="file" id="waSelfieFile" accept="image/jpeg,image/png,image/webp" capture="user"><img alt="" id="waSelfiePrev"><span><b>🤳 ${esc(tr('Selfie', 'Selfie'))}</b><br><span class="wa-note">${esc(tr('Tu cara de frente, con buena luz, sin lentes de sol.', 'Your face, facing the camera, good light, no sunglasses.'))}</span></span></label>
           <p class="wa-note">🔒 ${esc(tr('Tus fotos se guardan en un almacenamiento privado: solo tú y el administrador de Barkwalk pueden verlas. No usamos reconocimiento facial.', 'Your photos are stored privately: only you and the Barkwalk administrator can see them. We do not use facial recognition.'))}</p>
+          ${contractorHtml()}
           <p id="waErr" class="wa-err" hidden></p>
           <button type="submit" id="waSubmit" class="w-btn w-btn-primary w-full">${esc(tr('Enviar postulación', 'Submit application'))}</button>
         </form>`;
+    }
+
+    // Independent Contractor Agreement (1099) de Barkwalk USA LLC: resumen + acuerdo completo + casilla + firma.
+    // Resume la sección 2 de terminos-paseadores.html; el texto que obliga es el acuerdo completo enlazado.
+    function contractorHtml() {
+      const lang = win.currentLang === 'en' ? 'en' : 'es';
+      const puntos = [
+        ['Eres <b>contratista independiente</b>, no empleado de Barkwalk USA LLC: no hay relación laboral, de sociedad ni de agencia.', 'You are an <b>independent contractor</b>, not an employee of Barkwalk USA LLC: no employment, partnership or agency relationship.'],
+        ['Tú decides cuándo te conectas y qué paseos aceptas. Sin horario mínimo ni exclusividad.', 'You decide when you go online and which walks you accept. No minimum hours and no exclusivity.'],
+        ['Sin salario, beneficios, seguro médico ni compensación laboral (workers’ comp).', 'No wages, benefits, health insurance or workers’ compensation.'],
+        ['Pagas tus propios <b>impuestos</b>: Barkwalk o Stripe pueden pedirte el W-9 y emitir tu formulario <b>1099</b>.', 'You pay your own <b>taxes</b>: Barkwalk or Stripe may request a W-9 and issue your Form <b>1099</b>.'],
+        ['Usas tus propias herramientas y respondes por los daños que causes por negligencia.', 'You use your own tools and are responsible for damage you cause through negligence.'],
+      ];
+      return `<div class="wa-ica" id="waIca">
+          <h3>📝 ${esc(tr('Independent Contractor Agreement (1099)', 'Independent Contractor Agreement (1099)'))}</h3>
+          <p class="wa-note" style="margin:0">${esc(tr(`Barkwalk USA LLC · Acuerdo para Paseadores, versión ${CONTRACTOR_VERSION}. Resumen:`, `Barkwalk USA LLC · Walker Agreement, version ${CONTRACTOR_VERSION}. Summary:`))}</p>
+          <ul>${puntos.map((p) => `<li>${lang === 'en' ? p[1] : p[0]}</li>`).join('')}</ul>
+          <a href="${CONTRACTOR_URL}#${lang}-2" target="_blank" rel="noopener" id="waIcaLink">📄 ${esc(tr('Leer el acuerdo completo', 'Read the full agreement'))} ↗</a>
+          <label class="wa-check"><input type="checkbox" id="waContractorOk" required>
+            <span>${esc(tr('Leí y acepto el Independent Contractor Agreement de Barkwalk USA LLC. Entiendo que soy contratista independiente (1099) y no empleado.', 'I have read and accept the Barkwalk USA LLC Independent Contractor Agreement. I understand I am an independent contractor (1099), not an employee.'))}</span></label>
+          <label class="wa-field">${esc(tr('Firma electrónica: escribe tu nombre legal completo', 'Electronic signature: type your full legal name'))}<input id="waContractorSign" autocomplete="off" spellcheck="false" required></label>
+          <p class="wa-note" style="margin:0">✍️ ${esc(tr('Escribir tu nombre equivale a tu firma. Guardamos la fecha y hora exactas, la versión del acuerdo, tu nombre y tu correo como constancia.', 'Typing your name counts as your signature. We record the exact date and time, the agreement version, your name and your email as proof.'))}</p>
+        </div>`;
     }
 
     function wireForm(box, after) {
@@ -208,6 +253,9 @@
       for (const [k, code] of [['id', 'id_photo_file_missing'], ['selfie', 'selfie_file_missing']]) {
         const c = checkFile(pick[k]); if (!c.ok) return err(c.error === 'file_missing' ? code : c.error);
       }
+      // Independent Contractor Agreement: obligatorio ANTES de subir nada (el servidor y la base lo vuelven a exigir)
+      if (!$('waContractorOk').checked) { $('waContractorOk').focus(); return err('contractor_required'); }
+      if (!signatureMatches($('waContractorSign').value, $('waName').value)) { $('waContractorSign').focus(); return err('contractor_signature_mismatch'); }
       const btn = $('waSubmit'); btn.disabled = true; btn.textContent = tr('Subiendo fotos…', 'Uploading photos…');
       try {
         const db = win.supabaseClient, uid = win.currentUser.id;
@@ -222,7 +270,8 @@
         const ses = (await db.auth.getSession()).data.session;
         const r = await win.fetch('/api/signup', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ses.access_token}` },
           body: JSON.stringify({ action: 'walker_application', legalName: $('waName').value, phone: $('waPhone').value, city: $('waCity').value, zip: $('waZip').value,
-            idType: $('waIdType').value, idExpiry: $('waExpiry').value, idPhotoPath: paths.id, selfiePath: paths.selfie }) });
+            idType: $('waIdType').value, idExpiry: $('waExpiry').value, idPhotoPath: paths.id, selfiePath: paths.selfie,
+            contractorAccepted: $('waContractorOk').checked === true, contractorVersion: CONTRACTOR_VERSION, contractorSignature: $('waContractorSign').value }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) { if (j.error === 'terms_required' && win.BWTermsGate) win.BWTermsGate.require(); return err(j.error); }
         pick.id = pick.selfie = null;
@@ -324,6 +373,9 @@
             <span class="wa-risk ${esc(a.agent_risk || 'medium')}">${esc(tr('riesgo', 'risk'))} ${esc(a.agent_risk || '—')}</span></p>
           <p class="wa-note">${esc(r.summary || tr('El agente aún no analiza esta postulación.', 'The agent has not analyzed this application yet.'))} · ${esc(tr('estado', 'status'))}: ${esc(a.status)}</p>
           <p class="wa-note"><b>${esc(tr('El agente NO aprueba: revisa las fotos y decide tú.', 'The agent does NOT approve: review the photos and decide.'))}</b></p>
+          <p class="wa-note">📝 ${a.contractor_agreement_accepted
+            ? `${esc(tr('Contractor Agreement firmado', 'Contractor Agreement signed'))}: “${esc(a.contractor_signature_name)}” · ${esc(a.contractor_signer_email)} · v${esc(a.contractor_agreement_version)} · ${esc(String(a.contractor_agreement_accepted_at || '').replace('T', ' ').slice(0, 19))} UTC`
+            : esc(tr('Envío anterior a la firma en la postulación (aceptación registrada en el registro).', 'Submitted before in-application signing (acceptance recorded at sign-up).'))}</p>
           <ul class="wa-rep">${chk}</ul>
           <p class="text-[12px] font-black">${esc(tr('Alertas para revisar con atención', 'Alerts to review carefully'))}</p>
           <ul class="wa-rep">${al}</ul>
@@ -423,6 +475,7 @@
             <p>${esc(tr('Recibimos tus documentos', 'We received your documents'))}${enviada ? ' (' + esc(enviada) + ')' : ''}. ${esc(tr('Una persona del equipo de Barkwalk está revisando tu identificación, tu selfie y tus datos. Te avisaremos por correo y notificación en cuanto haya una decisión. Puedes cerrar la app: esta pantalla se actualiza sola.', 'A person on the Barkwalk team is reviewing your ID, your selfie and your details. We will email and notify you as soon as there is a decision. You can close the app: this screen updates on its own.'))}</p>
             <ul class="onb-status">
               <li>✅ ${esc(tr('Términos y Acuerdo para Paseadores', 'Terms and Walker Agreement'))}</li>
+              <li>✅ ${esc(tr('Independent Contractor Agreement (1099) firmado', 'Independent Contractor Agreement (1099) signed'))}</li>
               <li>✅ ${esc(tr('ID vigente y selfie enviados', 'Current ID and selfie submitted'))}</li>
               <li>⏳ ${esc(tr('Revisión del equipo', 'Team review'))}</li>
             </ul>
@@ -469,7 +522,7 @@
   const api = () => { if (!ui && typeof window !== 'undefined') ui = mount(window); return ui; };
   return {
     BUCKET, MAX_BYTES, TYPES, WARN_DAYS, SIGNED_URL_SECONDS, ERR, CSS, checkIdExpiry, checkFile, buildPath, viewState,
-    isApproved,
+    isApproved, CONTRACTOR_VERSION, CONTRACTOR_URL, normName, signatureMatches,
     render: (id) => api() && api().render(id), renderAdminReview: (w, c) => api() && api().renderAdminReview(w, c),
     gate: () => api() && api().gate(), renderOnboarding: (id) => api() && api().renderOnboarding(id), stop: () => api() && api().stop(),
     showWelcome: (u) => api() && api().showWelcome(u), maybeWelcome: () => api() && api().maybeWelcome(),
