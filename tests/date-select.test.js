@@ -256,6 +256,42 @@ t('integración: el pasaporte usa Mes/Día/Año en las 3 vacunas y guarda lo que
   assert.match(html, /vaccines: Object\.fromEntries\(Object\.keys\(VACCINE_NAMES\)\.map\(k => \[k, val\('pp_vac_' \+ k\)\]\)\)/, 'guarda el valor del mismo input');
 });
 
+t('mascotas: la edad sale de la fecha de nacimiento (años cumplidos, siempre al día); sin fecha, la edad escrita', () => {
+  const html = read('index.html');
+  const code = html.slice(html.indexOf('  // Fecha de nacimiento opcional (pets.birth_date)'), html.indexOf('  // En el formulario: con fecha, la edad se llena sola'));
+  const vm = require('vm'); const ctx = { Intl, Date, String, Number };
+  vm.runInNewContext(code + '\nthis.F = { petAgeFromBirth, petAge, petTodayYmd };', ctx);
+  const F = ctx.F;
+  assert.equal(F.petAgeFromBirth('2022-11-26', '2026-11-26'), 4, 'cumple hoy');
+  assert.equal(F.petAgeFromBirth('2022-11-27', '2026-11-26'), 3, 'cumple mañana');
+  assert.equal(F.petAgeFromBirth('2024-02-29', '2025-02-28'), 0); assert.equal(F.petAgeFromBirth('2024-02-29', '2025-03-01'), 1, 'nacido un 29-feb');
+  assert.equal(F.petAgeFromBirth('2026-11-27', '2026-11-26'), null, 'futura: no cuenta'); assert.equal(F.petAgeFromBirth('', '2026-11-26'), null);
+  assert.match(F.petTodayYmd(), /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(F.petAge({ age: '7', birth_date: null }), '7', 'sin fecha: la edad escrita');
+  assert.equal(F.petAge({ age: '' }), ''); assert.equal(F.petAge(null), '');
+  const y = Number(F.petTodayYmd().slice(0, 4));
+  assert.equal(F.petAge({ age: '1', birth_date: `${y - 6}-01-01` }), '6', 'con fecha manda la fecha (la edad guardada pudo quedar vieja)');
+});
+
+t('mascotas: formulario con fecha de nacimiento opcional en Mes/Día/Año que llena la edad; la base la valida y calcula', () => {
+  const html = read('index.html');
+  const blk = html.slice(html.indexOf('function petFormBlock'), html.indexOf('function addPetFormBlock'));
+  assert.match(blk, /\$\{completo \? `<div>\s*<label for="pf_birth_\$\{i\}"[^>]*>🎂 \$\{tr\('Fecha de nacimiento \(opcional\)'/, 'solo en el bloque completo, marcada como opcional');
+  assert.match(blk, /<input id="pf_birth_\$\{i\}" type="date" min="[^"]+" max="\$\{petTodayYmd\(\)\}"[^>]*value="\$\{esc\(v\.birth_date \|\| ''\)\}" onchange="syncPetAgeFromBirth\(\$\{i\}\)">/, 'nunca futura; respaldo nativo');
+  assert.doesNotMatch(blk, /pf_birth_[^\n]*required/, 'no es obligatoria');
+  assert.match(blk, /value="\$\{esc\(petAge\(v\)\)\}"/, 'la edad se muestra al día al editar');
+  const modal = html.slice(html.indexOf('function openMyPetsModal'), html.indexOf('function petFormBlock'));
+  assert.ok(modal.indexOf("openSheet('myPetsModal'") < modal.indexOf('window.BWDateSelect.attach(birth0)'), 'monta después de pintar');
+  assert.match(modal, /syncPetAgeFromBirth\(0\);/);
+  const save = html.slice(html.indexOf('async function savePetForm'), html.indexOf('// 3) Guardar en public.pets'));
+  assert.match(save, /values\.birth_date = birth \|\| null;/); assert.match(save, /if \(desde != null\) values\.age = desde;/);
+  for (const uso of ['ageLabel(petAge(pet))', 'ageLabel(petAge(p))', 'age: petAge(r) ||']) assert.ok(html.includes(uso), uso);
+  const M = read('supabase/migrations/20261209_pet_birth_date.sql');
+  assert.match(M, /add column if not exists birth_date date;/); assert.match(M, /new\.birth_date > hoy/); assert.match(M, /interval '30 years'/);
+  assert.match(M, /new\.age := extract\(year from age\(hoy, new\.birth_date\)\)/); assert.match(M, /America\/Chicago/);
+  assert.doesNotMatch(M, /create policy|grant /i, 'no cambia RLS ni permisos');
+});
+
 t('integración: registro y pantalla de Términos usan el selector sobre el mismo input; sin script queda el nativo', () => {
   const html = read('index.html'), tg = read('terms-gate.js');
   assert.match(html, /<input type="date" id="regBirth"/, 'respaldo nativo si no carga el script');

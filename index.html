@@ -5427,7 +5427,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
       return `${label}<p class="text-[13px] font-bold mt-1">${esc(row.pet_name || tr('Mascota', 'Pet'))}</p>
         <p class="text-[11px] text-white/55 mt-0.5">${tr('El cliente no tiene ficha registrada para esta mascota.', 'The client has no profile saved for this pet.')}</p>`;
     }
-    const chips = [ageLabel(pet.age), sizeLabel(pet.size)].filter(Boolean)
+    const chips = [ageLabel(petAge(pet)), sizeLabel(pet.size)].filter(Boolean)
       .map(t => `<span class="w-badge w-badge--glass">${esc(t)}</span>`).join('');
     return `${label}
       <p class="text-[14px] font-bold mt-1 break-words">${esc(pet.name)}${pet.breed ? ` · <span class="font-semibold text-white/80">${esc(pet.breed)}</span>` : ''}</p>
@@ -7452,7 +7452,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         energy: 'medium', allergies: '', weight: '', vaccines: {}, vetName: '', vetPhone: '',
         ...pass,
         name: r.name, breed: r.breed || pass.breed || '',
-        age: r.age != null && r.age !== '' ? String(r.age) : (pass.age || ''),
+        age: petAge(r) || (pass.age || ''), birthDate: r.birth_date || '',
         size: r.size || '', notes: r.notes || pass.notes || '', petId: r.id,
         photo: r.dog_photo_url || '' // foto pública en Supabase Storage (bucket pet-photos)
       };
@@ -7500,6 +7500,27 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   ];
   function sizeLabel(s) { const r = PET_SIZES.find(x => x[0] === s); return r ? tr(r[1], r[2]) : (s || ''); }
   function ageLabel(a) { return a == null || a === '' ? '' : tr(`${a} ${Number(a) === 1 ? 'año' : 'años'}`, `${a} ${Number(a) === 1 ? 'yr' : 'yrs'}`); }
+  // Fecha de nacimiento opcional (pets.birth_date): si existe, la edad se calcula al mostrarla (siempre al día;
+  // la base también la guarda en pets.age al escribir). Años cumplidos en hora de Birmingham.
+  function petTodayYmd() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+  function petAgeFromBirth(ymd, hoy = petTodayYmd()) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd || '') || ymd > hoy) return null;
+    const [by, bm, bd] = ymd.split('-').map(Number), [ty, tm, td] = hoy.split('-').map(Number);
+    return ty - by - ((tm < bm || (tm === bm && td < bd)) ? 1 : 0);
+  }
+  function petAge(row) {
+    const desdeFecha = row ? petAgeFromBirth(row.birth_date) : null;
+    return desdeFecha != null ? String(desdeFecha) : (row && row.age != null && row.age !== '' ? String(row.age) : '');
+  }
+  // En el formulario: con fecha, la edad se llena sola y queda de solo lectura; sin fecha se escribe a mano
+  function syncPetAgeFromBirth(i) {
+    const age = document.getElementById(`pf_age_${i}`), birth = document.getElementById(`pf_birth_${i}`);
+    if (!age || !birth) return;
+    const a = petAgeFromBirth(birth.value);
+    age.readOnly = a != null;
+    age.classList.toggle('opacity-70', a != null);
+    if (a != null) age.value = String(a);
+  }
 
   let MY_PETS = [];
   let myPetsLoaded = false;
@@ -7633,7 +7654,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         ${petAvatar({ photo: p.dog_photo_url }, 44)}
         <div class="min-w-0 flex-1">
           <p class="font-black text-[14px] text-brandDarkGreen truncate">${esc(p.name)}</p>
-          <p class="text-[11px] text-brandTextDark/65 truncate">${esc([p.breed, ageLabel(p.age), sizeLabel(p.size)].filter(Boolean).join(' · ') || tr('Sin detalles', 'No details'))}</p>
+          <p class="text-[11px] text-brandTextDark/65 truncate">${esc([p.breed, ageLabel(petAge(p)), sizeLabel(p.size)].filter(Boolean).join(' · ') || tr('Sin detalles', 'No details'))}</p>
           ${p.notes ? `<p class="text-[11px] font-semibold text-amber-800 mt-0.5 break-words">⚠️ ${esc(p.notes)}</p>` : ''}
         </div>
         <button type="button" class="w-btn w-btn-ghost" style="min-height:40px;padding:0 12px" aria-label="${tr('Editar', 'Edit')} ${esc(p.name)}"
@@ -7659,6 +7680,11 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
           <button type="submit" id="pf_save" class="w-btn w-btn-primary" ${editing ? 'data-editing="1"' : ''}>${editing ? tr('Guardar cambios', 'Save changes') : tr('Guardar mascota', 'Save pet')}</button>
         </div>
       </form>`);
+    // Fecha de nacimiento en Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb),
+    // nunca futura. Escribe en el mismo #pf_birth_0 y su 'change' llena la edad; sin el script queda el nativo.
+    const birth0 = document.getElementById('pf_birth_0');
+    if (birth0 && window.BWDateSelect) window.BWDateSelect.attach(birth0);
+    syncPetAgeFromBirth(0);
   }
 
   // Un bloque de campos por mascota. El primero trae todos los campos; los adicionales
@@ -7690,9 +7716,14 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
           </div>
           ${completo ? `<div>
             <label for="pf_age_${i}" class="${label}">${tr('Edad (años)', 'Age (years)')}</label>
-            <input id="pf_age_${i}" type="number" min="0" max="30" step="1" inputmode="numeric" class="${input}" value="${esc(v.age ?? '')}">
+            <input id="pf_age_${i}" type="number" min="0" max="30" step="1" inputmode="numeric" class="${input}" value="${esc(petAge(v))}">
           </div>` : ''}
         </div>
+        ${completo ? `<div>
+          <label for="pf_birth_${i}" class="${label}">🎂 ${tr('Fecha de nacimiento (opcional)', 'Date of birth (optional)')}</label>
+          <input id="pf_birth_${i}" type="date" min="${(() => { const h = petTodayYmd(); return `${Number(h.slice(0, 4)) - 30}${h.slice(4)}`; })()}" max="${petTodayYmd()}" class="${input}" value="${esc(v.birth_date || '')}" onchange="syncPetAgeFromBirth(${i})">
+          <p class="text-[10px] text-brandTextDark/50 mt-0.5">${tr('Si la conoces, calculamos la edad y se mantiene al día. Si no (p. ej. adoptado), deja la edad aproximada.', 'If you know it, we calculate the age and keep it up to date. If not (e.g. adopted), just enter an approximate age.')}</p>
+        </div>` : ''}
         ${completo ? `<div>
           <label for="pf_size_${i}" class="${label}">${tr('Tamaño', 'Size')}</label>
           <select id="pf_size_${i}" class="${input}">
@@ -7789,6 +7820,14 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         const age = ageRaw === '' ? null : Number(ageRaw);
         if (age !== null && (!Number.isInteger(age) || age < 0 || age > 30)) { say(tr('La edad debe ser un número entero entre 0 y 30.', 'Age must be a whole number from 0 to 30.')); return; }
         values.age = age;
+        // Fecha de nacimiento opcional: si la hay, manda sobre la edad escrita (la base vuelve a calcularla)
+        if (document.getElementById(`pf_birth_${i}`)) {
+          const birth = val(`pf_birth_${i}`);
+          const desde = birth ? petAgeFromBirth(birth) : null;
+          if (birth && (desde == null || desde > 30)) { say(tr('Revisa la fecha de nacimiento: no puede ser futura ni de hace más de 30 años.', 'Check the date of birth: it cannot be in the future or more than 30 years ago.')); document.getElementById(`pf_birth_${i}`)?.focus(); return; }
+          values.birth_date = birth || null;
+          if (desde != null) values.age = desde;
+        }
         values.size = val(`pf_size_${i}`) || null;
       }
       mascotas.push({ i, values, file: document.getElementById(`pf_photo_${i}`)?.files?.[0] || null });
