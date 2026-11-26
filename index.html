@@ -3959,6 +3959,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                 birth.max = `${lim.getFullYear()}-${String(lim.getMonth() + 1).padStart(2, '0')}-${String(lim.getDate()).padStart(2, '0')}`;
                 set('lblBirth', tr('Fecha de nacimiento', 'Date of birth'));
                 set('regBirthHint', tr(`Debes tener ${MIN_SIGNUP_AGE} años o más para usar Barkwalk.`, `You must be ${MIN_SIGNUP_AGE} or older to use Barkwalk.`));
+                // Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb si no es bisiesto).
+                // Escribe en el mismo #regBirth; sin el script queda el selector nativo.
+                if (window.BWDateSelect) window.BWDateSelect.attach(birth);
 
                 const link = (href, txt) => `<a href="${href}" target="_blank" rel="noopener" class="font-bold text-brandDarkGreen underline underline-offset-2">${txt}</a>`;
                 set('regWaiverTitle', tr('Asunción de riesgos y exención de responsabilidad (Alabama)', 'Assumption of Risk and Release of Liability (Alabama)'));
@@ -4856,7 +4859,8 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="/content-filter.js?v=20261126" defer></script>
 <script src="/bw-safety.js?v=20261126" defer></script>
 <!-- Reserva por pasos animada (pasos, resumen en vivo, revisión final y Cancelar amable) -->
-<script src="/terms-gate.js?v=20261202" defer></script>
+<script src="/date-select.js?v=20261208" defer></script>
+<script src="/terms-gate.js?v=20261208" defer></script>
 <script src="/walker-application.js?v=20261207" defer></script>
 <script src="/account-close.js?v=20261208" defer></script>
 <script src="/delivery-photo.js?v=20261205" defer></script>

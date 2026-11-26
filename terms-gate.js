@@ -116,6 +116,8 @@
         <button type="button" class="tg-out" id="tgLogout">${esc(tr('Cerrar sesión', 'Log out'))}</button>
       </form>`;
       el.hidden = false;
+      // Fecha de nacimiento en Mes / Día / Año (date-select.js): mismo #tgBirth, cambiar el año conserva mes y día
+      if (state.needsBirth && win.BWDateSelect) win.BWDateSelect.attach(doc.getElementById('tgBirth'), { win });
       el.querySelector('#tgForm').addEventListener('submit', (e) => { e.preventDefault(); submit(); });
       el.querySelector('#tgLogout').addEventListener('click', () => { hide(); if (typeof win.logoutUser === 'function') win.logoutUser(); });
       const first = el.querySelector('input'); if (first) setTimeout(() => first.focus(), 30);
