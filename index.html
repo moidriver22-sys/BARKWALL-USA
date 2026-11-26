@@ -7847,16 +7847,40 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
   function activePetName() { return document.getElementById('activePetSelector')?.value || ''; }
   function energyLabel(e) { return { low: tr('Baja', 'Low'), medium: tr('Media', 'Medium'), high: tr('Alta', 'High') }[e] || tr('Media', 'Medium'); }
 
-  function vaccineStatus(ym) {
-    if (!/^\d{4}-\d{2}$/.test(ym || '')) return 'none';
-    const [y, m] = ym.split('-').map(Number);
-    const now = new Date();
-    const diff = (y - now.getFullYear()) * 12 + (m - (now.getMonth() + 1));
-    return diff < 0 ? 'expired' : diff <= 1 ? 'soon' : 'ok';
+  // Vencimiento de vacunas: fecha completa 'YYYY-MM-DD' (selector Mes / Día / Año). Los pasaportes antiguos con
+  // solo 'YYYY-MM' se siguen leyendo igual (vigente hasta el último día de ese mes).
+  const VAC_SOON_DAYS = 31;
+  const vacToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const vacShift = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  // 'YYYY-MM' → último día de ese mes; 'YYYY-MM-DD' igual; cualquier otra cosa → ''
+  function vaccineDate(v) {
+    const s = String(v || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (!/^\d{4}-\d{2}$/.test(s)) return '';
+    const [y, m] = s.split('-').map(Number);
+    return `${s}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
   }
-  function vaccineStatusText(ym) {
-    const st = vaccineStatus(ym);
-    const fecha = st === 'none' ? '' : ` (${ym.slice(5)}/${ym.slice(0, 4)})`;
+  // Rango del selector: una vacuna ya vencida también se registra (5 años atrás) y las de 3 años caben (5 adelante)
+  function vacRangeAttrs() {
+    const y = Number(vacToday().slice(0, 4));
+    return `min="${y - 5}-01-01" max="${y + 5}-12-31"`;
+  }
+  function vaccineStatus(v) {
+    if (/^\d{4}-\d{2}$/.test(v || '')) { // formato antiguo: por meses, como antes
+      const [y, m] = v.split('-').map(Number);
+      const now = new Date();
+      const diff = (y - now.getFullYear()) * 12 + (m - (now.getMonth() + 1));
+      return diff < 0 ? 'expired' : diff <= 1 ? 'soon' : 'ok';
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v || '')) return 'none';
+    const hoy = vacToday();
+    return v < hoy ? 'expired' : v <= vacShift(hoy, VAC_SOON_DAYS) ? 'soon' : 'ok';
+  }
+  function vaccineStatusText(v) {
+    const st = vaccineStatus(v);
+    const fecha = st === 'none' ? ''
+      : /^\d{4}-\d{2}$/.test(v) ? ` (${v.slice(5)}/${v.slice(0, 4)})`
+      : ` (${new Date(v + 'T12:00:00Z').toLocaleDateString(currentLang === 'es' ? 'es-US' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })})`;
     return { ok: tr('Al día', 'Up to date'), soon: tr('Vence pronto', 'Due soon'), expired: tr('Vencida', 'Expired'), none: tr('Sin registro', 'No record') }[st] + fecha;
   }
 
@@ -7919,7 +7943,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
         </div>
         <div class="bg-white rounded-2xl border border-brandBeige p-3.5 space-y-2">
           <p class="font-bold text-brandDarkGreen">💉 ${tr('Vacunas: fecha de vencimiento', 'Vaccines: expiration date')}</p>
-          ${Object.keys(VACCINE_NAMES).map(k => field('pp_vac_' + k, VACCINE_NAMES[k], (p.vaccines || {})[k], 'month')).join('')}
+          ${Object.keys(VACCINE_NAMES).map(k => field('pp_vac_' + k, VACCINE_NAMES[k], vaccineDate((p.vaccines || {})[k]), 'date', vacRangeAttrs())).join('')}
         </div>
         <div class="bg-white rounded-2xl border border-brandBeige p-3.5 space-y-2">
           <p class="font-bold text-brandDarkGreen">🩺 ${tr('Veterinario de cabecera', 'Primary veterinarian')}</p>
@@ -7936,6 +7960,9 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
           <button type="button" onclick="renderPassport('view')" class="bg-white border-2 border-brandBeige text-brandDarkGreen font-bold py-3 rounded-xl min-h-[48px]">${tr('Cancelar', 'Cancel')}</button>
           <button type="button" onclick="savePassportForm()" class="bg-brandDarkGreen text-white font-bold py-3 rounded-xl min-h-[48px] shadow-md">${tr('Guardar', 'Save')}</button>
         </div>`;
+      // Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb) y solo ofrece el rango.
+      // Escribe en el mismo #pp_vac_*; sin el script queda el selector nativo.
+      if (window.BWDateSelect) Object.keys(VACCINE_NAMES).forEach(k => window.BWDateSelect.attach(document.getElementById('pp_vac_' + k), { future: true }));
       return;
     }
 

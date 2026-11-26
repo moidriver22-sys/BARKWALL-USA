@@ -219,6 +219,43 @@ t('integración: la reserva monta el selector tras fijar min/max y addBookingDat
   assert.match(read('date-select.js'), /flex:1 1 230px;min-width:0/, 'ocupa el espacio del input en la fila flex');
 });
 
+t('vacunas: fecha completa con estado por días; los pasaportes antiguos (YYYY-MM) se siguen leyendo igual', () => {
+  const html = read('index.html');
+  const code = html.slice(html.indexOf('  // Vencimiento de vacunas: fecha completa'), html.indexOf('  function updatePetSummary'));
+  assert.ok(code.includes('function vaccineStatusText'), 'bloque de vacunas encontrado');
+  const vm = require('vm');
+  const run = (hoy, lang = 'es') => {
+    const RealDate = Date;
+    class FakeDate extends RealDate { constructor(...a) { super(...(a.length ? a : [`${hoy}T17:00:00Z`])); } static now() { return new RealDate(`${hoy}T17:00:00Z`).getTime(); } }
+    const ctx = { Date: FakeDate, Intl, String, Number, currentLang: lang, tr: (es, en) => (lang === 'en' ? en : es) };
+    vm.runInNewContext(code + '\nthis.F = { vaccineDate, vaccineStatus, vaccineStatusText, vacRangeAttrs };', ctx);
+    return ctx.F;
+  };
+  const F = run('2026-11-26');
+  assert.equal(F.vaccineStatus('2026-11-25'), 'expired', 'ayer: vencida');
+  assert.equal(F.vaccineStatus('2026-11-26'), 'soon', 'vence hoy: aún vigente, vence pronto');
+  assert.equal(F.vaccineStatus('2026-12-27'), 'soon', '≤ 31 días'); assert.equal(F.vaccineStatus('2026-12-28'), 'ok');
+  assert.equal(F.vaccineStatus(''), 'none'); assert.equal(F.vaccineStatus('abc'), 'none'); assert.equal(F.vaccineStatus(undefined), 'none');
+  // Formato antiguo: misma lógica por meses que antes
+  assert.equal(F.vaccineStatus('2026-10'), 'expired'); assert.equal(F.vaccineStatus('2026-12'), 'soon'); assert.equal(F.vaccineStatus('2027-03'), 'ok');
+  assert.equal(F.vaccineStatusText('2027-03'), 'Al día (03/2027)');
+  assert.match(F.vaccineStatusText('2027-03-15'), /^Al día \(15\/03\/2027\)$/);
+  assert.match(run('2026-11-26', 'en').vaccineStatusText('2027-03-15'), /^Up to date \(03\/15\/2027\)$/);
+  // Al editar un pasaporte antiguo, 'YYYY-MM' se muestra como el último día de ese mes (vigente todo el mes)
+  assert.equal(F.vaccineDate('2027-02'), '2027-02-28'); assert.equal(F.vaccineDate('2028-02'), '2028-02-29');
+  assert.equal(F.vaccineDate('2027-04'), '2027-04-30'); assert.equal(F.vaccineDate('2027-04-12'), '2027-04-12'); assert.equal(F.vaccineDate('x'), '');
+  assert.equal(F.vacRangeAttrs(), 'min="2021-01-01" max="2031-12-31"', 'se puede registrar una vacuna ya vencida y una de 3 años');
+});
+
+t('integración: el pasaporte usa Mes/Día/Año en las 3 vacunas y guarda lo que escribe el selector', () => {
+  const html = read('index.html');
+  assert.match(html, /field\('pp_vac_' \+ k, VACCINE_NAMES\[k\], vaccineDate\(\(p\.vaccines \|\| \{\}\)\[k\]\), 'date', vacRangeAttrs\(\)\)/, 'respaldo nativo type="date"');
+  assert.doesNotMatch(html, /'pp_vac_' \+ k[^\n]*'month'/, 'ya no es un campo de solo mes');
+  const edit = html.slice(html.indexOf("if (mode === 'edit') {"), html.indexOf('const vacRows'));
+  assert.ok(edit.indexOf('body.innerHTML') < edit.indexOf("window.BWDateSelect.attach(document.getElementById('pp_vac_' + k), { future: true })"), 'monta después de pintar el formulario');
+  assert.match(html, /vaccines: Object\.fromEntries\(Object\.keys\(VACCINE_NAMES\)\.map\(k => \[k, val\('pp_vac_' \+ k\)\]\)\)/, 'guarda el valor del mismo input');
+});
+
 t('integración: registro y pantalla de Términos usan el selector sobre el mismo input; sin script queda el nativo', () => {
   const html = read('index.html'), tg = read('terms-gate.js');
   assert.match(html, /<input type="date" id="regBirth"/, 'respaldo nativo si no carga el script');
