@@ -12,7 +12,7 @@
 //    ahí se responde al instante sin consultar Overpass (fuera del área sí se consulta).
 // Datos © OpenStreetMap contributors (ODbL); los mapas muestran la atribución.
 // ---------------------------------------------------------------------------
-const { send, clientIp, makeRateLimiter } = require('./_lib/http');
+const { send, clientIp, makeRateLimiter, cors } = require('./_lib/http');
 
 let SEED = {};
 try { SEED = require('./_lib/places-seed.json'); } catch (e) { SEED = {}; }
@@ -130,6 +130,7 @@ function reply(res, places, cell, maxAge) {
 }
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'GET' })) return;
   if (req.method !== 'GET') return send(res, 405, { error: 'method_not_allowed' });
   const q = new URL(req.url, 'http://x').searchParams;
   const kind = ['vet', 'walk'].includes(q.get('kind')) ? q.get('kind') : null;

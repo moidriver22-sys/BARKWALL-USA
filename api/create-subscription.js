@@ -7,7 +7,7 @@
 // (checkout.session.completed / customer.subscription.*), nunca desde el navegador.
 // Variables: STRIPE_SECRET_KEY, STRIPE_PRICE_CLUB, STRIPE_PRICE_WALKER_PRO, SUPABASE_*, PUBLIC_SITE_URL (opcional)
 // ---------------------------------------------------------------------------
-const { send, bearerToken, readJsonBody } = require('./_lib/http');
+const { send, bearerToken, readJsonBody, cors } = require('./_lib/http');
 const { rateLimit } = require('./_lib/rate-limit');
 
 // Versión vigente de los Términos (terminos-clientes.html / terminos-paseadores.html). Cámbiala junto con index.html.
@@ -18,6 +18,7 @@ const { stripeKeyValid, getStripe, siteUrl } = require('./_lib/connect');
 const { ACTIVE_STATUSES, priceIdValid, prices, tierForRole, getMembership } = require('./_lib/membership');
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'POST' })) return;
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return send(res, 405, { error: 'method_not_allowed' }); }
   const p = prices();
   if (!stripeKeyValid(process.env.STRIPE_SECRET_KEY) || !isConfigured() || !priceIdValid(p.club) || !priceIdValid(p.walker_pro)) {

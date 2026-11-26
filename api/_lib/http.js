@@ -75,4 +75,51 @@ function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-module.exports = { send, readRawBody, readJsonBody, bearerToken, clientIp, makeRateLimiter, escapeHtml };
+// ---------------- CORS: solo los dominios de Barkwalk USA ----------------
+// La app llama a /api desde su propio dominio, así que no necesita CORS; esto cierra la puerta a que otra web
+// (que podría tener el token de un usuario en un XSS o en una extensión) use la API desde el navegador.
+// · Sin cabecera Origin (Stripe, cron, pg_net, curl) → pasa: esos clientes se autentican con firma/secreto/token.
+// · Mismo origen que el host de la petición (p. ej. una preview *.vercel.app llamándose a sí misma) → pasa.
+// · localhost/127.0.0.1 → solo fuera de producción (VERCEL_ENV !== 'production').
+// · ALLOWED_ORIGINS (opcional, separadas por coma) añade orígenes extra sin tocar código.
+const PROD_ORIGINS = ['https://barkwalkusa.com', 'https://www.barkwalkusa.com'];
+const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/;
+
+function allowedOrigins() {
+  const extra = String(process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean);
+  return new Set([...PROD_ORIGINS, ...extra]);
+}
+
+function isAllowedOrigin(origin, host) {
+  if (!origin) return true;
+  const o = String(origin).trim().replace(/\/+$/, '');
+  if (allowedOrigins().has(o)) return true;
+  if (host && o === `https://${String(host).trim()}`) return true; // mismo origen: no es una petición cruzada
+  if (process.env.VERCEL_ENV !== 'production' && LOCAL_ORIGIN.test(o)) return true;
+  return false;
+}
+
+// Devuelve true si ya respondió (preflight OPTIONS u origen rechazado); el handler debe hacer `return`.
+function cors(req, res, { methods = 'GET, POST' } = {}) {
+  const h = req.headers || {};
+  const origin = h.origin;
+  res.setHeader('Vary', 'Origin');
+  if (origin && !isAllowedOrigin(origin, h.host)) {
+    send(res, 403, { error: 'origin_not_allowed' });
+    return true;
+  }
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', String(origin).trim().replace(/\/+$/, ''));
+  }
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', `${methods}, OPTIONS`);
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.setHeader('Access-Control-Max-Age', '600');
+    res.statusCode = 204;
+    res.end();
+    return true;
+  }
+  return false;
+}
+
+module.exports = { send, readRawBody, readJsonBody, bearerToken, clientIp, makeRateLimiter, escapeHtml, cors, isAllowedOrigin };

@@ -5,13 +5,14 @@
 // Respuesta: { url } → redirigir a Stripe. Los cambios vuelven por el webhook (customer.subscription.*).
 // Requiere el portal configurado en Stripe Dashboard → Settings → Billing → Customer portal.
 // ---------------------------------------------------------------------------
-const { send, bearerToken } = require('./_lib/http');
+const { send, bearerToken, cors } = require('./_lib/http');
 const { rateLimit } = require('./_lib/rate-limit');
 const { isConfigured, getUserFromToken } = require('./_lib/supabase');
 const { stripeKeyValid, getStripe, siteUrl } = require('./_lib/connect');
 const { getMembership } = require('./_lib/membership');
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'POST' })) return;
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return send(res, 405, { error: 'method_not_allowed' }); }
   if (!stripeKeyValid(process.env.STRIPE_SECRET_KEY) || !isConfigured()) return send(res, 503, { error: 'not_configured' });
 

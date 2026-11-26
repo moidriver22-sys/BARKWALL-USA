@@ -7,7 +7,7 @@
 // Los precios del prompt salen de api/_lib/pricing.js: los mismos con los que se cobra.
 // ---------------------------------------------------------------------------
 const Anthropic = require('@anthropic-ai/sdk');
-const { send, readJsonBody, clientIp, makeRateLimiter, bearerToken } = require('./_lib/http');
+const { send, readJsonBody, clientIp, makeRateLimiter, bearerToken, cors } = require('./_lib/http');
 const { isConfigured, getUserFromToken } = require('./_lib/supabase');
 const { rateLimit } = require('./_lib/rate-limit');
 const { SERVICES, GROOMING, LARGE_DOG_FEE, EXTRA_PET_FEE, MAX_PETS, MAX_DAYS } = require('./_lib/pricing');
@@ -146,6 +146,7 @@ async function translate(b) {
 }
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'POST' })) return;
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return send(res, 405, { error: 'method_not_allowed' }); }
   if (!process.env.ANTHROPIC_API_KEY) { console.error('Falta ANTHROPIC_API_KEY en Vercel.'); return send(res, 503, { error: 'ai_not_configured' }); }
 

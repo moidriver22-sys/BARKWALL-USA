@@ -12,7 +12,7 @@
 //   precio de LISTA por día (el descuento del Club lo absorbe Barkwalk) × porcentaje (Socio Pro o base).
 // Variables: SUPABASE_*, WALKER_PAYOUT_PERCENT, WALKER_PRO_PAYOUT_PERCENT (opcional)
 // ---------------------------------------------------------------------------
-const { send, bearerToken } = require('./_lib/http');
+const { send, bearerToken, cors } = require('./_lib/http');
 const { rateLimit } = require('./_lib/rate-limit');
 const { isConfigured, sb, sbOrThrow, getUserFromToken, enc } = require('./_lib/supabase');
 const { WALKER_ROLES, payoutPercent } = require('./_lib/connect');
@@ -20,6 +20,7 @@ const { walkerEarningCents } = require('./_lib/earnings');
 const { proPayoutPercent } = require('./_lib/membership');
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'GET, POST' })) return;
   if (req.method !== 'GET' && req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return send(res, 405, { error: 'method_not_allowed' }); }
   if (!isConfigured()) return send(res, 503, { error: 'not_configured' });
 

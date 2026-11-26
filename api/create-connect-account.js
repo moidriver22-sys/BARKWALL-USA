@@ -11,13 +11,14 @@
 //    Al quedar completa, también paga los paseos completados que tenía pendientes.
 // Variables: STRIPE_SECRET_KEY, SUPABASE_*, PUBLIC_SITE_URL (opcional), WALKER_PAYOUT_PERCENT
 // ---------------------------------------------------------------------------
-const { send, bearerToken } = require('./_lib/http');
+const { send, bearerToken, cors } = require('./_lib/http');
 const { rateLimit } = require('./_lib/rate-limit');
 const { isConfigured, sbOrThrow, getUserFromToken, enc } = require('./_lib/supabase');
 const { requireCurrentConsent } = require('./_lib/terms');
 const { classifyConnectError, WALKER_ROLES, stripeKeyValid, getStripe, siteUrl, getProfile, syncAccountStatus, payoutCompletedWalks } = require('./_lib/connect');
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'POST' })) return;
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return send(res, 405, { error: 'method_not_allowed' }); }
   if (!stripeKeyValid(process.env.STRIPE_SECRET_KEY) || !isConfigured()) return send(res, 503, { error: 'not_configured' });
 

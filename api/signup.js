@@ -17,7 +17,7 @@
 // Anti-bots y abuso: honeypot + Cloudflare Turnstile (api/_lib/bot-guard.js), límite persistente
 // (api/_lib/rate-limit.js) y filtro de lenguaje en el nombre (api/_lib/content-filter.js).
 // GET /api/signup?config=1 → { turnstileSiteKey } (pública; null mientras falten las claves en Vercel)
-const { send, readJsonBody, makeRateLimiter } = require('./_lib/http');
+const { send, readJsonBody, makeRateLimiter, cors } = require('./_lib/http');
 const { supabaseConfig, isConfigured, sb } = require('./_lib/supabase');
 const { verifyHuman, publicBotConfig } = require('./_lib/bot-guard');
 const { rateLimit } = require('./_lib/rate-limit');
@@ -124,6 +124,7 @@ async function accountClosure(req, res, b, ip) {
 }
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'GET, POST' })) return;
   if (req.method === 'GET') return send(res, 200, publicBotConfig()); // configuración pública anti-bots
   if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return send(res, 405, { error: 'method_not_allowed' }); }
   if (!isConfigured()) return send(res, 503, { error: 'not_configured' });

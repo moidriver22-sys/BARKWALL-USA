@@ -22,7 +22,7 @@
 // Variables: STRIPE_SECRET_KEY, SUPABASE_URL (o NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY
 // ---------------------------------------------------------------------------
 const Stripe = require('stripe');
-const { send, readJsonBody, bearerToken } = require('./_lib/http');
+const { send, readJsonBody, bearerToken, cors } = require('./_lib/http');
 const { isConfigured, sb, sbOrThrow, getUserFromToken, enc } = require('./_lib/supabase');
 const { computeQuote, QuoteError, MAX_PETS, MEMBER_DISCOUNT_PCT } = require('./_lib/pricing');
 const { getMembership, isActiveMember } = require('./_lib/membership');
@@ -59,6 +59,7 @@ async function findBooking(userId, checkoutId) {
 }
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'POST' })) return;
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return send(res, 405, { error: 'method_not_allowed' }); }
 
   if (!stripeKeyValid(process.env.STRIPE_SECRET_KEY) || !isConfigured()) {

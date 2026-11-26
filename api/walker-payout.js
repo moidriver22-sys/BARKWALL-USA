@@ -9,7 +9,7 @@
 // Respuesta: { status, paid: [{ walkId, amount, transferId }], failed: [{ walkId, error }] }
 //   status: 'ok' | 'no_account' | 'account_incomplete' | 'not_configured' | 'not_walker'
 // ---------------------------------------------------------------------------
-const { send, readJsonBody, bearerToken } = require('./_lib/http');
+const { send, readJsonBody, bearerToken, cors } = require('./_lib/http');
 const { rateLimit } = require('./_lib/rate-limit');
 const { isConfigured, getUserFromToken } = require('./_lib/supabase');
 const { stripeKeyValid, getStripe, payoutCompletedWalks } = require('./_lib/connect');
@@ -17,6 +17,7 @@ const { stripeKeyValid, getStripe, payoutCompletedWalks } = require('./_lib/conn
 const WALK_ID = /^[A-Za-z0-9-]{1,64}$/;
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'POST' })) return;
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return send(res, 405, { error: 'method_not_allowed' }); }
   if (!stripeKeyValid(process.env.STRIPE_SECRET_KEY) || !isConfigured()) return send(res, 503, { error: 'not_configured' });
 

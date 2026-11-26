@@ -8,7 +8,7 @@
 //   (sin correos ni nombres: solo tipo de alerta, referencia corta del paseo y rol del destinatario)
 // ---------------------------------------------------------------------------
 const crypto = require('crypto');
-const { send, bearerToken } = require('./_lib/http');
+const { send, bearerToken, cors } = require('./_lib/http');
 const { isConfigured } = require('./_lib/supabase');
 const { runDispatch } = require('./_lib/dispatch');
 const { sendTestRefundEmail, sendTestPush, sendTestGrowth } = require('./_lib/test-email');
@@ -41,6 +41,7 @@ function secretOk(given) {
 }
 
 async function handler(req, res) {
+  if (cors(req, res, { methods: 'GET, POST' })) return;
   if (req.method !== 'GET' && req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return send(res, 405, { error: 'method_not_allowed' }); }
   if (!process.env.CRON_SECRET || !isConfigured()) {
     console.error('dispatch: faltan CRON_SECRET o SUPABASE_*.');

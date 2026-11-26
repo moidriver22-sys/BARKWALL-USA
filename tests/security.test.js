@@ -205,11 +205,54 @@ const SIGNUP_OK = {
   await t('vercel.json: cabeceras de seguridad en todas las rutas', async () => {
     const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
     const h = Object.fromEntries(cfg.headers.find((x) => x.source === '/(.*)').headers.map((x) => [x.key, x.value]));
-    assert.equal(h['X-Content-Type-Options'], 'nosniff'); assert.equal(h['X-Frame-Options'], 'SAMEORIGIN');
+    assert.equal(h['X-Content-Type-Options'], 'nosniff'); assert.equal(h['X-Frame-Options'], 'DENY');
     assert.equal(h['Referrer-Policy'], 'strict-origin-when-cross-origin');
     assert.match(h['Permissions-Policy'], /geolocation=\(self\)/); assert.match(h['Permissions-Policy'], /microphone=\(\)/);
     assert.match(h['Permissions-Policy'], /payment=\(self "https:\/\/js\.stripe\.com"\)/);
-    assert.match(h['Content-Security-Policy'], /frame-ancestors 'self'/); assert.match(h['Strict-Transport-Security'], /max-age=\d+/);
+    assert.match(h['Strict-Transport-Security'], /max-age=\d+/);
+    for (const d of ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'"]) assert.ok(h['Content-Security-Policy'].includes(d), d);
+    // Política completa (por orígenes) en Report-Only hasta comprobarla en producción sin violaciones
+    const csp = h['Content-Security-Policy'] + '; ' + (h['Content-Security-Policy-Report-Only'] || '');
+    for (const d of ["default-src 'self'", "frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"]) assert.ok(csp.includes(d), d);
+    // Lo que la app necesita de verdad: Stripe, Supabase (REST + realtime), Turnstile, mapas y CDNs fijados
+    for (const d of ['https://js.stripe.com', 'https://hooks.stripe.com', 'https://api.stripe.com', 'https://hdtgtrnbqoyvjasvzilr.supabase.co',
+      'wss://hdtgtrnbqoyvjasvzilr.supabase.co', 'https://challenges.cloudflare.com', 'https://*.tile.openstreetmap.org', 'https://unpkg.com',
+      'https://cdn.jsdelivr.net', 'https://api.open-meteo.com', 'https://nominatim.openstreetmap.org', 'https://api.mymemory.translated.net']) assert.ok(csp.includes(d), d);
+    // Cada origen externo que carga index.html está permitido por la CSP
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    for (const [, src] of html.matchAll(/<script[^>]*src="(https:\/\/[^/"]+)/g)) assert.ok(csp.includes(src), 'script sin permiso en CSP: ' + src);
+  });
+  await t('CORS: solo barkwalkusa.com (+ localhost fuera de producción); sin Origin pasa', async () => {
+    const { cors, isAllowedOrigin } = require(path.join(ROOT, 'api/_lib/http.js'));
+    const run = (method, headers) => { const res = { statusCode: 0, headers: {}, setHeader(k, v) { this.headers[k] = v; }, end(b) { this.body = b; } }; const done = cors({ method, headers }, res, { methods: 'POST' }); return { done, res }; };
+    const prev = process.env.VERCEL_ENV;
+    try {
+      process.env.VERCEL_ENV = 'production';
+      for (const o of ['https://barkwalkusa.com', 'https://www.barkwalkusa.com']) {
+        const { done, res } = run('POST', { origin: o, host: 'barkwalkusa.com' });
+        assert.equal(done, false); assert.equal(res.headers['Access-Control-Allow-Origin'], o);
+      }
+      const evil = run('POST', { origin: 'https://evil.example', host: 'barkwalkusa.com' });
+      assert.equal(evil.done, true); assert.equal(evil.res.statusCode, 403); assert.equal(evil.res.headers['Access-Control-Allow-Origin'], undefined);
+      assert.equal(run('POST', { origin: 'http://localhost:3000', host: 'barkwalkusa.com' }).res.statusCode, 403, 'localhost bloqueado en producción');
+      assert.equal(run('POST', { origin: 'https://barkwalkusa.com.evil.example', host: 'barkwalkusa.com' }).res.statusCode, 403);
+      assert.equal(run('POST', { origin: 'http://barkwalkusa.com', host: 'barkwalkusa.com' }).res.statusCode, 403, 'http:// no');
+      assert.equal(run('POST', {}).done, false, 'sin Origin (Stripe, cron, curl) pasa');
+      assert.equal(run('POST', { origin: 'https://barkwall-abc.vercel.app', host: 'barkwall-abc.vercel.app' }).done, false, 'mismo origen (preview) pasa');
+      const pre = run('OPTIONS', { origin: 'https://www.barkwalkusa.com', host: 'barkwalkusa.com' });
+      assert.equal(pre.done, true); assert.equal(pre.res.statusCode, 204); assert.match(pre.res.headers['Access-Control-Allow-Headers'], /Authorization/);
+      process.env.VERCEL_ENV = 'development';
+      assert.equal(isAllowedOrigin('http://localhost:5173', 'x'), true); assert.equal(isAllowedOrigin('http://127.0.0.1:3000', 'x'), true);
+      assert.equal(isAllowedOrigin('http://localhost.evil.example', 'x'), false);
+    } finally { if (prev === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = prev; }
+    // Un handler real rechaza un origen ajeno antes de hacer nada
+    const r = await call(payment, { headers: { origin: 'https://evil.example', host: 'barkwalkusa.com' }, body: {} });
+    assert.equal(r.status, 403); assert.deepEqual(r.body, { error: 'origin_not_allowed' }); assert.equal(FETCH.length, 0);
+  });
+  await t('CORS: los 10 endpoints de navegador usan cors(); webhook y cron no lo necesitan', async () => {
+    for (const f of ['chat', 'create-connect-account', 'create-payment-intent', 'create-subscription', 'customer-portal', 'dispatch', 'places', 'signup', 'walker-earnings', 'walker-payout']) {
+      assert.match(fs.readFileSync(path.join(ROOT, `api/${f}.js`), 'utf8'), /if \(cors\(req, res/, f);
+    }
   });
   await t('arquitectura: siguen siendo 12 funciones en api/ (límite del plan Hobby)', async () => {
     assert.equal(fs.readdirSync(path.join(ROOT, 'api')).filter((f) => f.endsWith('.js')).length, 12);
