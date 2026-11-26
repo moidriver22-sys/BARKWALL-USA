@@ -1,5 +1,5 @@
 // Selector de fecha Mes / Día / Año (fecha de nacimiento del registro y de la pantalla de Términos, y
-// vencimiento del ID en la postulación del paseador con { future: true })
+// vencimiento del ID en la postulación del paseador y fecha lejana de la reserva con { future: true })
 // ---------------------------------------------------------------------------
 // · Al cambiar el AÑO (o el mes) se conservan el mes y el día ya elegidos. Si la combinación no existe
 //   (29 de febrero en un año no bisiesto, 31 en un mes de 30 días) el día se ajusta al último día válido
@@ -47,7 +47,7 @@
   }
 
   const CSS = `
-  .bw-dsel{display:grid;grid-template-columns:1.5fr .8fr 1fr;gap:6px;margin-top:4px}
+  .bw-dsel{display:grid;grid-template-columns:1.5fr .8fr 1fr;gap:6px;margin-top:4px;flex:1 1 230px;min-width:0}
   .bw-dsel select{display:block;width:100%;min-height:44px;padding:10px 8px;border:1.5px solid var(--bw-line,#EBE3D5);border-radius:12px;font-size:14px;background:var(--bw-surface,#fff);color:var(--bw-text,#2B2621)}
   .bw-dsel select:focus{outline:none;border-color:#1B4D3E}`;
 
@@ -77,7 +77,10 @@
       // La etiqueta y el foco (p. ej. "Indica tu fecha de nacimiento") llevan al primer selector
       const label = input.id ? doc.querySelector(`label[for="${input.id}"]`) : null;
       if (label) { if (!label.id) label.id = `${input.id}_lbl`; label.setAttribute('for', ui.m.id); wrap.setAttribute('aria-labelledby', label.id); }
-      input.focus = () => ui.m.focus();
+      const desc = input.getAttribute('aria-describedby'); if (desc) wrap.setAttribute('aria-describedby', desc);
+      // El input queda oculto: foco y desplazamiento (p. ej. avisos de error) van a los selectores visibles
+      input.focus = (o2) => ui.m.focus(o2);
+      input.scrollIntoView = (o2) => { if (typeof wrap.scrollIntoView === 'function') wrap.scrollIntoView(o2); };
       const onPick = (key) => () => {
         const v = toInt(ui[key].value);
         ui.state = key === 'y' ? withYear(ui.state, v) : key === 'm' ? withMonth(ui.state, v) : adjust({ ...ui.state, d: v });

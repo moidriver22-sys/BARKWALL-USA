@@ -135,6 +135,37 @@ t('integración: el vencimiento del ID usa el selector (future) sobre el mismo #
   assert.equal(ID.checkIdExpiry(max, d0).ok, true); assert.equal(ID.checkIdExpiry(next, d0).error, 'invalid_id_expiry');
 });
 
+t('fecha de reserva: años solo del rango (hoy+28 … hoy+366), foco y desplazamiento van a los selectores visibles', () => {
+  const { doc, mkEl } = fakeDom();
+  global.document = doc; global.Event = class { constructor(type) { this.type = type; } };
+  const input = mkEl('input'); input.id = 'inputBookingDate'; input.type = 'date'; input.ownerDocument = doc;
+  input.setAttribute('aria-describedby', 'bookingDatesHelp');
+  input.setAttribute('min', '2026-12-24'); input.setAttribute('max', '2027-11-27'); // lo que fija renderBookingDates()
+  const ui = DS.attach(input, { lang: 'es', future: true });
+  assert.deepEqual([...ui.y.innerHTML.matchAll(/value="(\d{4})"/g)].map((m) => +m[1]), [2026, 2027], 'solo los años de la reserva');
+  assert.equal(ui.wrap.getAttribute('aria-describedby'), 'bookingDatesHelp', 'conserva la ayuda "cada día es un servicio"');
+  let scrolled = null; ui.wrap.scrollIntoView = (o) => { scrolled = o; };
+  input.scrollIntoView({ block: 'center' }); assert.deepEqual(scrolled, { block: 'center' }, 'el aviso de error desplaza a los selectores');
+  input.focus({ preventScroll: true }); assert.equal(doc.focused, ui.m);
+  const pick = (sel, v) => { sel.value = String(v); sel.dispatchEvent(new Event('change')); };
+  pick(ui.m, 3); pick(ui.d, 31); pick(ui.y, 2027); assert.equal(input.value, '2027-03-31');
+  pick(ui.m, 4); assert.equal(input.value, '2027-04-30', '31 → 30 al pasar a abril'); assert.deepEqual(ui.state, { y: 2027, m: 4, d: 30 });
+  // renderBookingDates() vuelve a montar en cada cambio (agregar/quitar día, idioma): no duplica ni pierde la fecha
+  input.setAttribute('min', '2026-12-25'); assert.equal(DS.attach(input, { lang: 'en', future: true }), ui); assert.equal(input.value, '2027-04-30');
+  assert.match(ui.m.innerHTML, /April/);
+  delete global.document; delete global.Event;
+});
+
+t('integración: la reserva monta el selector tras fijar min/max y addBookingDate sigue leyendo el mismo input', () => {
+  const html = read('index.html');
+  assert.match(html, /<div class="flex flex-wrap items-end gap-2 mt-2">\s*<input type="date" id="inputBookingDate"/, 'respaldo nativo; el botón baja de línea en pantallas angostas');
+  const r = html.slice(html.indexOf('function renderBookingDates'), html.indexOf('function initBookingSchedule'));
+  assert.ok(r.indexOf('input.max = shiftYmd(hoy, 366)') < r.indexOf('window.BWDateSelect.attach(input, { future: true })'), 'monta después de fijar el rango');
+  const add = html.slice(html.indexOf('function addBookingDate'), html.indexOf('function removeBookingDate'));
+  assert.match(add, /const d = ymd \|\| \(input && input\.value\)/); assert.match(add, /d < hoy \|\| d > shiftYmd\(hoy, 366\)/, 'el rango lo sigue validando la reserva');
+  assert.match(read('date-select.js'), /flex:1 1 230px;min-width:0/, 'ocupa el espacio del input en la fila flex');
+});
+
 t('integración: registro y pantalla de Términos usan el selector sobre el mismo input; sin script queda el nativo', () => {
   const html = read('index.html'), tg = read('terms-gate.js');
   assert.match(html, /<input type="date" id="regBirth"/, 'respaldo nativo si no carga el script');

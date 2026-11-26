@@ -2035,7 +2035,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
                     <div id="bookingDatesList" class="flex flex-wrap gap-1.5 mt-2" aria-live="polite"></div>
                     <details class="dp-more mt-2">
                         <summary id="lblOtherDate">+ Another date (further ahead)</summary>
-                        <div class="flex gap-2 mt-2">
+                        <div class="flex flex-wrap items-end gap-2 mt-2">
                             <input type="date" id="inputBookingDate" class="bw-field flex-1" aria-describedby="bookingDatesHelp">
                             <button type="button" id="btnAddBookingDate" onclick="addBookingDate()" class="w-btn w-btn-primary shrink-0" style="min-height:44px;padding:0 14px">+ Add day</button>
                         </div>
@@ -3394,7 +3394,12 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
             const strip = document.getElementById('bookingDayStrip');
             const hoy = todayBirmingham();
             const fin = shiftYmd(hoy, STRIP_DAYS - 1);
-            if (input) { input.min = shiftYmd(hoy, STRIP_DAYS); input.max = shiftYmd(hoy, 366); }
+            if (input) {
+                input.min = shiftYmd(hoy, STRIP_DAYS); input.max = shiftYmd(hoy, 366);
+                // Mes / Día / Año (date-select.js): cambiar el año conserva mes y día (29-feb → 28-feb). Escribe en el
+                // mismo #inputBookingDate (addBookingDate sigue validando el rango); sin el script queda el nativo.
+                if (window.BWDateSelect) window.BWDateSelect.attach(input, { future: true });
+            }
             const es = currentLang === 'es';
             if (strip) {
                 const nuevo = strip.dataset.start !== hoy || strip.dataset.lang !== currentLang;
@@ -4859,7 +4864,7 @@ html.dark .text-red-800 { color: rgba(254,202,202,1); }
 <script src="/content-filter.js?v=20261126" defer></script>
 <script src="/bw-safety.js?v=20261126" defer></script>
 <!-- Reserva por pasos animada (pasos, resumen en vivo, revisión final y Cancelar amable) -->
-<script src="/date-select.js?v=20261209" defer></script>
+<script src="/date-select.js?v=20261210" defer></script>
 <script src="/terms-gate.js?v=20261208" defer></script>
 <script src="/walker-application.js?v=20261209" defer></script>
 <script src="/account-close.js?v=20261208" defer></script>
