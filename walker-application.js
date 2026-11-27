@@ -1,6 +1,6 @@
 // Postulación de identidad del paseador (ID oficial VIGENTE + selfie) y reporte del agente para el admin
 // ---------------------------------------------------------------------------
-// · Paseador: completa sus datos, sube foto del ID y selfie al bucket PRIVADO 'walker-docs' (solo a su carpeta)
+// · Paseador: completa sus datos, sube fotos del ID (frente y reverso) y selfie al bucket PRIVADO 'walker-docs' (solo a su carpeta)
 //   y envía la postulación a /api/signup { action: 'walker_application' }, que vuelve a validar todo.
 //   Puede reenviar si fue rechazada o si su ID venció / está por vencer; el historial nunca se borra.
 // · Admin: ve el reporte del agente auditor (checklist + alertas) y abre el ID y la selfie con URLs firmadas de
@@ -19,6 +19,10 @@
   const WARN_DAYS = 30;
   const SIGNED_URL_SECONDS = 120;
   const MAX_SIDE = 2000; // las fotos del teléfono se reducen antes de subirlas (≤ 5 MB y legibles)
+  // Lado CORTO mínimo (px) para que el admin pueda leer los datos del ID y reconocer el rostro. Es solo una regla
+  // de calidad: no hay detección ni comparación facial automática (la coincidencia la revisa el admin).
+  const MIN_SHORT_SIDE = { id: 600, idBack: 600, selfie: 480 };
+  const PHOTOS = ['id', 'idBack', 'selfie'];
   // Independent Contractor Agreement (1099): misma versión que api/_lib/terms.js (CURRENT.contractor)
   const CONTRACTOR_VERSION = '2026-11-24.2';
   const CONTRACTOR_URL = '/terminos-paseadores';
@@ -35,7 +39,16 @@
   function checkFile(f) {
     if (!f) return { ok: false, error: 'file_missing' };
     if (!TYPES.includes(f.type)) return { ok: false, error: 'file_type' };
-    if (!(f.size > 0) || f.size > MAX_BYTES) return { ok: false, error: 'file_size' };
+    if (!(f.size > 0)) return { ok: false, error: 'file_empty' };
+    if (f.size > MAX_BYTES) return { ok: false, error: 'file_size' };
+    return { ok: true };
+  }
+  // Dimensiones mínimas (función pura). kind: 'id' | 'idBack' | 'selfie'
+  function checkDims(width, height, kind) {
+    const w = Number(width) || 0, h = Number(height) || 0;
+    if (!(w > 0 && h > 0)) return { ok: false, error: 'file_unreadable' };
+    const min = MIN_SHORT_SIDE[kind] || MIN_SHORT_SIDE.id;
+    if (Math.min(w, h) < min) return { ok: false, error: 'file_dims', min, width: w, height: h };
     return { ok: true };
   }
   const extOf = (type) => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[type] || 'jpg');
@@ -89,10 +102,18 @@
     invalid_id_expiry: ['Escribe la fecha de vencimiento de tu ID.', 'Enter your ID expiration date.'],
     id_expired: ['Tu identificación está vencida. Sube una identificación vigente.', 'Your ID is expired. Upload a current ID.'],
     file_missing: ['Falta la foto.', 'The photo is missing.'],
-    file_type: ['Usa una foto JPEG, PNG o WEBP.', 'Use a JPEG, PNG or WEBP photo.'],
-    file_size: ['La foto supera 5 MB.', 'The photo is larger than 5 MB.'],
-    id_photo_file_missing: ['No encontramos la foto del ID. Vuelve a subirla.', 'We could not find the ID photo. Upload it again.'],
-    selfie_file_missing: ['No encontramos la selfie. Vuelve a subirla.', 'We could not find the selfie. Upload it again.'],
+    file_type: ['El formato no es válido. Usa una foto JPEG, PNG o WEBP.', 'Invalid format. Use a JPEG, PNG or WEBP photo.'],
+    file_size: ['La foto supera 5 MB. Tómala de nuevo o elige una más liviana.', 'The photo is larger than 5 MB. Retake it or choose a smaller one.'],
+    file_empty: ['El archivo está vacío. Vuelve a tomar la foto.', 'The file is empty. Take the photo again.'],
+    file_unreadable: ['No pudimos abrir la imagen. Tómala de nuevo con la cámara o usa JPEG, PNG o WEBP.', 'We could not open the image. Retake it with the camera or use JPEG, PNG or WEBP.'],
+    file_dims: ['La foto tiene muy poca resolución para leerla. Tómala de nuevo más cerca y con buena luz.', 'The photo resolution is too low to read. Retake it closer and with good light.'],
+    id_photo_file_missing: ['Falta la foto del FRENTE de tu ID.', 'The photo of the FRONT of your ID is missing.'],
+    id_back_photo_file_missing: ['Falta la foto del REVERSO de tu ID.', 'The photo of the BACK of your ID is missing.'],
+    selfie_file_missing: ['Falta tu selfie.', 'Your selfie is missing.'],
+    invalid_id_photo: ['No pudimos usar la foto del frente del ID. Vuelve a subirla.', 'We could not use the front ID photo. Upload it again.'],
+    invalid_id_back_photo: ['No pudimos usar la foto del reverso del ID. Vuelve a subirla.', 'We could not use the back ID photo. Upload it again.'],
+    invalid_selfie: ['No pudimos usar la selfie. Vuelve a subirla.', 'We could not use the selfie. Upload it again.'],
+    same_file: ['Subiste la misma foto dos veces. El frente, el reverso y la selfie deben ser fotos distintas.', 'You uploaded the same photo twice. Front, back and selfie must be different photos.'],
     terms_required: ['Antes debes aceptar los Términos y el Acuerdo para Paseadores vigentes.', 'You must first accept the current Terms and Walker Agreement.'],
     underage: ['Debes tener 19 años o más.', 'You must be 19 or older.'],
     already_approved: ['Tu identidad ya está aprobada y vigente.', 'Your identity is already approved and current.'],
@@ -109,6 +130,11 @@
   .wa-photo{display:flex;align-items:center;gap:12px;padding:12px;border:1.5px dashed var(--bw-dash,#E2D6BF);border-radius:14px;cursor:pointer;background:var(--bw-soft,#FAF7F1)}
   .wa-photo img{width:64px;height:64px;object-fit:cover;border-radius:12px;flex:none;background:var(--bw-card,#F5F0E6)}
   .wa-photo.is-set{border-style:solid;border-color:#00A859}
+  .wa-photo.is-bad{border-style:solid;border-color:#C0392B}
+  .wa-photo-msg{margin:-4px 0 0;padding:7px 10px;border-radius:10px;background:#FDECEA;color:#8A1C12!important;font-weight:800}
+  .wa-guide{border:1.5px solid var(--bw-line,#EBE3D5);border-radius:14px;padding:10px 12px;background:var(--bw-surface,#fff)}
+  .wa-guide h3{margin:0 0 6px;font-size:13px;font-weight:900;color:var(--bw-ink,#1B4D3E)}
+  .wa-guide ul{margin:0;padding-left:18px;display:grid;gap:3px;font-size:12px;line-height:1.4}
   .wa-photo input{position:absolute;opacity:0;width:1px;height:1px}
   .wa-note{font-size:11px;color:rgb(var(--bw-text-rgb,43 38 33)/.6);line-height:1.4}
   .wa-warn{padding:9px 12px;border-radius:12px;background:#FEF3C7;color:#78350F;font-size:12px;font-weight:800}
@@ -148,25 +174,47 @@
     const doc = win.document;
     const tr = (es, en) => (win.currentLang === 'en' ? en : es);
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const msg = (code) => { const m = ERR[code]; return m ? tr(m[0], m[1]) : tr('No se pudo enviar. Intenta de nuevo.', 'Could not submit. Please try again.'); };
+    const LABEL = { id: ['Frente del ID', 'ID front'], idBack: ['Reverso del ID', 'ID back'], selfie: ['Selfie', 'Selfie'] };
+    const SERVER_KIND = { id_photo: 'id', id_back_photo: 'idBack', selfie: 'selfie' };
+    const label = (kind) => tr(LABEL[kind][0], LABEL[kind][1]);
+    // Errores de archivo del servidor (p. ej. 'id_back_photo_file_size') → "Reverso del ID: La foto supera 5 MB…"
+    const msg = (code) => {
+      const m = ERR[code]; if (m) return tr(m[0], m[1]);
+      const x = /^(id_photo|id_back_photo|selfie)_(file_\w+)$/.exec(code || '');
+      if (x && ERR[x[2]]) return `${label(SERVER_KIND[x[1]])}: ${tr(ERR[x[2]][0], ERR[x[2]][1])}`;
+      return tr('No se pudo enviar. Intenta de nuevo.', 'Could not submit. Please try again.');
+    };
+    const fileMsg = (kind, r) => `${label(kind)}: ${r.error === 'file_dims'
+      ? tr(`la foto mide ${r.width}×${r.height} px; necesitamos al menos ${r.min} px en el lado corto. Tómala de nuevo más cerca y con buena luz.`, `the photo is ${r.width}×${r.height} px; we need at least ${r.min} px on the short side. Retake it closer and with good light.`)
+      : msg(r.error)}`;
     const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     // Último vencimiento que acepta el servidor (checkIdExpiry: ningún ID de EE. UU. dura más de 12 años)
     const maxExpiry = () => new Date(Date.parse(`${today()}T00:00:00Z`) + 365 * 12 * 864e5).toISOString().slice(0, 10);
     const css = () => { if (!doc.getElementById('bwWaCss')) { const s = doc.createElement('style'); s.id = 'bwWaCss'; s.textContent = CSS; doc.head.appendChild(s); } };
-    const pick = { id: null, selfie: null };
+    const pick = { id: null, idBack: null, selfie: null };
+    const dims = { id: null, idBack: null, selfie: null };
 
     // Reduce la foto (máx. 2000 px, JPEG 0.85) para que quepa en 5 MB y suba rápido por datos móviles
+    // Devuelve { file, width, height } con las dimensiones ORIGINALES (para la regla de resolución mínima);
+    // width/height = 0 si el navegador no pudo abrir la imagen.
     async function shrink(file) {
-      if (!file || !/^image\//.test(file.type)) return file;
+      if (!file || !/^image\//.test(file.type)) return { file, width: 0, height: 0 };
       try {
         const bmp = await win.createImageBitmap(file);
-        const k = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
-        if (k === 1 && file.size <= MAX_BYTES && TYPES.includes(file.type)) return file;
-        const c = doc.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+        const width = bmp.width, height = bmp.height;
+        const k = Math.min(1, MAX_SIDE / Math.max(width, height));
+        if (k === 1 && file.size <= MAX_BYTES && TYPES.includes(file.type)) return { file, width, height };
+        const c = doc.createElement('canvas'); c.width = Math.round(width * k); c.height = Math.round(height * k);
         c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
         const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85));
-        return blob ? new win.File([blob], 'photo.jpg', { type: 'image/jpeg' }) : file;
-      } catch (e) { return file; }
+        return { file: blob ? new win.File([blob], 'photo.jpg', { type: 'image/jpeg' }) : file, width, height };
+      } catch (e) { return { file, width: 0, height: 0 }; }
+    }
+    // Validación completa de una foto elegida (tipo, tamaño y dimensiones mínimas)
+    function validatePhoto(kind) {
+      const c = checkFile(pick[kind]);
+      if (!c.ok) return c;
+      return dims[kind] ? checkDims(dims[kind].width, dims[kind].height, kind) : { ok: false, error: 'file_unreadable' };
     }
 
     async function loadOwn() {
@@ -197,13 +245,45 @@
             <label class="wa-field">${esc(tr('Vence el', 'Expires on'))}<input id="waExpiry" type="date" min="${today()}" max="${maxExpiry()}" required></label>
           </div>
           <p id="waExpiryNote" class="wa-note"></p>
-          <label class="wa-photo" id="waIdBox"><input type="file" id="waIdFile" accept="image/jpeg,image/png,image/webp" capture="environment"><img alt="" id="waIdPrev"><span><b>🪪 ${esc(tr('Foto de tu ID (frente)', 'Photo of your ID (front)'))}</b><br><span class="wa-note">${esc(tr('Clara, completa, sin reflejos. JPEG/PNG/WEBP.', 'Clear, whole, no glare. JPEG/PNG/WEBP.'))}</span></span></label>
-          <label class="wa-photo" id="waSelfieBox"><input type="file" id="waSelfieFile" accept="image/jpeg,image/png,image/webp" capture="user"><img alt="" id="waSelfiePrev"><span><b>🤳 ${esc(tr('Selfie', 'Selfie'))}</b><br><span class="wa-note">${esc(tr('Tu cara de frente, con buena luz, sin lentes de sol.', 'Your face, facing the camera, good light, no sunglasses.'))}</span></span></label>
+          ${photosHtml()}
           <p class="wa-note">🔒 ${esc(tr('Tus fotos se guardan en un almacenamiento privado: solo tú y el administrador de Barkwalk pueden verlas. No usamos reconocimiento facial.', 'Your photos are stored privately: only you and the Barkwalk administrator can see them. We do not use facial recognition.'))}</p>
           ${contractorHtml()}
           <p id="waErr" class="wa-err" hidden></p>
           <button type="submit" id="waSubmit" class="w-btn w-btn-primary w-full">${esc(tr('Enviar postulación', 'Submit application'))}</button>
         </form>`;
+    }
+
+    // Paso de fotos: guías ANTES de capturar/subir + frente y reverso del ID + selfie. Sin detección facial
+    // automática: el admin compara la selfie con el ID al aprobar.
+    function photosHtml() {
+      const lang = win.currentLang === 'en' ? 1 : 0;
+      const li = (items) => items.map((x) => `<li>${esc(x[lang])}</li>`).join('');
+      const box = (kind, id, icon, title, note, capture) => `<label class="wa-photo" id="${id}Box"><input type="file" id="${id}File" accept="image/jpeg,image/png,image/webp" capture="${capture}"><img alt="" id="${id}Prev"><span><b>${icon} ${esc(title)}</b><br><span class="wa-note">${esc(note)}</span></span></label>
+          <p class="wa-note wa-photo-msg" id="${id}Msg" data-kind="${kind}" role="alert" hidden></p>`;
+      const fmt = tr('JPEG, PNG o WEBP · máx. 5 MB', 'JPEG, PNG or WEBP · max 5 MB');
+      return `<div class="wa-guide" id="waIdGuide">
+            <h3>🪪 ${esc(tr('Fotos de tu ID: frente y reverso', 'Photos of your ID: front and back'))}</h3>
+            <ul>${li([
+              ['Buena iluminación: luz natural o una lámpara frente a ti, sin sombras sobre el ID.', 'Good lighting: daylight or a lamp in front of you, no shadows on the ID.'],
+              ['Sin reflejos ni brillos: apaga el flash e inclina un poco el ID si ves un destello.', 'No glare or shine: turn off the flash and tilt the ID slightly if you see a reflection.'],
+              ['Encuadre completo: las 4 esquinas visibles, sin cortar bordes ni tapar con los dedos.', 'Full frame: all 4 corners visible, no cropped edges and no fingers covering it.'],
+              ['Datos legibles: foto enfocada y de cerca, sobre una superficie lisa y oscura.', 'Readable details: sharp and close, on a flat, dark surface.'],
+              ['Tu ID original y vigente: no fotocopias, capturas de pantalla ni fotos de otra pantalla.', 'Your original, current ID: no photocopies, screenshots or photos of a screen.'],
+            ])}</ul>
+          </div>
+          ${box('id', 'waId', '🪪', tr('Frente del ID', 'Front of ID'), `${tr('Con tu foto, nombre y fecha de vencimiento.', 'With your photo, name and expiration date.')} ${fmt}`, 'environment')}
+          ${box('idBack', 'waIdBack', '🔁', tr('Reverso del ID', 'Back of ID'), `${tr('El lado con el código de barras, completo y nítido.', 'The side with the barcode, whole and sharp.')} ${fmt}`, 'environment')}
+          <div class="wa-guide" id="waSelfieGuide">
+            <h3>🤳 ${esc(tr('Tu selfie', 'Your selfie'))}</h3>
+            <ul>${li([
+              ['Una foto ACTUAL de tu rostro, tomada ahora: no una foto de tu ID, de otra foto ni de una pantalla.', 'A CURRENT photo of your face, taken now: not a photo of your ID, of another photo or of a screen.'],
+              ['De frente, con la cara completa y centrada; solo tú en la foto.', 'Facing the camera, your whole face centered; only you in the photo.'],
+              ['Buena luz sobre tu cara, sin contraluz.', 'Good light on your face, no backlight.'],
+              ['Sin lentes oscuros, gorra, mascarilla ni filtros o efectos.', 'No sunglasses, hat, mask, filters or effects.'],
+            ])}</ul>
+          </div>
+          ${box('selfie', 'waSelfie', '🤳', tr('Selfie', 'Selfie'), `${tr('Usa la cámara frontal.', 'Use the front camera.')} ${fmt}`, 'user')}
+          <p class="wa-note">👀 ${esc(tr('Una persona del equipo de Barkwalk compara tu selfie con tu ID antes de aprobarte. No usamos reconocimiento facial automático.', 'A person on the Barkwalk team compares your selfie with your ID before approving you. We do not use automatic facial recognition.'))}</p>`;
     }
 
     // Independent Contractor Agreement (1099) de Barkwalk USA LLC: resumen + acuerdo completo + casilla + firma.
@@ -231,13 +311,24 @@
 
     function wireForm(box, after) {
       const $ = (id) => doc.getElementById(id);
-      const preview = (inputId, imgId, boxId, key) => $(inputId).addEventListener('change', async (e) => {
-        const f = await shrink(e.target.files && e.target.files[0]);
-        pick[key] = f || null;
-        if (f) { $(imgId).src = win.URL.createObjectURL(f); $(boxId).classList.add('is-set'); }
+      // Valida cada foto en cuanto se elige (tipo, tamaño, resolución) y explica qué corregir
+      const preview = (id, key) => $(`${id}File`).addEventListener('change', async (e) => {
+        const raw = e.target.files && e.target.files[0];
+        const note = $(`${id}Msg`), boxEl = $(`${id}Box`);
+        pick[key] = null; dims[key] = null; boxEl.classList.remove('is-set', 'is-bad'); note.hidden = true;
+        if (!raw) return;
+        if (raw.type && !/^image\//.test(raw.type)) { boxEl.classList.add('is-bad'); note.textContent = fileMsg(key, { error: 'file_type' }); note.hidden = false; e.target.value = ''; return; }
+        const r = await shrink(raw);
+        pick[key] = r.file || null; dims[key] = r.width ? { width: r.width, height: r.height } : null;
+        const v = validatePhoto(key);
+        if (v.ok) { $(`${id}Prev`).src = win.URL.createObjectURL(r.file); boxEl.classList.add('is-set'); return; }
+        pick[key] = null; dims[key] = null; boxEl.classList.add('is-bad');
+        note.textContent = fileMsg(key, v); note.hidden = false;
+        e.target.value = '';
       });
-      preview('waIdFile', 'waIdPrev', 'waIdBox', 'id');
-      preview('waSelfieFile', 'waSelfiePrev', 'waSelfieBox', 'selfie');
+      preview('waId', 'id');
+      preview('waIdBack', 'idBack');
+      preview('waSelfie', 'selfie');
       $('waExpiry').addEventListener('change', () => {
         const r = checkIdExpiry($('waExpiry').value, today());
         $('waExpiryNote').innerHTML = !$('waExpiry').value ? '' : !r.ok ? `<span class="wa-err" style="display:block">${esc(msg(r.error))}</span>`
@@ -252,8 +343,10 @@
       $('waErr').hidden = true;
       const exp = checkIdExpiry($('waExpiry').value, today());
       if (!exp.ok) return err(exp.error);
-      for (const [k, code] of [['id', 'id_photo_file_missing'], ['selfie', 'selfie_file_missing']]) {
-        const c = checkFile(pick[k]); if (!c.ok) return err(c.error === 'file_missing' ? code : c.error);
+      for (const [k, code] of [['id', 'id_photo_file_missing'], ['idBack', 'id_back_photo_file_missing'], ['selfie', 'selfie_file_missing']]) {
+        if (!pick[k]) return err(code);
+        const c = validatePhoto(k);
+        if (!c.ok) { const el = $('waErr'); el.textContent = fileMsg(k, c); el.hidden = false; return; }
       }
       // Independent Contractor Agreement: obligatorio ANTES de subir nada (el servidor y la base lo vuelven a exigir)
       if (!$('waContractorOk').checked) { $('waContractorOk').focus(); return err('contractor_required'); }
@@ -262,8 +355,8 @@
       try {
         const db = win.supabaseClient, uid = win.currentUser.id;
         const paths = {};
-        for (const k of ['id', 'selfie']) {
-          const p = buildPath(uid, k === 'id' ? 'id' : 'selfie', pick[k].type);
+        for (const k of PHOTOS) {
+          const p = buildPath(uid, k === 'idBack' ? 'idback' : k, pick[k].type);
           const { error } = await db.storage.from(BUCKET).upload(p, pick[k], { contentType: pick[k].type, upsert: false });
           if (error) { console.warn('walker-docs upload:', error.message); return err('upload_failed'); }
           paths[k] = p;
@@ -272,11 +365,11 @@
         const ses = (await db.auth.getSession()).data.session;
         const r = await win.fetch('/api/signup', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ses.access_token}` },
           body: JSON.stringify({ action: 'walker_application', legalName: $('waName').value, phone: $('waPhone').value, city: $('waCity').value, zip: $('waZip').value,
-            idType: $('waIdType').value, idExpiry: $('waExpiry').value, idPhotoPath: paths.id, selfiePath: paths.selfie,
+            idType: $('waIdType').value, idExpiry: $('waExpiry').value, idPhotoPath: paths.id, idBackPath: paths.idBack, selfiePath: paths.selfie,
             contractorAccepted: $('waContractorOk').checked === true, contractorVersion: CONTRACTOR_VERSION, contractorSignature: $('waContractorSign').value }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) { if (j.error === 'terms_required' && win.BWTermsGate) win.BWTermsGate.require(); return err(j.error); }
-        pick.id = pick.selfie = null;
+        pick.id = pick.idBack = pick.selfie = null; dims.id = dims.idBack = dims.selfie = null;
         if (typeof win.showToast === 'function') win.showToast(tr('✅ Postulación enviada. El equipo de Barkwalk la revisará.', '✅ Application submitted. The Barkwalk team will review it.'), 'ok', 5000);
         if (win.currentUser.walker_status === 'rejected') win.currentUser.walker_status = 'pending';
         await (typeof after === 'function' ? after() : render(box.id));
@@ -348,7 +441,7 @@
       root.innerHTML = `<section class="w-card onb-card">
           <p class="onb-kicker">${esc(tr('Tu identidad', 'Your identity'))}</p>
           <h2>${esc(st.mode === 'submitted' ? tr('Corregir los documentos enviados', 'Correct the submitted documents') : tr('Renovar tu identificación', 'Renew your ID'))}</h2>
-          <p>${esc(tr('Sube una foto de tu identificación vigente y una selfie. El equipo de Barkwalk la revisará; mientras tanto puedes seguir usando la app.', 'Upload a photo of your current ID and a selfie. The Barkwalk team will review it; meanwhile you can keep using the app.'))}</p>
+          <p>${esc(tr('Sube fotos de tu identificación vigente (frente y reverso) y una selfie. El equipo de Barkwalk la revisará; mientras tanto puedes seguir usando la app.', 'Upload photos of your current ID (front and back) and a selfie. The Barkwalk team will review it; meanwhile you can keep using the app.'))}</p>
           <div id="onbForm"></div></section>${back}`;
       doc.getElementById('onbForm').innerHTML = formHtml(st.mode === 'form' || st.mode === 'approved' ? st : { reason: 'update' }, reviews);
       wireForm(root, async () => closeApplication());
@@ -385,7 +478,8 @@
           <ul class="wa-rep">${al}</ul>
           ${a.docs_deleted_at
             ? `<p class="wa-note">🗑️ ${esc(tr('Fotos borradas el', 'Photos deleted on'))} ${esc(String(a.docs_deleted_at).slice(0, 10))} ${esc(tr('(política de 90 días: rechazada sin operar).', '(90-day policy: rejected without working).'))}</p>`
-            : `<div class="wa-docs" data-docs><button type="button" class="w-mini-btn bg-white border border-brandBeige" data-doc="${esc(a.id_photo_path)}">🪪 ${esc(tr('Ver ID', 'View ID'))}</button>
+            : `<div class="wa-docs" data-docs><button type="button" class="w-mini-btn bg-white border border-brandBeige" data-doc="${esc(a.id_photo_path)}">🪪 ${esc(tr('Ver frente del ID', 'View ID front'))}</button>
+            ${a.id_back_path ? `<button type="button" class="w-mini-btn bg-white border border-brandBeige" data-doc="${esc(a.id_back_path)}">🔁 ${esc(tr('Ver reverso del ID', 'View ID back'))}</button>` : `<p class="wa-note">${esc(tr('Sin reverso (envío anterior).', 'No back photo (older submission).'))}</p>`}
             <button type="button" class="w-mini-btn bg-white border border-brandBeige" data-doc="${esc(a.selfie_path)}">🤳 ${esc(tr('Ver selfie', 'View selfie'))}</button></div>`}
           ${hist ? `<p class="wa-note">${esc(tr('Envíos anteriores', 'Previous submissions'))}: ${hist}</p>` : ''}
           ${decis ? `<p class="wa-note">${esc(tr('Decisiones', 'Decisions'))}:<br>${decis}</p>` : ''}
@@ -465,7 +559,7 @@
         root.innerHTML = `${etapas(1)}<section class="w-card onb-card">
             <p class="onb-kicker">${esc(tr('Etapa 1 de 2', 'Step 1 of 2'))}</p>
             <h2>${esc(tr(`Hola${nombre ? ', ' + nombre : ''}: completa tu postulación`, `Hi${nombre ? ' ' + nombre : ''}: complete your application`))}</h2>
-            <p>${esc(tr('Antes de entrar a la app necesitamos verificar tu identidad. Completa tus datos y sube una foto de tu identificación vigente y una selfie.', 'Before you can enter the app we need to verify your identity. Complete your details and upload a photo of your current ID and a selfie.'))}</p>
+            <p>${esc(tr('Antes de entrar a la app necesitamos verificar tu identidad. Completa tus datos y sube fotos de tu identificación vigente (frente y reverso) y una selfie.', 'Before you can enter the app we need to verify your identity. Complete your details and upload photos of your current ID (front and back) and a selfie.'))}</p>
             <div id="onbForm"></div></section>${salir}`;
         doc.getElementById('onbForm').innerHTML = formHtml(st, g.reviews);
         wireForm(root, after);
@@ -480,7 +574,7 @@
             <ul class="onb-status">
               <li>✅ ${esc(tr('Términos y Acuerdo para Paseadores', 'Terms and Walker Agreement'))}</li>
               <li>✅ ${esc(tr('Independent Contractor Agreement (1099) firmado', 'Independent Contractor Agreement (1099) signed'))}</li>
-              <li>✅ ${esc(tr('ID vigente y selfie enviados', 'Current ID and selfie submitted'))}</li>
+              <li>✅ ${esc(tr('ID vigente (frente y reverso) y selfie enviados', 'Current ID (front and back) and selfie submitted'))}</li>
               <li>⏳ ${esc(tr('Revisión del equipo', 'Team review'))}</li>
             </ul>
             <button type="button" class="w-btn w-btn-primary w-full" data-onb="refresh">🔄 ${esc(tr('Actualizar estado', 'Refresh status'))}</button>
@@ -525,7 +619,7 @@
   let ui = null;
   const api = () => { if (!ui && typeof window !== 'undefined') ui = mount(window); return ui; };
   return {
-    BUCKET, MAX_BYTES, TYPES, WARN_DAYS, SIGNED_URL_SECONDS, ERR, CSS, checkIdExpiry, checkFile, buildPath, viewState,
+    BUCKET, MAX_BYTES, TYPES, WARN_DAYS, SIGNED_URL_SECONDS, MIN_SHORT_SIDE, ERR, CSS, checkIdExpiry, checkFile, checkDims, buildPath, viewState,
     isApproved, CONTRACTOR_VERSION, CONTRACTOR_URL, normName, signatureMatches,
     render: (id) => api() && api().render(id), renderAdminReview: (w, c) => api() && api().renderAdminReview(w, c),
     gate: () => api() && api().gate(), renderOnboarding: (id) => api() && api().renderOnboarding(id), stop: () => api() && api().stop(),

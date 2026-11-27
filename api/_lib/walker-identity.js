@@ -1,6 +1,6 @@
 // Postulación de identidad del paseador: ID oficial VIGENTE + selfie (bucket privado 'walker-docs')
 // ---------------------------------------------------------------------------
-// Flujo: la app sube las dos fotos a walker-docs/<uid>/… (RLS: solo a su carpeta) y luego llama a
+// Flujo: la app sube las tres fotos (frente y reverso del ID + selfie) a walker-docs/<uid>/… (RLS: solo a su carpeta) y luego llama a
 // POST /api/signup { action: 'walker_application', … }. Aquí, con la clave de servicio:
 //   · se valida TODO de nuevo (rol, Términos vigentes, edad ≥ 19, datos, ID no vencido, archivos reales en el
 //     bucket con formato y tamaño permitidos y dentro de la carpeta del propio paseador);
@@ -43,6 +43,7 @@ function validateApplicationInput(b, uid, today) {
   const zip = String(x.zip || '').trim();
   const idType = String(x.idType || '');
   const idPhotoPath = String(x.idPhotoPath || '');
+  const idBackPath = String(x.idBackPath || '');
   const selfiePath = String(x.selfiePath || '');
   if (legalName.length < 3 || legalName.length > 120 || !/\s/.test(legalName)) return { error: 'invalid_legal_name' };
   if (!/^\d{10}$/.test(phone)) return { error: 'invalid_phone' };
@@ -54,9 +55,10 @@ function validateApplicationInput(b, uid, today) {
   // Las rutas deben estar en la carpeta del propio paseador, ser distintas y con extensión de imagen
   const propia = (p) => p.startsWith(`${uid}/`) && !p.includes('..') && EXT.test(p) && p.length <= 200;
   if (!propia(idPhotoPath)) return { error: 'invalid_id_photo' };
+  if (!propia(idBackPath)) return { error: 'invalid_id_back_photo' };
   if (!propia(selfiePath)) return { error: 'invalid_selfie' };
-  if (idPhotoPath === selfiePath) return { error: 'same_file' };
-  return { ok: true, value: { legalName, phone, city, zip, idType, idExpiry: x.idExpiry, idPhotoPath, selfiePath }, warning: exp.warning };
+  if (new Set([idPhotoPath, idBackPath, selfiePath]).size !== 3) return { error: 'same_file' };
+  return { ok: true, value: { legalName, phone, city, zip, idType, idExpiry: x.idExpiry, idPhotoPath, idBackPath, selfiePath }, warning: exp.warning };
 }
 
 // ---------- Firma del Independent Contractor Agreement (1099) ----------
@@ -137,7 +139,7 @@ async function submitApplication({ user, body, ip, userAgent, runAgent }) {
   if (!signerEmail) return { status: 400, body: { error: 'contractor_email_missing' } };
 
   const files = await listOwnFiles(user.id);
-  for (const [key, path] of [['id_photo', v.value.idPhotoPath], ['selfie', v.value.selfiePath]]) {
+  for (const [key, path] of [['id_photo', v.value.idPhotoPath], ['id_back_photo', v.value.idBackPath], ['selfie', v.value.selfiePath]]) {
     const c = checkFile(files, path);
     if (!c.ok) return { status: 400, body: { error: `${key}_${c.error}` } };
   }
@@ -149,7 +151,7 @@ async function submitApplication({ user, body, ip, userAgent, runAgent }) {
     method: 'POST', prefer: 'return=representation',
     body: {
       walker_id: user.id, legal_name: v.value.legalName, phone: v.value.phone, city: v.value.city, zip: v.value.zip,
-      id_type: v.value.idType, id_expiry: v.value.idExpiry, id_photo_path: v.value.idPhotoPath, selfie_path: v.value.selfiePath,
+      id_type: v.value.idType, id_expiry: v.value.idExpiry, id_photo_path: v.value.idPhotoPath, id_back_path: v.value.idBackPath, selfie_path: v.value.selfiePath,
       ip_address: ip || null, user_agent: String(userAgent || '').slice(0, 500),
       // Constancia de la firma (la base fija la hora exacta con now() y no deja modificarla después)
       contractor_agreement_accepted: true, contractor_agreement_accepted_at: new Date().toISOString(),

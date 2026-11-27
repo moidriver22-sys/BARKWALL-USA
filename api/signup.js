@@ -85,7 +85,7 @@ async function acceptTerms(req, res, b, ip) {
   }
 }
 
-// POST /api/signup { action: 'walker_application', legalName, phone, city, zip, idType, idExpiry, idPhotoPath, selfiePath }
+// POST /api/signup { action: 'walker_application', legalName, phone, city, zip, idType, idExpiry, idPhotoPath, idBackPath, selfiePath }
 // Authorization: Bearer <token>. Valida todo en el servidor (api/_lib/walker-identity.js) y ejecuta el agente
 // auditor (api/_lib/application-agent.js), que NUNCA aprueba: la decisión es del administrador.
 async function walkerApplication(req, res, b, ip) {
@@ -137,7 +137,7 @@ async function handler(req, res) {
   try { b = await readJsonBody(req); } catch (e) { return send(res, 400, { error: e.message }); }
   // Usuario YA registrado que acepta la versión vigente de los Términos (bloqueo de la app). Exige sesión.
   if (b && b.action === 'accept_terms') return acceptTerms(req, res, b, ip);
-  // Paseador con sesión que envía (o reenvía) su postulación: ID vigente + selfie ya subidos al bucket privado
+  // Paseador con sesión que envía (o reenvía) su postulación: ID vigente (frente y reverso) + selfie ya subidos al bucket privado
   if (b && b.action === 'walker_application') return walkerApplication(req, res, b, ip);
   // Cierre de cuenta desde Perfil (con sesión): primero se consultan los bloqueos, luego se cierra con "CERRAR"
   if (b && (b.action === 'close_account' || b.action === 'close_account_check')) return accountClosure(req, res, b, ip);

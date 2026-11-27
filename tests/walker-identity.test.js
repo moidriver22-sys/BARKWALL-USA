@@ -70,7 +70,7 @@ const call = async (handler, { headers = {}, body } = {}) => {
   return { status: res.statusCode, body: res.body ? JSON.parse(res.body) : null };
 };
 const APP = (o) => ({ action: 'walker_application', legalName: 'Camila Rojas', phone: '(205) 555-0123', city: 'Homewood', zip: '35209',
-  idType: 'drivers_license', idExpiry: addDays(400), idPhotoPath: `${UID}/1-id-a.jpg`, selfiePath: `${UID}/1-selfie-b.jpg`,
+  idType: 'drivers_license', idExpiry: addDays(400), idPhotoPath: `${UID}/1-id-a.jpg`, idBackPath: `${UID}/1-idback-c.jpg`, selfiePath: `${UID}/1-selfie-b.jpg`,
   contractorAccepted: true, contractorVersion: T.CURRENT.contractor, contractorSignature: 'Camila Rojas', ...o });
 
 let n = 0;
@@ -109,16 +109,16 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
     assert.equal(ID.checkIdExpiry(addDays(365 * 13), TODAY).error, 'invalid_id_expiry');
   });
   await t('API: un ID vencido se rechaza (400 id_expired) y no se guarda ninguna postulación', async () => {
-    reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg');
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024); file('1-selfie-b.jpg');
     const r = await call(signup, { headers: { authorization: 'Bearer token-ok' }, body: APP({ idExpiry: addDays(-1) }) });
     assert.equal(r.status, 400); assert.equal(r.body.error, 'id_expired'); assert.equal(DB.walker_applications.length, 0);
   });
   await t('API: exige sesión, ser paseador, Términos vigentes, datos válidos y archivos propios en la carpeta del paseador', async () => {
-    reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg');
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024); file('1-selfie-b.jpg');
     assert.equal((await call(signup, { body: APP() })).status, 401);
     reset({ role: 'client' }); assert.equal((await call(signup, { headers: { authorization: 'Bearer token-ok' }, body: APP() })).body.error, 'not_walker');
     reset({ consent: false }); assert.equal((await call(signup, { headers: { authorization: 'Bearer token-ok' }, body: APP() })).body.error, 'terms_required');
-    reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg');
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024); file('1-selfie-b.jpg');
     const auth = { authorization: 'Bearer token-ok' };
     assert.equal((await call(signup, { headers: auth, body: APP({ idPhotoPath: `${OTRO}/1-id-a.jpg` }) })).body.error, 'invalid_id_photo', 'carpeta de otro paseador');
     assert.equal((await call(signup, { headers: auth, body: APP({ selfiePath: `${UID}/1-id-a.jpg` }) })).body.error, 'same_file');
@@ -130,15 +130,43 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
   });
   await t('API: los archivos deben existir en el bucket con formato JPEG/PNG/WEBP y máximo 5 MB', async () => {
     const auth = { authorization: 'Bearer token-ok' };
-    reset(); file('1-id-a.jpg');
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024);
     assert.equal((await call(signup, { headers: auth, body: APP() })).body.error, 'selfie_file_missing');
-    reset(); file('1-id-a.jpg', 'image/gif'); file('1-selfie-b.jpg');
+    reset(); file('1-id-a.jpg', 'image/gif'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024); file('1-selfie-b.jpg');
     assert.equal((await call(signup, { headers: auth, body: APP() })).body.error, 'id_photo_file_type');
-    reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg', 'image/jpeg', 6 * 1024 * 1024);
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024); file('1-selfie-b.jpg', 'image/jpeg', 6 * 1024 * 1024);
     assert.equal((await call(signup, { headers: auth, body: APP() })).body.error, 'selfie_file_size');
   });
+  await t('API: reverso del ID obligatorio, en la carpeta propia, distinto del frente y de la selfie, y validado en el bucket', async () => {
+    const auth = { authorization: 'Bearer token-ok' };
+    reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg');
+    assert.equal((await call(signup, { headers: auth, body: APP({ idBackPath: undefined }) })).body.error, 'invalid_id_back_photo', 'sin reverso');
+    assert.equal((await call(signup, { headers: auth, body: APP({ idBackPath: `${OTRO}/1-idback-c.jpg` }) })).body.error, 'invalid_id_back_photo', 'carpeta ajena');
+    assert.equal((await call(signup, { headers: auth, body: APP({ idBackPath: `${UID}/1-id-a.jpg` }) })).body.error, 'same_file', 'reverso = frente');
+    assert.equal((await call(signup, { headers: auth, body: APP({ idBackPath: `${UID}/1-selfie-b.jpg` }) })).body.error, 'same_file', 'reverso = selfie');
+    assert.equal((await call(signup, { headers: auth, body: APP() })).body.error, 'id_back_photo_file_missing', 'no está en el bucket');
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/heic'); file('1-selfie-b.jpg');
+    assert.equal((await call(signup, { headers: auth, body: APP() })).body.error, 'id_back_photo_file_type');
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 6 * 1024 * 1024); file('1-selfie-b.jpg');
+    assert.equal((await call(signup, { headers: auth, body: APP() })).body.error, 'id_back_photo_file_size');
+    assert.equal(DB.walker_applications.length, 0, 'nada se guarda sin un reverso válido');
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/webp', 310 * 1024); file('1-selfie-b.jpg');
+    const r = await call(signup, { headers: auth, body: APP() });
+    assert.equal(r.status, 200);
+    const a = DB.walker_applications[0];
+    assert.equal(a.id_photo_path, `${UID}/1-id-a.jpg`); assert.equal(a.id_back_path, `${UID}/1-idback-c.jpg`); assert.equal(a.selfie_path, `${UID}/1-selfie-b.jpg`);
+    assert.equal(a.contractor_agreement_accepted, true, 'la firma del contratista se sigue guardando igual');
+    assert.equal(a.agent_report.checklist.find((c) => c.key === 'id_back').ok, true);
+  });
+  await t('base: columna id_back_path con carpeta propia y archivos distintos; obligatoria en INSERT nuevos; no toca RLS ni la firma', async () => {
+    const M = read('supabase/migrations/20261210_walker_id_back.sql');
+    assert.match(M, /add column if not exists id_back_path text/);
+    assert.match(M, /id_back_path is null\s+or \(id_back_path like walker_id::text \|\| '\/%' and id_back_path <> id_photo_path and id_back_path <> selfie_path\)/);
+    assert.match(M, /before insert on public\.walker_applications/); assert.match(M, /coalesce\(btrim\(new\.id_back_path\), ''\) = ''/);
+    assert.doesNotMatch(M.replace(/--[^\n]*/g, ''), /create policy|contractor_|admin_set_walker_status\(|bw_is_verified_walker\(\)\s*returns|before update/, 'no toca RLS, firma ni aprobación');
+  });
   await t('API: envío válido → postulación guardada + reporte del agente; el agente NO cambia el estado del paseador', async () => {
-    reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg', 'image/png', 280 * 1024);
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024); file('1-selfie-b.jpg', 'image/png', 280 * 1024);
     const r = await call(signup, { headers: { authorization: 'Bearer token-ok', 'x-real-ip': '203.0.113.5' }, body: APP() });
     assert.equal(r.status, 200); assert.equal(r.body.status, 'submitted');
     const a = DB.walker_applications[0];
@@ -150,10 +178,10 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
     assert.ok(!FETCH.some((f) => f.url.includes('admin_set_walker_status')), 'nunca llama a aprobar');
   });
   await t('reenvío tras rechazo: nuevo envío, el anterior queda como historial y vuelve a "pendiente" con su registro', async () => {
-    reset({ status: 'rejected' }); file('1-id-a.jpg'); file('1-selfie-b.jpg'); file('2-id-c.jpg'); file('2-selfie-d.jpg');
+    reset({ status: 'rejected' }); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024); file('1-selfie-b.jpg'); file('2-id-c.jpg'); file('2-idback-e.jpg', 'image/jpeg', 320 * 1024); file('2-selfie-d.jpg');
     DB.walker_applications.push({ id: 50, walker_id: UID, status: 'rejected', id_expiry: addDays(200), submitted_at: '2026-11-01', id_photo_path: `${UID}/1-id-a.jpg`, selfie_path: `${UID}/1-selfie-b.jpg` });
     DB.walker_reviews.push({ walker_id: UID, status: 'rejected', reason: 'Foto borrosa', created_at: '2026-11-02' });
-    const r = await call(signup, { headers: { authorization: 'Bearer token-ok' }, body: APP({ idPhotoPath: `${UID}/2-id-c.jpg`, selfiePath: `${UID}/2-selfie-d.jpg` }) });
+    const r = await call(signup, { headers: { authorization: 'Bearer token-ok' }, body: APP({ idPhotoPath: `${UID}/2-id-c.jpg`, idBackPath: `${UID}/2-idback-e.jpg`, selfiePath: `${UID}/2-selfie-d.jpg` }) });
     assert.equal(r.status, 200);
     assert.equal(DB.walker_applications.length, 2, 'el envío anterior se conserva');
     assert.equal(DB.walker_applications.find((x) => x.id === 50).status, 'rejected', 'su evidencia no se sobrescribe');
@@ -176,14 +204,14 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
       [{ contractorAccepted: false }, 'contractor_required'], [{ contractorVersion: '2026-11-14' }, 'contractor_version_outdated'],
       [{ contractorVersion: undefined }, 'contractor_version_outdated'], [{ contractorSignature: '' }, 'contractor_signature_mismatch'],
       [{ contractorSignature: 'Camila' }, 'contractor_signature_mismatch'], [{ contractorSignature: 'Otra Persona' }, 'contractor_signature_mismatch']]) {
-      reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg');
+      reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024); file('1-selfie-b.jpg');
       const r = await call(signup, { headers: auth, body: APP(o) });
       assert.equal(r.status, 400, JSON.stringify(o)); assert.equal(r.body.error, code, JSON.stringify(o));
       assert.equal(DB.walker_applications.length, 0, 'sin firma válida no hay postulación');
     }
   });
   await t('contractor: envío válido guarda aceptado, hora, versión vigente, firma y correo DEL PERFIL (no el que mande la app)', async () => {
-    reset(); file('1-id-a.jpg'); file('1-selfie-b.jpg');
+    reset(); file('1-id-a.jpg'); file('1-idback-c.jpg', 'image/jpeg', 310 * 1024); file('1-selfie-b.jpg');
     DB.profiles[0].email = 'Camila.Rojas@Example.com';
     const antes = Date.now();
     const r = await call(signup, { headers: { authorization: 'Bearer token-ok' },
@@ -263,14 +291,14 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
   // ---------- 4. Agente auditor ----------
   const base = () => ({
     app: { id: 7, walker_id: UID, legal_name: 'Camila Rojas', phone: '2055550123', city: 'Homewood', zip: '35209', id_type: 'drivers_license',
-      id_expiry: addDays(300), id_photo_path: `${UID}/a.jpg`, selfie_path: `${UID}/b.jpg`, status: 'submitted' },
+      id_expiry: addDays(300), id_photo_path: `${UID}/a.jpg`, id_back_path: `${UID}/c.jpg`, selfie_path: `${UID}/b.jpg`, status: 'submitted' },
     profile: { role: 'walker', full_name: 'Camila Rojas', birth_date: '1990-05-01' }, consent: { ...CONSENT_OK },
-    files: [{ path: `${UID}/a.jpg`, size: 300000, mimetype: 'image/jpeg' }, { path: `${UID}/b.jpg`, size: 200000, mimetype: 'image/jpeg' }],
+    files: [{ path: `${UID}/a.jpg`, size: 300000, mimetype: 'image/jpeg' }, { path: `${UID}/b.jpg`, size: 200000, mimetype: 'image/jpeg' }, { path: `${UID}/c.jpg`, size: 250000, mimetype: 'image/jpeg' }],
     previousApps: [], reviews: [], phoneDupes: 0, today: TODAY,
   });
   await t('agente: postulación limpia → checklist completo, riesgo bajo, recomendación SIEMPRE "revisión manual"', async () => {
     const r = AG.audit(base());
-    assert.deepEqual(r.checklist.map((c) => c.key), ['consents', 'age', 'id_photo', 'selfie', 'id_expiry', 'data', 'history', 'stripe']);
+    assert.deepEqual(r.checklist.map((c) => c.key), ['consents', 'age', 'id_photo', 'id_back', 'selfie', 'id_expiry', 'data', 'history', 'stripe']);
     assert.ok(r.checklist.filter((c) => c.key !== 'stripe').every((c) => c.ok));
     assert.equal(r.risk, 'low'); assert.equal(r.recommendation, 'manual_review'); assert.equal(r.autoApproval, false);
   });
@@ -285,6 +313,19 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
     const rv = AG.audit(v);
     assert.equal(rv.risk, 'high'); assert.ok(rv.alerts.some((a) => a.code === 'id_expired')); assert.equal(rv.checklist.find((c) => c.key === 'id_expiry').ok, false);
     assert.equal(rv.autoApproval, false, 'ni con todo mal ni con todo bien aprueba');
+  });
+  await t('agente: reverso del ID — falta (envío anterior) es aviso leve; misma foto en frente y reverso es alerta; nunca aprueba', async () => {
+    const viejo = base(); delete viejo.app.id_back_path;
+    const rv = AG.audit(viejo);
+    assert.equal(rv.checklist.find((c) => c.key === 'id_back').ok, false);
+    assert.ok(rv.alerts.some((a) => a.code === 'id_back_missing' && a.level === 'low'));
+    assert.ok(!rv.alerts.some((a) => a.code === 'files'), 'un envío anterior no se marca como archivo inválido');
+    const dup = base(); dup.files[2].size = 300000;
+    assert.ok(AG.audit(dup).alerts.some((a) => a.code === 'same_id_sides'));
+    const falta = base(); falta.files.pop();
+    const rf = AG.audit(falta);
+    assert.ok(rf.alerts.some((a) => a.code === 'files' && a.level === 'high')); assert.equal(rf.autoApproval, false);
+    assert.doesNotMatch(read('api/_lib/application-agent.js').replace(/\/\/[^\n]*/g, ''), /face|facial|biometr|rekognition/i, 'sin comparación facial automática');
   });
   await t('agente: su código nunca aprueba ni modifica perfiles; solo escribe su reporte en walker_applications', async () => {
     const src = read('api/_lib/application-agent.js');
@@ -311,6 +352,43 @@ const t = async (name, fn) => { RL.setRateLimitBackend(() => true); await fn(); 
     assert.match(HTML, /<section id="walkerApplicationCard" class="w-card" hidden><\/section>/);
     assert.match(HTML, /onclick="toggleAppReview\('\$\{id\}', this\)"/);
     const ctx = { self: {} }; vm.runInNewContext(src, ctx); assert.equal(typeof ctx.self.BWWalkerApp.render, 'function');
+  });
+  await t('app: guías de ID (luz, sin reflejos, 4 esquinas, legible) y de selfie (actual, sin lentes oscuros ni filtros, no el ID) en ES y EN', async () => {
+    const src = read('walker-application.js');
+    const ph = src.slice(src.indexOf('function photosHtml'), src.indexOf('// Independent Contractor Agreement (1099) de Barkwalk USA LLC: resumen'));
+    for (const re of [/Buena iluminación/, /Good lighting/, /Sin reflejos ni brillos/, /No glare/, /4 esquinas/, /all 4 corners/, /Datos legibles/, /Readable details/,
+      /Una foto ACTUAL de tu rostro/, /A CURRENT photo of your face/, /no una foto de tu ID/, /not a photo of your ID/, /Sin lentes oscuros/, /No sunglasses/, /filtros/, /filters/,
+      /No usamos reconocimiento facial automático/, /do not use automatic facial recognition/])
+      assert.match(ph, re);
+    assert.ok(ph.indexOf('waIdGuide') < ph.indexOf("box('id'"), 'la guía del ID va antes de capturar/subir');
+    assert.ok(ph.indexOf('waSelfieGuide') < ph.indexOf("box('selfie'"), 'la guía de la selfie va antes de capturarla');
+    assert.match(ph, /id="\$\{id\}File" accept="image\/jpeg,image\/png,image\/webp"/);
+    assert.match(ph, /box\('idBack', 'waIdBack'/);
+    assert.doesNotMatch(src.replace(/\/\/[^\n]*/g, ''), /FaceDetector|faceapi|face-api|tensorflow|tfjs|mediapipe|rekognition/i, 'sin detección/comparación facial automática');
+    const sub = src.slice(src.indexOf('async function submit'), src.indexOf('// Tarjeta del paseador'));
+    assert.match(sub, /idPhotoPath: paths\.id, idBackPath: paths\.idBack, selfiePath: paths\.selfie/);
+    assert.match(sub, /\['idBack', 'id_back_photo_file_missing'\]/);
+    assert.ok(sub.indexOf('validatePhoto(k)') < sub.indexOf('storage.from(BUCKET).upload'), 'se valida antes de subir');
+    assert.ok(sub.indexOf("err('contractor_required')") < sub.indexOf('storage.from(BUCKET).upload'), 'la firma sigue antes de subir');
+  });
+  await t('app: validación de tipo, tamaño y dimensiones mínimas con mensajes en ES y EN', async () => {
+    assert.equal(WA.checkFile(null).error, 'file_missing');
+    assert.equal(WA.checkFile({ type: 'image/gif', size: 10 }).error, 'file_type');
+    assert.equal(WA.checkFile({ type: 'image/jpeg', size: 0 }).error, 'file_empty');
+    assert.equal(WA.checkFile({ type: 'image/png', size: 5 * 1024 * 1024 + 1 }).error, 'file_size');
+    assert.equal(WA.checkFile({ type: 'image/webp', size: 5 * 1024 * 1024 }).ok, true);
+    assert.equal(WA.checkDims(0, 0, 'id').error, 'file_unreadable');
+    assert.equal(WA.checkDims(1000, 599, 'id').error, 'file_dims'); assert.equal(WA.checkDims(599, 1000, 'idBack').error, 'file_dims');
+    assert.equal(WA.checkDims(1000, 600, 'id').ok, true); assert.equal(WA.checkDims(480, 640, 'selfie').ok, true);
+    assert.equal(WA.checkDims(479, 640, 'selfie').error, 'file_dims'); assert.equal(WA.checkDims(1000, 599, 'id').min, 600);
+    for (const k of ['file_missing', 'file_type', 'file_size', 'file_empty', 'file_unreadable', 'file_dims', 'id_photo_file_missing', 'id_back_photo_file_missing',
+      'selfie_file_missing', 'invalid_id_photo', 'invalid_id_back_photo', 'invalid_selfie', 'same_file']) {
+      assert.ok(WA.ERR[k] && WA.ERR[k][0] && WA.ERR[k][1] && WA.ERR[k][0] !== WA.ERR[k][1], `mensaje ES/EN: ${k}`);
+    }
+    assert.match(WA.ERR.file_type[0], /JPEG, PNG o WEBP/); assert.match(WA.ERR.file_type[1], /JPEG, PNG or WEBP/);
+    assert.match(WA.ERR.file_size[0], /5 MB/); assert.match(WA.ERR.file_size[1], /5 MB/);
+    assert.equal(WA.MAX_BYTES, ID.MAX_BYTES, 'mismo límite en la app y el servidor');
+    assert.deepEqual([...WA.TYPES].sort(), [...ID.MIME].sort(), 'mismos formatos en la app y el servidor');
   });
   await t('sigue el límite de 12 funciones en api/', async () => {
     assert.equal(fs.readdirSync(path.join(ROOT, 'api')).filter((f) => f.endsWith('.js')).length, 12);

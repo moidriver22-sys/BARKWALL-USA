@@ -51,16 +51,25 @@ function audit(d) {
     alert('medium', 'birth_mismatch', 'La fecha de nacimiento del perfil no coincide con la de la constancia legal.');
   }
 
-  // 3–4. ID y selfie (existencia, formato, tamaño)
+  // 3–4. ID (frente y reverso) y selfie (existencia, formato, tamaño). No hay comparación facial automática:
+  // la coincidencia entre la selfie y el ID la decide el administrador mirando las fotos.
+  const kb = (f) => `${Math.round(f.file.size / 1024)} KB · ${f.file.mimetype}`;
   const idf = ID.checkFile(files, app.id_photo_path);
   const sef = ID.checkFile(files, app.selfie_path);
-  item('id_photo', idf.ok, 'Foto del ID oficial (JPEG/PNG/WEBP, ≤ 5 MB)', idf.ok ? `${Math.round(idf.file.size / 1024)} KB · ${idf.file.mimetype}` : idf.error);
-  item('selfie', sef.ok, 'Selfie del postulante (JPEG/PNG/WEBP, ≤ 5 MB)', sef.ok ? `${Math.round(sef.file.size / 1024)} KB · ${sef.file.mimetype}` : sef.error);
-  if (!idf.ok || !sef.ok) alert('high', 'files', 'Falta la foto del ID o la selfie, o el archivo no es válido.');
-  if (idf.ok && sef.ok && idf.file.size === sef.file.size && idf.file.mimetype === sef.file.mimetype) {
-    alert('medium', 'same_image', 'La foto del ID y la selfie tienen exactamente el mismo tamaño: podrían ser la misma imagen.');
+  item('id_photo', idf.ok, 'Foto del ID oficial, frente (JPEG/PNG/WEBP, ≤ 5 MB)', idf.ok ? kb(idf) : idf.error);
+  // Envíos anteriores al reverso (id_back_path vacío): se informa, pero no se marca como archivo inválido
+  const bkf = app.id_back_path ? ID.checkFile(files, app.id_back_path) : null;
+  item('id_back', !!(bkf && bkf.ok), 'Foto del ID oficial, reverso (JPEG/PNG/WEBP, ≤ 5 MB)', !bkf ? 'No enviado (postulación anterior al reverso)' : bkf.ok ? kb(bkf) : bkf.error);
+  if (!bkf) alert('low', 'id_back_missing', 'Esta postulación no incluye el reverso del ID (enviada antes de que se pidiera).');
+  item('selfie', sef.ok, 'Selfie del postulante (JPEG/PNG/WEBP, ≤ 5 MB)', sef.ok ? kb(sef) : sef.error);
+  if (!idf.ok || !sef.ok || (bkf && !bkf.ok)) alert('high', 'files', 'Falta la foto del ID (frente o reverso) o la selfie, o el archivo no es válido.');
+  const iguales = (a, b) => a && b && a.ok && b.ok && a.file.size === b.file.size && a.file.mimetype === b.file.mimetype;
+  if (iguales(idf, sef) || iguales(bkf, sef)) {
+    alert('medium', 'same_image', 'Una foto del ID y la selfie tienen exactamente el mismo tamaño: podrían ser la misma imagen.');
   }
+  if (iguales(idf, bkf)) alert('medium', 'same_id_sides', 'El frente y el reverso del ID tienen exactamente el mismo tamaño: podría ser la misma foto dos veces.');
   if (idf.ok && idf.file.size < 40 * 1024) alert('low', 'id_low_res', 'La foto del ID es muy liviana (< 40 KB): puede ser ilegible.');
+  if (bkf && bkf.ok && bkf.file.size < 40 * 1024) alert('low', 'id_back_low_res', 'La foto del reverso del ID es muy liviana (< 40 KB): puede ser ilegible.');
 
   // 5. Vencimiento del ID
   const exp = ID.checkIdExpiry(app.id_expiry, today);
